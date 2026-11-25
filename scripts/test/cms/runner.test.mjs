@@ -69,6 +69,20 @@ test('new media preserves historic grouping and appends across every project mem
   const added = p.operations.find(o => o.action==='create'); assert.equal(added.after.sourceFolder,old.sourceFolder); assert.ok(added.after.orderRank > elsewhere.orderRank)
   await h.apply(p); assert.deepEqual(h.db.get(old._id),old); assert.deepEqual(h.db.get(elsewhere._id),elsewhere)
 })
+test('a rank shared across two collections is no conflict: the intake appends above both; a duplicate inside one still refuses', async t => {
+  const project = {_id:'project-example',_type:'project',_rev:'r-project',slug:{_type:'slug',current:'example-collection'},client:reference(clientDoc._id)}
+  const old = existingMedia('mediaAsset-stable',{project:reference(project._id),orderRank:'0|000001:'})
+  const loose = existingMedia('mediaAsset-loose',{orderRank:'0|000002:'})
+  const elsewhere = existingMedia('mediaAsset-elsewhere',{project:reference(project._id),sourceFolder:'/elsewhere',sourceManifest:'Elsewhere',orderRank:'0|000002:'})
+  const h = await harness(t,{docs:[project,old,loose,elsewhere]}); await h.file('old.jpg'); await h.file('loose.jpg'); await h.file('new.jpg')
+  const rows = [row('old.jpg','static_1x1','Old',old._id),row('loose.jpg','static_1x1','Loose',loose._id),row('new.jpg')]
+  const p = await h.plan({manifest:await h.manifest(rows)})
+  const added = p.operations.find(o => o.action==='create'); assert.equal(added.after.project._ref,project._id); assert.ok(added.after.orderRank > '0|000002:')
+  await h.apply(p); assert.equal(h.db.get(elsewhere._id).orderRank,'0|000002:')
+  const twin = existingMedia('mediaAsset-twin',{orderRank:'0|000002:'})
+  const h2 = await harness(t,{docs:[project,old,loose,twin]}); for (const f of ['old.jpg','loose.jpg','twin.jpg','new.jpg']) await h2.file(f)
+  await assert.rejects(h2.plan({manifest:await h2.manifest([...rows.slice(0,2),row('twin.jpg','static_1x1','Twin',twin._id),row('new.jpg')])}),/Duplicate orderRanks/)
+})
 test('unique legacy match binds only matching client and collection; renamed ambiguous legacy rows block', async t => {
   const old = existingMedia('mediaAsset-example-old'), h = await harness(t,{docs:[old]}); await h.file('old.jpg')
   const p = await h.plan({manifest:await h.manifest([row('old.jpg','static_1x1','Old')])}); assert.equal(p.operations[0].id,old._id)

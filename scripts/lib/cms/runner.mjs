@@ -204,7 +204,10 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     }
     const unmatched = [...existing.keys()].filter(id => !matched.has(id))
     invariant(!unboundRows.length || !unmatched.length, `Unbound new/renamed rows alongside unmatched legacy assets (${unmatched.join(', ')}); bind existing rows or use a separately reviewed explicit scope before adding`)
-    const ranks = appendRanks([...byId(collections.flatMap(c => c.docs)).values()], unboundRows.length)
+    // Ranks collide only within one collection (a project-less piece may share a rank with a project member), so check each on its own; a new row joins them all, so it appends above every one.
+    for (const c of collections) appendRanks(c.docs, 0)
+    const top = [...byId(collections.flatMap(c => c.docs)).values()].map(d => d.orderRank).sort().at(-1)
+    const ranks = appendRanks(top ? [{ _id: 'top', orderRank: top }] : [], unboundRows.length)
     let index = 0
     for (const op of operations) if (op.action === 'create' && op.type === 'mediaAsset') { op.set.orderRank = ranks[index++]; op.after.orderRank = op.set.orderRank; validateDocument(op.after, { creation: true }); op.diff = diffOf(null, op.after, { ...op.set, sourceFolder, sourceManifest }, []) }
     informational.push('Legacy isHero/sortOrder are not replayed. Existing media (including missing links) is unchanged; use an explicit upload patch for repair/replacement.')
