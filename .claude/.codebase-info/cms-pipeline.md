@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-23*
+*Last Updated: 2026-11-25*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -48,9 +48,10 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   mediaAsset `hideFromDirectory` (11-17) is allowlisted as a boolean; it landed alone with the
   hash `8e2eb765` (`ea07e99`).
   Sets (US-10, 11-16): `mediaSet` is a document type (`title`, `slug` = the key, `project`, `groupType`,
-  `allowAsHero`; required title, slug, project, groupType) and mediaAsset `set` a reference to one;
+  `allowAsHero`; required title, slug, groupType) and mediaAsset `set` a reference to one;
   `references()` types it as a mediaSet. Schema and hash `205ffc6c` landed alone (`6695510`), the tool
-  after (`4b106b8`). `HASHED_SCHEMAS` includes mediaSet.
+  after (`4b106b8`). `HASHED_SCHEMAS` includes mediaSet. A Set's `project` became optional (retirement
+  step 1, 11-25) with the hash `ba118894` (`a78be23`).
   Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
@@ -75,7 +76,8 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   misspelling is still refused.
   Sets (US-10): a changes request's `creates` may hold a mediaSet; `requireFreeKey` refuses a key
   any other set in the dataset or the plan holds (created or renamed), and a piece is never linked
-  to a set of another project. Intake: a new row with a displayGroup joins that key's set in its
+  to a set of another project: the set's project and the piece's must be equal, none with none
+  (`5cea820`, 11-25), so a project-less piece joins only a project-less set. Intake: a new row with a displayGroup joins that key's set in its
   project (or `<key>-<project slug>`), album art joins `<project slug>-album-art`; a set the project
   lacks is created first with the row's groupType and "Can be the hero" off (no groupType: noted,
   not linked). The legacy displayGroup / groupType are still written.
