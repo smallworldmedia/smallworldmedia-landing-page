@@ -125,25 +125,25 @@ test('intake with no project: a row joins its client\'s set, a missing one is cr
   await assert.rejects(h2.plan({ manifest: manifest2 }), /x\.jpg: the set mediaSet-other-client-shared-merch has no project and is not named for client example/)
 })
 
-test('audit: a dataset with no sets has 0 errors and only info set-missing findings', () => {
+test('audit: a dataset with no sets has 0 errors; only project album art with no set is set-missing', () => {
   const image = id => ({ _id: id, _type: 'sanity.imageAsset', sha1hash: id, metadata: { dimensions: { width: 1000, height: 1000 } } })
   const cover = (id, fields) => piece(id, { title: id, slug: { _type: 'slug', current: id.toLowerCase() }, alt: 'A still.', description: 'A description.', image: { _type: 'image', asset: reference(`image-${id}`) }, ...fields })
-  const docs = [clientDoc, tagDoc, project(), cover('mediaAsset-cover', { mediaType: 'album-art', groupType: 'album-art', releaseInfo: { releaseTitle: 'x' }, orderRank: '0|100000:' }), cover('mediaAsset-admat', { groupType: 'admat', displayGroup: 'tour-admats', orderRank: '0|200000:' }), cover('mediaAsset-plain', { orderRank: '0|300000:' }),
+  const docs = [clientDoc, tagDoc, project(), cover('mediaAsset-cover', { mediaType: 'album-art', releaseInfo: { releaseTitle: 'x' }, orderRank: '0|100000:' }), cover('mediaAsset-admat', { orderRank: '0|200000:' }), cover('mediaAsset-plain', { orderRank: '0|300000:' }),
     image('image-mediaAsset-cover'), image('image-mediaAsset-admat'), image('image-mediaAsset-plain')]
   const report = auditDataset({ target: { projectId: 'offline123', dataset: 'test' }, docs })
   assert.equal(report.summary.errors, 0)
-  assert.deepEqual(report.findings.map(f => [f.check, f.severity, f.items.map(i => i.id)]), [['set-missing', 'info', ['mediaAsset-cover', 'mediaAsset-admat']]])
+  assert.deepEqual(report.findings.map(f => [f.check, f.severity, f.items.map(i => i.id)]), [['set-missing', 'info', ['mediaAsset-cover']]])
 })
 
-test('matching sets audit clean, and the same dataset with a drifted member reports set-drift', async () => {
+test('a set member audits clean; a leftover displayGroup / groupType on it is unknown-field (they left the schema 11-25)', async () => {
   const image = id => ({ _id: id, _type: 'sanity.imageAsset', sha1hash: id, metadata: { dimensions: { width: 1000, height: 1000 } } })
   const deck = setDoc('mediaSet-example-project-tour-admats', 'tour-admats')
-  const member = piece('mediaAsset-admat', { title: 'x', slug: { _type: 'slug', current: 'x' }, alt: 'A.', description: 'D.', image: { _type: 'image', asset: reference('image-x') }, groupType: 'admat', displayGroup: 'tour-admats', set: reference(deck._id) })
+  const member = piece('mediaAsset-admat', { title: 'x', slug: { _type: 'slug', current: 'x' }, alt: 'A.', description: 'D.', image: { _type: 'image', asset: reference('image-x') }, set: reference(deck._id) })
   const audit = docs => auditDataset({ target: { projectId: 'offline123', dataset: 'test' }, docs: [clientDoc, tagDoc, project(), deck, image('image-x'), ...docs], schema })
   const schema = await schemaFields(checkout)
   assert.deepEqual(audit([member]).findings, [])
-  const drifted = audit([{ ...member, displayGroup: 'old-admats' }]).findings
-  assert.deepEqual(drifted.map(f => [f.check, f.severity, f.items.map(i => [i.field, i.value, i.setValue])]), [['set-drift', 'info', [['displayGroup', 'old-admats', 'tour-admats']]]])
+  const leftover = audit([{ ...member, displayGroup: 'old-admats', groupType: 'admat' }]).findings
+  assert.deepEqual(leftover.map(f => [f.check, f.severity, f.items.map(i => [i.type, i.field, i.ids]).sort()]), [['unknown-field', 'warning', [['mediaAsset', 'displayGroup', ['mediaAsset-admat']], ['mediaAsset', 'groupType', ['mediaAsset-admat']]]]])
 })
 
 test('adapter: findSets reads every Set document, drafts included, with a parameterised raw query', async () => {

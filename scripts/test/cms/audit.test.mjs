@@ -78,11 +78,11 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
     ...framed(still('mediaAsset-rank', { orderRank: '0|hzzzzz:' })),
     // Hidden from the site: an info row only; its image stays in use (not an unused-image).
     ...framed(still('mediaAsset-hidden', { hideFromSite: true, orderRank: '0|p00000:' })),
-    // Sets: a member of a set in another project, a member whose legacy fields differ from its set, a loose displayGroup, two sets on one key, an empty set.
+    // Sets: a member of a set in another project, two sets on one key, an empty set; and pieces still holding the retired displayGroup / groupType (unknown-field, never set-missing).
     setDoc('mediaSet-admats', 'tour-admats'), setDoc('mediaSet-dup-a', 'shared-key'), setDoc('mediaSet-dup-b', 'shared-key'), setDoc('mediaSet-empty', 'nobody-here'),
-    ...framed(still('mediaAsset-fine', { set: reference('mediaSet-admats'), displayGroup: 'tour-admats', groupType: 'admat', orderRank: '0|q00000:' })),
+    ...framed(still('mediaAsset-fine', { set: reference('mediaSet-admats'), orderRank: '0|q00000:' })),
     ...framed(still('mediaAsset-crossed', { set: reference('mediaSet-admats'), project: reference('project-twin'), orderRank: '0|q10000:' })),
-    ...framed(still('mediaAsset-drifted', { set: reference('mediaSet-admats'), displayGroup: 'old-admats', groupType: 'merch', orderRank: '0|q20000:' })),
+    ...framed(still('mediaAsset-leftover', { set: reference('mediaSet-admats'), displayGroup: 'old-admats', groupType: 'merch', orderRank: '0|q20000:' })),
     ...framed(still('mediaAsset-grouped', { displayGroup: 'loose-group', orderRank: '0|q30000:' })),
   ]
   const live = [...docs, ...seeded].filter(d => d._type === 'mux.videoAsset' && d._id !== 'mux-mediaAsset-gone')
@@ -99,7 +99,7 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
   assert.deepEqual(items('dangling-reference').map(i => [i.id, i.path, i.ref]), [['mediaAsset-dangling', 'project', 'project-gone']])
   assert.deepEqual(items('mux-asset-missing').map(i => i.id), ['mux-mediaAsset-gone'])
   assert.deepEqual(items('mux-asset-undocumented').map(i => i.assetId), ['asset-orphan'])
-  assert.deepEqual(items('unknown-field').map(i => `${i.type}.${i.field}`), ['mediaAsset.isHero'])
+  assert.deepEqual(items('unknown-field').map(i => [`${i.type}.${i.field}`, i.ids]).sort(), [['mediaAsset.displayGroup', ['mediaAsset-leftover', 'mediaAsset-grouped']], ['mediaAsset.groupType', ['mediaAsset-leftover']], ['mediaAsset.isHero', ['mediaAsset-legacy']]])
   assert.deepEqual(items('album-art-tag-off-cover').map(i => [i.id, i.mediaType]), [['mediaAsset-pressphoto', 'static_4x5']])
   assert.deepEqual(items('manifest-drift').map(i => [i.id, i.field, i.manifestValue, i.sanityValue]), [['mediaAsset-wide', 'mediaType', 'static_16x9', 'static_1x1']])
   assert.deepEqual(items('draft-pending').map(i => i.id), ['drafts.mediaAsset-widedraft'])
@@ -109,9 +109,8 @@ test('every check fires on its seeded problem, and only mechanical fixes are sug
   assert.deepEqual(items('set-project-mismatch').map(i => [i.id, i.set, i.project, i.setProject]), [['mediaAsset-crossed', 'mediaSet-admats', 'project-twin', 'project-example']])
   assert.deepEqual(items('set-key-duplicate').map(i => [i.key, i.ids]), [['shared-key', ['mediaSet-dup-a', 'mediaSet-dup-b']]])
   assert.deepEqual(items('set-empty').map(i => i.id), ['mediaSet-dup-a', 'mediaSet-dup-b', 'mediaSet-empty'])
-  assert.deepEqual(items('set-drift').map(i => [i.id, i.field, i.value, i.setValue]), [['mediaAsset-drifted', 'displayGroup', 'old-admats', 'tour-admats'], ['mediaAsset-drifted', 'groupType', 'merch', 'admat']])
-  assert.deepEqual(items('set-missing').map(i => i.id), ['mediaAsset-album', 'mediaAsset-grouped'], 'a displayGroup piece and project album art with no set')
-  assert.deepEqual(['set-project-mismatch', 'set-key-duplicate', 'set-empty', 'set-drift', 'set-missing'].map(c => report.findings.find(f => f.check === c).severity), ['error', 'error', 'warning', 'info', 'info'])
+  assert.deepEqual(items('set-missing').map(i => i.id), ['mediaAsset-album'], 'project album art with no set; a leftover displayGroup is unknown-field, not set-missing')
+  assert.deepEqual(['set-project-mismatch', 'set-key-duplicate', 'set-empty', 'set-missing'].map(c => report.findings.find(f => f.check === c).severity), ['error', 'error', 'warning', 'info'])
   assert.ok(!report.findings.some(f => f.check === 'slug-collision' && f.items.some(i => i.type === 'mediaSet')), 'a shared set key is set-key-duplicate, not also slug-collision')
   assert.deepEqual(report.accepted.items.map(i => [i.check, i.id, i.reason]), [['unused-image', 'image-unused', 'Decided.']])
   assert.deepEqual(items('accepted-stale').map(i => [i.check, i.id]), [['alt-missing', 'mediaAsset-long-gone']])

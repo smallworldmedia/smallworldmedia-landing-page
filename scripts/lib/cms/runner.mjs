@@ -146,7 +146,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     const matched = new Set(), unboundRows = []
     // A new row joins the set its displayGroup names (a key, within this project; with no project, within the client's
     // project-less sets) or its project's album-art set; a missing set is created first, with the row's groupType and
-    // "Can be the hero" off. Only `set` is written: the piece's own displayGroup / groupType are retiring (11-25).
+    // "Can be the hero" off. Only `set` is written: a piece has no displayGroup / groupType of its own (they left the schema 11-25).
     let datasetSets; const plannedSets = new Set()
     const note = text => { if (!informational.includes(text)) informational.push(text) }
     const linkSet = async row => {

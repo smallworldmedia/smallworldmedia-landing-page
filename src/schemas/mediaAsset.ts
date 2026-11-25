@@ -287,37 +287,7 @@ export const mediaAsset = defineType({
         },
       },
       description:
-        "The set this piece belongs to. The set holds its type, its key and whether it can be the project's hero. Leave empty for a standalone piece. While sets move to their own documents, Display Group and Group Type below are still read when this is empty.",
-    }),
-    defineField({
-      name: 'displayGroup',
-      title: 'Display Group',
-      type: 'string',
-      description:
-        'Sub-group within a featured project (e.g., "Coachella Set Promo", "Brand Guidelines"). Assets sharing a displayGroup render adjacent on the detail page. Leave empty for ungrouped assets.',
-    }),
-    // ── GROUP TYPE: which viewer a set opens, and where (the table is in the site code) ──
-    defineField({
-      name: 'groupType',
-      title: 'Group Type',
-      type: 'string',
-      description:
-        'Marks this piece as part of a set the site shows together. Each type opens its own viewer or cycler on some pages and shows as an ordinary piece elsewhere. Album Art sets are a project\'s covers; every other type also needs a Display Group naming its set. Order a Merch set like with like (short sleeves together, then long sleeves, hats…). A Live Footage set leaves its hero clips out: they stay standalone pieces. A Flyer Progression set is the flyers of one event in announcement order (teaser, lineup, set times…). Leave empty for a standalone piece.',
-      options: {
-        list: [
-          { title: 'Album Art', value: 'album-art' },
-          { title: 'Deck', value: 'deck' },
-          { title: 'Banner', value: 'banner' },
-          { title: 'Admat', value: 'admat' },
-          { title: 'Carousel', value: 'carousel' },
-          { title: 'Merch', value: 'merch' },
-          { title: 'Visuals', value: 'visuals' },
-          { title: 'Live Footage', value: 'live-footage' },
-          { title: 'Mockups', value: 'mockups' },
-          { title: 'Flyer Progression', value: 'flyer-progression' },
-        ],
-        layout: 'dropdown',
-      },
+        "The set this piece belongs to. The set holds its type, its key and whether it can be the project's hero. Leave empty for a standalone piece.",
     }),
     defineField({
       name: 'sourceFolder',

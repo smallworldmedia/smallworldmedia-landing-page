@@ -269,27 +269,21 @@ test('video rebind refuses an unready or wrong-type target, an image asset, an u
   assert.equal(h.db.get(old._id).video.asset._ref,'mux-wrong'); assert.equal(h.stats.commits,0)
 })
 
-test('groupType: one of the ten set types on a Set; a piece\'s own displayGroup / groupType may be cleared, never written (11-25)', async t => {
+test('groupType: one of the ten set types on a Set; a piece has no displayGroup / groupType since they left the schema (11-25)', async t => {
   const types = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']
   for (const groupType of types) validatePatch('mediaSet',{groupType},[])
-  for (const set of [{groupType:'sequence'},{groupType:'Album Art'},{groupType:null},{groupType:1}]) assert.throws(() => validatePatch('mediaSet',set,[]))
-  // Retiring on a piece: a clearing plan unsets them; any write, valid value or not, is refused and points at the Set.
-  validatePatch('mediaAsset',{},['groupType','displayGroup'])
-  for (const groupType of types) assert.throws(() => validatePatch('mediaAsset',{groupType},[]),/groupType is retiring: a piece's group is its Set/)
-  assert.throws(() => validatePatch('mediaAsset',{displayGroup:'tour-admats'},[]),/displayGroup is retiring/)
+  for (const set of [{groupType:'sequence'},{groupType:'Album Art'},{groupType:null},{groupType:1},{groupType:'live footage'},{groupType:'mockup'},{groupType:'flyer progression'}]) assert.throws(() => validatePatch('mediaSet',set,[]))
+  // On a piece both are unknown fields now: no write, valid value or not, and no unset (nothing holds them).
+  for (const groupType of types) assert.throws(() => validatePatch('mediaAsset',{groupType},[]),/Rejected set field: groupType/)
+  assert.throws(() => validatePatch('mediaAsset',{displayGroup:'tour-admats'},[]),/Rejected set field: displayGroup/)
+  for (const k of ['groupType','displayGroup']) assert.throws(() => validatePatch('mediaAsset',{},[k]),new RegExp(`Rejected unset field ${k}`))
   validatePatch('mediaAsset',{set:reference('mediaSet-example-tour-admats')},[])
   const { _rev, ...created } = existingMedia('mediaAsset-new',{set:reference('mediaSet-x')})
   validateDocument(created,{creation:true})
-  assert.throws(() => validateDocument({...created,groupType:'admat'},{creation:true}),/groupType is retiring/)
+  assert.throws(() => validateDocument({...created,groupType:'admat'},{creation:true}),/Rejected document field: groupType/)
+  assert.throws(() => validateDocument({...created,displayGroup:'tour-admats'},{creation:true}),/Rejected document field: displayGroup/)
   assert.throws(() => validatePatch('project',{groupType:'deck'},[]))
-  validateDocument(existingMedia('mediaAsset-cover',{mediaType:'album-art',groupType:'album-art'}))
-  validateDocument(existingMedia('mediaAsset-admat',{mediaType:'static_4x5',groupType:'admat',displayGroup:'tour-admats'}))
-  assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-admat',{mediaType:'static_4x5',groupType:'admat'})),/admat piece requires displayGroup/)
-  assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-merch',{mediaType:'static_1x1',groupType:'merch'})),/merch piece requires displayGroup/)
-  assert.throws(() => validatePatch('mediaAsset',{groupType:'live footage'},[]))
-  assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-mockup',{mediaType:'static_16x9',groupType:'mockups'})),/mockups piece requires displayGroup/)
-  assert.throws(() => validateDocument(existingMedia('mediaAsset-loose-progression',{mediaType:'static_3x4',groupType:'flyer-progression'})),/flyer-progression piece requires displayGroup/)
-  for (const set of [{groupType:'mockup'},{groupType:'flyer progression'}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
+  validateDocument(existingMedia('mediaAsset-cover',{mediaType:'album-art'}))
 })
 
 test('a manifest groupType column types a new row\'s set; a bad value, or a type with no set to land on, refuses', async t => {

@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = 'ba118894359b41d5089e3ae71018af2a41c2aa845701a4c4df86d34cd1604d94'
+export const SUPPORTED_SCHEMA_HASH = 'cee42ca91a62b6ce95e5db4a36b1f8803edbf9b0fb87a43ce333ebf58d5e50cb'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a client nothing references, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -43,11 +43,11 @@ export function assertFreeRanks(docs, writtenIds) {
     invariant(!others.length, `Duplicate orderRanks: ${id} would share ${doc?.orderRank} with ${others.join(', ')}; choose a free rank`)
   }
 }
-// The set a piece belongs to (src/schemas/mediaAsset.ts groupType); where each type opens its viewer is site code.
+// A Set's type (src/schemas/mediaSet.ts groupType); where each type opens its viewer is site code.
 export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']
 const common = ['slug','yearStart','yearEnd','isOngoing','services']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','displayGroup','orderRank','alt','description','video','splitIntoThirds','groupType','hideFromSite','hideFromDirectory','set'],
+  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','orderRank','alt','description','video','splitIntoThirds','hideFromSite','hideFromDirectory','set'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
   // A new tag shows in the directory filters; the inquiry form keeps its own list (src/lib/constants.js SERVICE_TAGS).
@@ -56,10 +56,7 @@ export const FIELDS = {
   // A Set document (src/schemas/mediaSet.ts): the key the site groups by, its project and type. It has no orderRank; members order by theirs.
   mediaSet: ['title','slug','project','groupType','allowAsHero'],
 }
-// Retiring (the Display Group / Group Type retirement, Nathan 11-24): a piece's group is its Set. A plan may clear
-// these fields, never write them; a schema commit drops them once the clearing plans have applied.
-export const RETIRING = { mediaAsset: ['displayGroup','groupType'] }
-const retiring = (type, has) => { for (const k of RETIRING[type] || []) invariant(!has(k), `${k} is retiring: a piece's group is its Set; write set (a mediaSet reference) instead`) }
+// A piece's group is its Set (the Display Group / Group Type retirement, Nathan 11-24; the fields left the schema 11-25).
 const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], serviceTag: ['name','slug'], globeSettings: [], mediaSet: ['title','slug','groupType'] }
 // Media descriptors match the Studio caps (src/schemas/mediaAsset.ts); a project description is a blurb and stays uncapped here.
 export const CAPS = { mediaAsset: { alt: 150, description: 300 } }
@@ -72,7 +69,7 @@ export function reference(v, arrayItem = false) { keys(v, arrayItem ? ['_type','
 function links(v, platforms) { array(v, 'links'); for (const item of v) { keys(item, ['_key','_type','platform','url'], 'link'); if (item._type !== undefined) invariant(item._type === 'object', 'Invalid link type'); if (item.platform !== undefined) enumValue(item.platform, platforms, 'platform'); url(item.url) } }
 export function validateField(field, v) {
   invariant(v !== null && v !== undefined, `Use unset to clear ${field}, not null`)
-  if (['title','name','description','city','country','displayGroup','alt'].includes(field)) { text(v, field); return }
+  if (['title','name','description','city','country','alt'].includes(field)) { text(v, field); return }
   // A video rebind points at an existing Mux document, in the shape the runner writes after an upload.
   if (field === 'video') { keys(v, ['_type','asset'], 'video'); invariant(v._type === 'mux.video', 'Invalid video type'); keys(v.asset, ['_type','_ref','_weak'], 'video asset'); invariant(v.asset._type === 'reference' && validId(v.asset._ref) && v.asset._weak === true, 'Invalid video asset reference'); return }
   if (['projectColor','projectColorSecondary'].includes(field)) { invariant(/^#[0-9a-f]{6}$/i.test(v), `Invalid ${field}`); return }
@@ -105,7 +102,7 @@ export function validateField(field, v) {
   throw new Error(`Unsupported schema field ${field}`)
 }
 export function validatePatch(type, set = {}, unset = []) {
-  invariant(FIELDS[type], `Unsupported document type ${type}`); keys(set, FIELDS[type], 'set'); retiring(type, k => Object.hasOwn(set, k))
+  invariant(FIELDS[type], `Unsupported document type ${type}`); keys(set, FIELDS[type], 'set')
   invariant(Array.isArray(unset) && new Set(unset).size === unset.length, 'Invalid unset')
   for (const k of unset) invariant(FIELDS[type].includes(k) && !required[type].includes(k) && k !== 'video' && !Object.hasOwn(set, k), `Rejected unset field ${k}`)
   for (const [k, v] of Object.entries(set)) { validateField(k, v); if (CAPS[type]?.[k]) invariant(v.length <= CAPS[type][k], `${k} over ${CAPS[type][k]} characters`) }
@@ -113,15 +110,14 @@ export function validatePatch(type, set = {}, unset = []) {
 export function patched(before, set, unset) { const result = clean(before); Object.assign(result, clean(set)); for (const k of unset) delete result[k]; return result }
 export function validateDocument(doc, { creation = false } = {}) {
   invariant(validId(doc._id) && FIELDS[doc._type], 'Invalid document identity/type')
-  if (creation) { keys(doc, ['_id','_type',...FIELDS[doc._type], ...(doc._type === 'mediaAsset' ? ['sourceFolder','sourceManifest','image','video'] : [])], 'document'); retiring(doc._type, k => doc[k] !== undefined) }
+  if (creation) { keys(doc, ['_id','_type',...FIELDS[doc._type], ...(doc._type === 'mediaAsset' ? ['sourceFolder','sourceManifest','image','video'] : [])], 'document') }
   for (const k of required[doc._type]) { invariant(doc[k] !== undefined, `Required ${k} on ${doc._id}`); validateField(k, doc[k]) }
   if (doc.yearStart != null && doc.yearEnd != null) invariant(doc.yearEnd >= doc.yearStart, 'yearEnd precedes yearStart')
   if (creation) for (const k of FIELDS[doc._type]) if (doc[k] !== undefined) validateField(k, doc[k])
   if (doc._type === 'mediaAsset') {
-    if (doc.mediaType === 'brand-deck') invariant(Number.isInteger(doc.brandDeckOrder) && doc.brandDeckOrder > 0 && !!(doc.set || doc.displayGroup), 'Deck pages require a set and positive brandDeckOrder')
-    if (doc.mediaType === 'carousel-slide') invariant(!!(doc.set || doc.displayGroup), 'Carousel slides require a set')
+    if (doc.mediaType === 'brand-deck') invariant(Number.isInteger(doc.brandDeckOrder) && doc.brandDeckOrder > 0 && !!doc.set, 'Deck pages require a set and positive brandDeckOrder')
+    if (doc.mediaType === 'carousel-slide') invariant(!!doc.set, 'Carousel slides require a set')
     if (doc.splitIntoThirds) invariant(isVideoType(doc.mediaType), 'splitIntoThirds applies to video media only')
-    if (doc.groupType && doc.groupType !== 'album-art') invariant(!!doc.displayGroup || !!doc.set, `A ${doc.groupType} piece requires displayGroup or a set`)
   }
 }
 export function references(doc) {

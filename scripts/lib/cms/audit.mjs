@@ -50,8 +50,7 @@ export const CHECKS = {
   'manifest-duplicate-row': ['warning', 'Several manifest rows resolve to one document.'],
   'unbound-document': ['warning', 'A mediaAsset no manifest row resolves to.'],
   'set-empty': ['warning', 'A Set document no published piece points at.'],
-  'set-drift': ['info', "A piece's legacy displayGroup (not album art) or groupType differs from its set's key or type; the set wins on the site once sets are live."],
-  'set-missing': ['info', 'A piece has a displayGroup, or is project album art, but points at no set (the sets migration or the next intake links it).'],
+  'set-missing': ['info', "A project's album art points at no set (the site still shows it as album art, from its mediaType; a changes request or the next intake links it)."],
   'manifest-pending-row': ['info', 'A manifest row with no document yet (pending intake; a video intake is a paid upload).'],
   'description-missing': ['info', 'A mediaAsset has no description.'],
   'hidden-from-site': ['info', 'A mediaAsset has "Hide from site" ticked: the site skips it everywhere, and it stays published with its rank, set and files in use. Untick it in Studio, or set hideFromSite false in a changes request, to bring it back.'],
@@ -138,19 +137,17 @@ export function auditDataset({ target, docs, muxAssets = null, manifests = null,
     if (doc.hideFromSite === true) add('hidden-from-site', { id: doc._id, title: doc.title ?? null })
     for (const field of ['alt', 'description']) if (typeof doc[field] === 'string' && doc[field].length > CAPS.mediaAsset[field]) add('text-too-long', { id: doc._id, field, length: doc[field].length, limit: CAPS.mediaAsset[field] })
   }
-  // Sets: a piece belongs to one set, of its own project; a set's key names one set. The legacy displayGroup/groupType stay on the pieces until a later schema commit retires them.
+  // Sets: a piece belongs to one set, of its own project; a set's key names one set. A piece's group is its set alone (the legacy fields left the schema 11-25; unknown-field names any leftover).
   const setDocs = ofType('mediaSet'), setById = new Map(setDocs.map(s => [s._id, s])), linked = new Set()
   for (const doc of media) {
     if (!doc.set?._ref) {
-      if (doc.displayGroup || isProjectAlbumArt(doc) && doc.project?._ref) add('set-missing', { id: doc._id, title: doc.title ?? null, displayGroup: doc.displayGroup ?? null })
+      if (isProjectAlbumArt(doc) && doc.project?._ref) add('set-missing', { id: doc._id, title: doc.title ?? null })
       continue
     }
     linked.add(doc.set._ref)
     const set = setById.get(doc.set._ref)
     if (!set) continue // a dangling-reference finding already names it
     if ((set.project?._ref ?? null) !== (doc.project?._ref ?? null)) add('set-project-mismatch', { id: doc._id, set: set._id, project: doc.project?._ref ?? null, setProject: set.project?._ref ?? null })
-    if (set.groupType !== 'album-art' && doc.displayGroup != null && doc.displayGroup !== set.slug?.current) add('set-drift', { id: doc._id, set: set._id, field: 'displayGroup', value: doc.displayGroup, setValue: set.slug?.current ?? null })
-    if (doc.groupType != null && doc.groupType !== set.groupType) add('set-drift', { id: doc._id, set: set._id, field: 'groupType', value: doc.groupType, setValue: set.groupType ?? null })
   }
   for (const set of setDocs) if (!linked.has(set._id)) add('set-empty', { id: set._id, title: set.title ?? null })
   for (const [key, list] of group(setDocs, s => s.slug?.current)) if (list.length > 1) add('set-key-duplicate', { key, ids: list.map(s => s._id) })
