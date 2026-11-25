@@ -6,6 +6,10 @@
  *   node pager-probe.mjs --variant=scale --root=.fp-scale [--vw=1440 --vh=900]
  *        [--mobile] [--dpr=3] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
  *        (--scenario=edge [--want=NAME], --mobile only, never part of `all`: the phone clip edge + the marquee wrap step)
+ *        (--scenario=chipwipe [--browser=webkit], never part of `all`: the [select_project] chip sampled every
+ *         frame through a release — touch scrub + lift with --mobile, hover + wheel + leave without; judged
+ *         by scripts/lib/chipWipeGate.mjs, SQ-142. WebKit has no CDP, so its touch is synthetic PointerEvents.
+ *         [--stall=MS]: a main-thread busy-wait the instant data-exit lands, the phone's Turn-landing long task.)
  *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
  *        [--path=/work] [--host=.fp]   (SQ-87: the route, and the element that wears
  *        .is-pager-engaged — .swm-corner for the pager mounted outside /work)
@@ -32,13 +36,14 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { verdict as chipWipeVerdict, clipFraction } from './lib/chipWipeGate.mjs';
 
 const require = createRequire(import.meta.url);
 // Playwright is NOT a project dependency (the repo ships no test runner). Point
 // PLAYWRIGHT_PATH at any install whose browsers are downloaded; the default is
 // the npx-cached 1.62.1 that carries chromium-1234 on Nathan's machine. The
 // copy bundled with @playwright/mcp has no browser and will not launch.
-const { chromium } = require(
+const pw = require(
   process.env.PLAYWRIGHT_PATH ||
     '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright'
 );
@@ -48,6 +53,7 @@ const arg = (k, d) => {
   if (m) return m.slice(k.length + 3);
   return process.argv.includes(`--${k}`) ? true : d;
 };
+const BROWSER = String(arg('browser', 'chromium')); // chromium | webkit (the iOS stand-in)
 const VARIANT = arg('variant', 'scale'); // tape/tuner arms deleted 09-05
 const MOBILE = !!arg('mobile', false);
 const VW = Number(arg('vw', MOBILE ? 390 : 1440));
@@ -215,11 +221,132 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
+// SQ-142: sample the [select_project] chip every rAF from the press to well past its exit.
+async function chipWipe(page) {
+  await page.evaluate(() => {
+    const rec = (window.__chipSamples = []);
+    window.__chipSampling = true;
+    const tick = (t) => {
+      const el = document.querySelector('.fp .fp-scale__freeze');
+      const cs = el && getComputedStyle(el);
+      rec.push({
+        t,
+        connected: !!el?.isConnected,
+        show: !!el?.hasAttribute('data-show'),
+        exit: !!el?.hasAttribute('data-exit'),
+        opacity: cs ? parseFloat(cs.opacity) : 0,
+        clipPath: cs ? cs.clipPath : null,
+        chars: el ? Array.from(el.querySelectorAll('span')).filter((s) => getComputedStyle(s).visibility !== 'hidden').length : 0,
+        open: !!document.querySelector('.fp .fp-scale[data-open]'),
+        z: el ? getComputedStyle(el.closest('.fp-scale')).zIndex : null,
+        // What paints on top at the chip's centre (the chip itself is pointer-events:none, so
+        // the hit list skips it): the 09-06 hard cut was the stage rising over it.
+        top: ((b) => {
+          if (!b || !b.width) return null;
+          const hit = document.elementsFromPoint(b.x + b.width / 2, b.y + b.height / 2)[0];
+          return hit ? `${hit.tagName.toLowerCase()}.${String(hit.className?.baseVal ?? hit.className).trim().split(/\s+/)[0]}` : null;
+        })(el?.getBoundingClientRect()),
+      });
+      if (window.__chipSampling) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  // --stall=MS (round 2): busy-wait the main thread MS ms the instant data-exit lands, before the
+  // browser can start the wipe's transition — the device's long task as the Turn lands on the
+  // next world. gsap.ticker runs lagSmoothing(0) (smoothScroll.js), so GSAP's clock counts the
+  // stall while the CSS transition only starts after it.
+  const STALL = Number(arg('stall', 0));
+  if (STALL > 0) {
+    await page.evaluate((ms) => {
+      const el = document.querySelector('.fp .fp-scale__freeze');
+      if (!el) return;
+      new MutationObserver(() => {
+        if (!el.hasAttribute('data-exit') || window.__chipStalled) return;
+        window.__chipStalled = true;
+        const t0 = performance.now();
+        while (performance.now() - t0 < ms);
+      }).observe(el, { attributes: true, attributeFilter: ['data-exit'] });
+    }, STALL);
+  }
+  // --cpu=N (Chromium only): CDP CPU throttling, a slower phone's main thread.
+  const CPU = Number(arg('cpu', 1));
+  if (CPU > 1 && BROWSER === 'chromium') {
+    const s = await page.context().newCDPSession(page);
+    await s.send('Emulation.setCPUThrottlingRate', { rate: CPU });
+  }
+  const c = await rootCenter(page);
+  if (MOBILE) {
+    // Synthetic touch PointerEvents on the root (the engine listens for pointer*, not touch*):
+    // press, hold past PAGER_HOLD_MS, slide up DETENTS stations, lift.
+    const fire = (type, y) =>
+      page.evaluate(
+        ([root, type, x, y]) => {
+          document.querySelector(root).dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true, cancelable: true, composed: true, pointerId: 7, pointerType: 'touch', isPrimary: true,
+              clientX: x, clientY: y, buttons: type === 'pointerup' ? 0 : 1,
+            })
+          );
+        },
+        [ROOT, type, c.x, y]
+      );
+    await fire('pointerdown', c.y);
+    await sleep(HOLD);
+    const dy = -56 * DETENTS;
+    for (let i = 1; i <= 10; i++) {
+      await fire('pointermove', c.y + (dy * i) / 10);
+      await sleep(40);
+    }
+    await sleep(300);
+    await fire('pointerup', c.y + dy);
+  } else {
+    await page.mouse.move(c.x, c.y);
+    await sleep(400);
+    for (let i = 0; i < DETENTS; i++) {
+      await page.mouse.wheel(0, 90);
+      await sleep(60);
+    }
+    await sleep(500);
+    await page.mouse.move(LEAVE_X, VH / 2);
+  }
+  // --chipshots=N: N back-to-back viewport shots through the exit (pixel truth; they slow the frames).
+  const shots = Number(arg('chipshots', 0));
+  const tShots = Date.now();
+  for (let i = 0; i < shots; i++) {
+    const at = await page.evaluate(() => performance.now());
+    await page.screenshot({ path: path.join(OUT, `chipwipe-${String(i).padStart(2, '0')}-${Math.round(at)}.png`) });
+  }
+  await sleep(Math.max(0, 2600 - (Date.now() - tShots)));
+  const raw = await page.evaluate(() => {
+    window.__chipSampling = false;
+    return window.__chipSamples;
+  });
+  const samples = raw.map((s) => ({ ...s, clip: clipFraction(s.clipPath) }));
+  const v = chipWipeVerdict({ id: `chipwipe-${BROWSER}-${MOBILE ? 'touch' : 'desktop'}`, samples });
+  // The exit window: from the first letter cut to a few frames past the last data-show frame.
+  const full = samples.reduce((m, s) => Math.max(m, s.chars), 0);
+  const firstCut = samples.findIndex((s) => s.show && s.chars < full);
+  const lastShow = samples.map((s) => s.show).lastIndexOf(true);
+  const win = samples.slice(Math.max(0, firstCut), lastShow + 2);
+  report.chipWipe = {
+    ...v,
+    stallMs: STALL,
+    stalled: await page.evaluate(() => !!window.__chipStalled),
+    frames: samples.length,
+    // the longest frame through the exit: a main-thread stall here eats the clip-path transition
+    maxGapMs: +win.reduce((m, s, i) => (i ? Math.max(m, s.t - win[i - 1].t) : m), 0).toFixed(1),
+    exitWindow: samples.slice(Math.max(0, firstCut - 2), lastShow + 3).map((s) => ({
+      t: +s.t.toFixed(1), show: s.show, exit: s.exit, op: +s.opacity.toFixed(3), clip: s.clip, chars: s.chars, open: s.open, z: s.z, top: s.top,
+    })),
+  };
+  await step(page, 'chipwipe-after');
+}
+
 (async () => {
   await waitServer();
-  const browser = await chromium.launch({
+  const browser = await pw[BROWSER].launch({
     headless: true,
-    args: GPU === 'swiftshader' ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [],
+    args: BROWSER === 'chromium' && GPU === 'swiftshader' ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [],
   });
   const ctx = await browser.newContext({
     viewport: { width: VW, height: VH },
@@ -244,7 +371,7 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
   await sleep(1200); // card boot + globe warm-up
 
   if (!report.fatal) {
-    const cdp = MOBILE ? await ctx.newCDPSession(page) : null;
+    const cdp = MOBILE && BROWSER === 'chromium' ? await ctx.newCDPSession(page) : null;
     // --at=N|last: walk to World N (or the last) through the [NEXT] chip before
     // the scenarios run (SQ-80 chip shots). Each Turn gets ~2.6s to settle.
     const AT = arg('at', '');
@@ -422,6 +549,7 @@ async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = fal
       } else report.edge = { found: false };
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     }
+    if (SCEN.includes('chipwipe')) await chipWipe(page);
     if (want('keys')) {
       const el = page.locator(`${ROOT} button, ${ROOT} [tabindex="0"]`).first();
       if ((await el.count()) > 0) {
