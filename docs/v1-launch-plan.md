@@ -339,6 +339,33 @@ records (`docs/globe-worlds-plan.md`).
       - an optional pop-tint ticket;
       - the Sanity plan when the Growth trial ends (about 11-26).
 
+12. **Done 11-24: the US-12 wave, folded and pushed (origin `0ed21f8`).** The nine tickets were
+    merged as one assembled wave on Nathan's go. Gates passed: units 991/0, `test:cms` 143,
+    `tunables-keys --check`, `prep-client-logo-sizes --check` and one build. Each ticket's probe
+    ran on the merged build:
+    - **The fold:**
+      - SQ-140, the ©line wraps with the footer links (footer probe, 10 widths);
+      - SQ-144, the eye rides with the footer panel (ride gate, drift ≤ 0.5 px);
+      - SQ-146, the services link resets the directory filter in place;
+      - SQ-150, sized logo and thumbnail rungs (0 blurry at 390@3x and 1440@2x);
+      - SQ-152, screen-reader names contain the visible text (0 of 56 mismatches, 8 before). The
+        ticker loops freeze identical to the old build, and the still names show once;
+      - SQ-149, Bedouin's first screen loads eager with high priority;
+      - SQ-148, Inter self-hosted (Google Fonts gone, privacy copy `b7bec11`);
+      - SQ-145, `/studio` is dev-only (404 in production);
+      - SQ-143, a set member opens with the Media Asset form.
+    - **Content and Studio:**
+      - the stings plan `88f9012c` was applied and verified, and `cms audit` is at 0 errors;
+      - the hosted Studio was redeployed from `0ed21f8`;
+      - the Netlify branch build is ready.
+    - **Checks:** Phone Checks rows 400–430 are open.
+    - **Left:**
+      - SQ-153 (filed, not dispatched): the widget sweep's seat and shift gates predate SQ-144's
+        ride and fail at 1440 on a correct site;
+      - Plausible (Nathan's sign-up, then the snippet, gated to production, with the privacy copy);
+      - SQ-141 (the `?histlog=1` Back walk) and SQ-142 (Reduce Motion);
+      - the SOSA draft.
+
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
 Full implementation notes in the session plan; this is the tracking list. Order: chrome fixes → interaction → mobile → launch hygiene.
