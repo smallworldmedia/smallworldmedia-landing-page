@@ -30,3 +30,12 @@ year: 2026
 | Right Here Right Now/RHRN_Drop-2_2.mp4 | motion_1x1 | Promo Video | Kamino Right Here Right Now Drop 2 |  |  | mediaAsset-819de8f7-0f06-4be0-a6db-94d84f1b0736 |
 | kamino_tyriqueordie_bk-warehouse.jpg | album-art | album art | Kamino, TyriqueOrDie — BK Warehouse |  |  | mediaAsset-e37aeb22-fdcf-43c9-8040-f1387b63f9f8 |
 | kamino_stuck-in-the-middle.jpg | album-art | album art | Kamino — Stuck In The Middle |  |  | mediaAsset-f5f15efc-a526-4850-9719-cbf15f804ca8 |
+| Kamino IDs/kamino-id-1_cd.jpg | album-art | album art | Kamino — ID·1 |  |  | mediaAsset-d5bf4ae3-3a1e-4fce-810a-6d2bdf2f94fe |
+| Kamino IDs/kamino-id-2_cd.jpg | album-art | album art | Kamino — ID·2 |  |  | mediaAsset-559d35f5-df9e-453e-9cc6-f08931fb574b |
+| Kamino IDs/kamino-id-3_cd.jpg | album-art | album art | Kamino — ID·3 |  |  | mediaAsset-d95a8cb8-de5c-4808-bc42-ed0419072a05 |
+| Kamino IDs/kamino-id-4_cd.jpg | album-art | album art | Kamino — ID·4 |  |  | mediaAsset-84a92e66-6c65-4ee4-8ca7-8d259e9158d0 |
+| Kamino IDs/kamino-id-5_cd.jpg | album-art | album art | Kamino — ID·5 |  |  | mediaAsset-03d631ce-db88-458d-bc08-10d0bd1d40dd |
+| Kamino IDs/kamino-id-6-teal_cd.jpg | album-art | album art | Kamino — ID·6 (Teal) |  |  | mediaAsset-ad5b0d3e-1e81-4345-b47b-437419b4c2dd |
+| Kamino IDs/kamino-id-6-blue_cd.jpg | album-art | album art | Kamino — ID·6 (Blue) |  |  | mediaAsset-c92aa188-5010-4693-aba6-a33c3a149b6c |
+| Kamino IDs/kamino-id-7_cd.jpg | album-art | album art | Kamino — ID·7 |  |  | mediaAsset-acf814f9-f5a2-47b4-9fd1-543e8c87ea1c |
+| Kamino IDs/kamino-stuck-in-the-middle_cd.jpg | album-art | album art | Kamino — Stuck In The Middle (CD) |  |  | mediaAsset-88fd94ef-fd27-4f16-adc6-a90e9d9b753a |
