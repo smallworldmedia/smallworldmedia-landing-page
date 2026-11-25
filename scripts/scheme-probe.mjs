@@ -1884,7 +1884,12 @@ async function measureSeat(ctx, scheme, urlPath, label) {
   const gapOf = async () => {
     const r = await page.evaluate(pageWidgetRest);
     if (restPanelTop === undefined) restPanelTop = r?.footerTop ?? null;
-    return r?.tile ? { gap: gate.seatGap({ tileBottom: r.tile.y + r.tile.h, panelTop: r.footerTop, restPanelTop, vh: r.vp.h }), clear: r.ref.clear, expect: r.ref.phone ? null : r.ref.rowCy - r.tile.h / 2 } : { gap: NaN, clear: null };
+    if (!r?.tile) return { gap: NaN, clear: null };
+    const tileBottom = r.tile.y + r.tile.h;
+    const gap = gate.seatGap({ tileBottom, panelTop: r.footerTop, restPanelTop, vh: r.vp.h });
+    // The declared seat (--badge-cy, which itself rides the panel on home: pageWidgetRest's reference element) less half the tile, in the gap's own terms.
+    const expect = r.ref.phone ? null : r.ref.seatCy - r.tile.h / 2 + (gap - (r.vp.h - tileBottom));
+    return { gap, clear: r.ref.clear, expect };
   };
   try {
     await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
