@@ -81,6 +81,14 @@ test('mid-batch failure exposes accurate completed/failed/pending report and rec
     assert.equal(error.report.created,1);assert.equal(error.report.failed,1);assert.equal(error.report.pending,1);assert.equal(error.report.updated,0);return true
   })
 })
+test('explicit curation never writes a tie, but a tie it leaves alone never blocks it (11-25)',async t=>{
+  const a=existingMedia('mediaAsset-a',{orderRank:'0|i00003:'}),b=existingMedia('mediaAsset-b',{orderRank:'0|i00007:'}),c=existingMedia('mediaAsset-c',{orderRank:'0|i00007:'}),h=await harness(t,{docs:[a,b,c]})
+  await assert.rejects(h.plan({changes:await h.changes({patches:[{id:a._id,type:'mediaAsset',set:{orderRank:'0|i00007:'}}]})}),/Duplicate orderRanks: mediaAsset-a would share 0\|i00007:/)
+  const p=await h.plan({changes:await h.changes({patches:[{id:a._id,type:'mediaAsset',set:{orderRank:'0|i0000f:'}}]})})
+  await h.apply(p);assert.equal(h.db.get(a._id).orderRank,'0|i0000f:');assert.equal(h.db.get(b._id).orderRank,'0|i00007:')
+  const fix=await h.plan({changes:await h.changes({patches:[{id:c._id,type:'mediaAsset',set:{orderRank:'0|i0000b:'}}]})})
+  await h.apply(fix);assert.equal(h.db.get(c._id).orderRank,'0|i0000b:')
+})
 test('explicit curation rejects duplicate final ranks; content-only patches preserve invalid legacy ranks',async t=>{
   const old=existingMedia('mediaAsset-old'),other=existingMedia('mediaAsset-other',{orderRank:'0|i00007:'}),h=await harness(t,{docs:[old,other]})
   await assert.rejects(h.plan({changes:await h.changes({patches:[{id:old._id,type:'mediaAsset',set:{orderRank:other.orderRank}}]})}),/Duplicate orderRanks/)

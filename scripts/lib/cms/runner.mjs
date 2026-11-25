@@ -2,7 +2,7 @@ import path from 'node:path'
 import { readFile, realpath } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { toProjectSlug } from '../../../src/lib/projectSlug.js'
-import { VERSION, SUPPORTED_SCHEMA_HASH, PUBLICATION, NO_EDIT_WINDOW, DELETE_TYPES, IRREVERSIBLE, invariant, keys, targetOf, digest, clean, same, validId, validMuxId, validRank, validatePatch, validateDocument, references, refersTo, patched, withoutSystem, appendRanks, schemaHash, closestType, isVideoType } from './contract.mjs'
+import { VERSION, SUPPORTED_SCHEMA_HASH, PUBLICATION, NO_EDIT_WINDOW, DELETE_TYPES, IRREVERSIBLE, invariant, keys, targetOf, digest, clean, same, validId, validMuxId, validRank, validatePatch, validateDocument, references, refersTo, patched, withoutSystem, appendRanks, assertFreeRanks, schemaHash, closestType, isVideoType } from './contract.mjs'
 import { checkoutLocked } from './state.mjs'
 import { parseManifest, legacySlug, inspectFile, scopedFile, fileHash, boundManifest, writeBindings } from './manifest.mjs'
 import { ref, setId, albumArtKey, projectKey, isProjectAlbumArt, newSet } from './sets.mjs'
@@ -205,7 +205,7 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     }
     const unmatched = [...existing.keys()].filter(id => !matched.has(id))
     invariant(!unboundRows.length || !unmatched.length, `Unbound new/renamed rows alongside unmatched legacy assets (${unmatched.join(', ')}); bind existing rows or use a separately reviewed explicit scope before adding`)
-    // Ranks collide only within one collection (a project-less piece may share a rank with a project member), so check each on its own; a new row joins them all, so it appends above every one.
+    // Each collection's ranks must be valid; a tie inside one is Studio's and never blocks (11-25). A new row joins them all, so it appends above every one.
     for (const c of collections) appendRanks(c.docs, 0)
     const top = [...byId(collections.flatMap(c => c.docs)).values()].map(d => d.orderRank).sort().at(-1)
     const ranks = appendRanks(top ? [{ _id: 'top', orderRank: top }] : [], unboundRows.length)
@@ -340,13 +340,17 @@ export function validatePlan(plan) {
     }
     if (op.type === 'project' && (Object.hasOwn(op.set, 'orderRank') || op.unset.includes('orderRank'))) requireCollection({ projectOrder: true })
   }
+  // The ops that give a piece its place in a collection: a new piece, a rank, or a move into another collection.
+  const placesPiece = op => op.action === 'create' || Object.hasOwn(op.set, 'orderRank') || op.type === 'mediaAsset' && (Object.hasOwn(op.set, 'client') || Object.hasOwn(op.set, 'project') || op.unset.includes('project'))
   for (const collection of plan.collections) {
     const relevant = plan.operations.filter(op => op.action !== 'unchanged' && [op.after, op.before].some(doc => doc && inCollection(doc, collection.selector)))
-    const changesOrder = relevant.some(op => op.action === 'create' || Object.hasOwn(op.set, 'orderRank') || op.unset.includes('orderRank') || op.type === 'mediaAsset' && (Object.hasOwn(op.set, 'client') || Object.hasOwn(op.set, 'project') || op.unset.includes('project')))
-    if (!changesOrder) continue
+    if (!relevant.some(op => placesPiece(op) || op.unset.includes('orderRank'))) continue
     const projected = new Map(collection.snapshot.map(item => [item.id, item]))
     for (const op of relevant) { projected.delete(op.id); if (op.after && inCollection(op.after, collection.selector)) projected.set(op.id, collectionSnapshot([op.after])[0]) }
-    appendRanks([...projected.values()].map(item => ({ _id: item.id, orderRank: item.rank })), 0)
+    const items = [...projected.values()].map(item => ({ _id: item.id, orderRank: item.rank }))
+    appendRanks(items, 0)
+    // A plan never writes a tie, but one already there that the plan leaves alone is Studio's and never blocks it (11-25).
+    assertFreeRanks(items, relevant.filter(placesPiece).map(op => op.id))
   }
   return plan
 }

@@ -44,7 +44,7 @@ export const CHECKS = {
   'alt-missing': ['warning', 'A mediaAsset has no alt text.'],
   'text-too-long': ['warning', 'Alt text or description is over the Studio limit.'],
   'unknown-field': ['warning', 'A populated field the local schema does not define (a legacy leftover).'],
-  'rank-collision': ['warning', 'Several documents share an orderRank; their order is ambiguous and appends refuse.'],
+  'rank-collision': ['warning', 'Several documents share an orderRank, so the Studio list cannot show which comes first. Find what wrote the tie (document history), then drag one in Studio or plan a free rank in the order Studio shows.'],
   'manifest-unreadable': ['warning', 'A manifest the runner cannot parse.'],
   'manifest-drift': ['warning', 'A manifest row disagrees with Sanity (Sanity is the editorial authority: fix the row, or plan the change).'],
   'manifest-duplicate-row': ['warning', 'Several manifest rows resolve to one document.'],

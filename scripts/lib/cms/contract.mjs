@@ -27,11 +27,21 @@ export function targetOf(target) { keys(target, ['projectId', 'dataset'], 'targe
 export function validRank(value) { try { return typeof value === 'string' && /^[012]\|[0-9a-z]+:[0-9a-z]*$/.test(value) && lexo.LexoRank.parse(value).toString() === value } catch { return false } }
 export function appendRanks(docs, count) {
   for (const d of docs) invariant(validRank(d.orderRank), `Missing/invalid orderRank on ${d._id}; request explicit curation first`)
+  // A tie between two pieces is Studio's to show and never blocks an append: new ranks go above the highest (Nathan 11-25: order is the Studio list's alone; the audit's rank-collision names a tie).
   const ranks = docs.map(d => d.orderRank).sort()
-  invariant(new Set(ranks).size === ranks.length, 'Duplicate orderRanks; request explicit curation first')
   let last = ranks.at(-1), result = []
   for (let i = 0; i < count; i++) { const next = last ? lexo.LexoRank.parse(last).genNext().toString() : lexo.LexoRank.middle().toString(); invariant(!last || next > last, 'Cannot append rank; explicit curation needed'); result.push(next); last = next }
   return result
+}
+/** A plan never writes a rank another piece in the collection holds; a tie it leaves alone stays Studio's. `docs` are the projected { _id, orderRank }, `writtenIds` the pieces the plan ranks. */
+export function assertFreeRanks(docs, writtenIds) {
+  const holders = new Map()
+  for (const d of docs) holders.set(d.orderRank, [...(holders.get(d.orderRank) || []), d._id])
+  for (const id of new Set(writtenIds)) {
+    const doc = docs.find(d => d._id === id)
+    const others = doc ? holders.get(doc.orderRank).filter(other => other !== id) : []
+    invariant(!others.length, `Duplicate orderRanks: ${id} would share ${doc?.orderRank} with ${others.join(', ')}; choose a free rank`)
+  }
 }
 // The set a piece belongs to (src/schemas/mediaAsset.ts groupType); where each type opens its viewer is site code.
 export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']

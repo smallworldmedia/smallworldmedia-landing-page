@@ -27,9 +27,11 @@ test('schema allowlist rejects retired fields, dotted patches, invalid values an
   assert.throws(() => validatePatch('project',{description:'x'},['description']))
   validatePatch('mediaAsset',{title:'New',releaseInfo:{releaseTitle:'Whole explicit object'}},[])
 })
-test('ranks append using Studio LexoRank, reject missing/duplicate/invalid ranks', () => {
+test('ranks append using Studio LexoRank, above a tie too; reject missing/invalid ranks', () => {
   assert.ok(appendRanks([{_id:'a',orderRank:'0|hzzzzz:'}],2).every(r => r > '0|hzzzzz:'))
-  for (const docs of [[{_id:'a'}],[{_id:'a',orderRank:'junk'}],[{_id:'a',orderRank:'0|hzzzzz:'},{_id:'b',orderRank:'0|hzzzzz:'}]]) assert.throws(() => appendRanks(docs,1))
+  // A tie is Studio's to show (Nathan 11-25): it never blocks an append.
+  assert.ok(appendRanks([{_id:'a',orderRank:'0|hzzzzz:'},{_id:'b',orderRank:'0|hzzzzz:'}],1)[0] > '0|hzzzzz:')
+  for (const docs of [[{_id:'a'}],[{_id:'a',orderRank:'junk'}]]) assert.throws(() => appendRanks(docs,1))
 })
 test('CLI help and malformed scope do not construct adapters or write', async () => {
   let calls = 0
@@ -69,7 +71,7 @@ test('new media preserves historic grouping and appends across every project mem
   const added = p.operations.find(o => o.action==='create'); assert.equal(added.after.sourceFolder,old.sourceFolder); assert.ok(added.after.orderRank > elsewhere.orderRank)
   await h.apply(p); assert.deepEqual(h.db.get(old._id),old); assert.deepEqual(h.db.get(elsewhere._id),elsewhere)
 })
-test('a rank shared across two collections is no conflict: the intake appends above both; a duplicate inside one still refuses', async t => {
+test('a rank shared across two collections, or tied inside one, never blocks an intake: the new row appends above them all', async t => {
   const project = {_id:'project-example',_type:'project',_rev:'r-project',slug:{_type:'slug',current:'example-collection'},client:reference(clientDoc._id)}
   const old = existingMedia('mediaAsset-stable',{project:reference(project._id),orderRank:'0|000001:'})
   const loose = existingMedia('mediaAsset-loose',{orderRank:'0|000002:'})
@@ -81,7 +83,10 @@ test('a rank shared across two collections is no conflict: the intake appends ab
   await h.apply(p); assert.equal(h.db.get(elsewhere._id).orderRank,'0|000002:')
   const twin = existingMedia('mediaAsset-twin',{orderRank:'0|000002:'})
   const h2 = await harness(t,{docs:[project,old,loose,twin]}); for (const f of ['old.jpg','loose.jpg','twin.jpg','new.jpg']) await h2.file(f)
-  await assert.rejects(h2.plan({manifest:await h2.manifest([...rows.slice(0,2),row('twin.jpg','static_1x1','Twin',twin._id),row('new.jpg')])}),/Duplicate orderRanks/)
+  // Cheetah Print, 11-25: a tie from a Studio drag refused the next intake. A tie is Studio's to show (Nathan 11-25), so the intake appends above it and leaves it alone.
+  const p2 = await h2.plan({manifest:await h2.manifest([...rows.slice(0,2),row('twin.jpg','static_1x1','Twin',twin._id),row('new.jpg')])})
+  assert.ok(p2.operations.find(o => o.action==='create').after.orderRank > '0|000002:')
+  await h2.apply(p2); assert.equal(h2.db.get(twin._id).orderRank,'0|000002:'); assert.equal(h2.db.get(loose._id).orderRank,'0|000002:')
 })
 test('unique legacy match binds only matching client and collection; renamed ambiguous legacy rows block', async t => {
   const old = existingMedia('mediaAsset-example-old'), h = await harness(t,{docs:[old]}); await h.file('old.jpg')
