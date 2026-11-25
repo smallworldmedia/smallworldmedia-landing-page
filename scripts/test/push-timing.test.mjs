@@ -80,13 +80,13 @@ const rec = (pushT, active, extra = {}) => ({
   ...extra,
 })
 
-test('gate: a push in the tap with a live activation passes', () => {
+test('gate, a push in the tap with a live activation passes', () => {
   const v = pushTimingVerdict(rec(1082, true))
   assert.equal(v.pass, true)
   assert.equal(v.ms, 2)
 })
 
-test('gate negative control: the before-state Enter (1160 ms + fetch, isActive false) fails', () => {
+test('gate negative control, the before-state Enter (1160 ms + fetch, isActive false) fails', () => {
   // Nathan's 11-25 iPhone walk: PREP 1160 ms after the zoom_in tap, PUSH after the fetch, ua0.
   const v = pushTimingVerdict(rec(1080 + 1160 + 180, false))
   assert.equal(v.pass, false)
@@ -94,18 +94,18 @@ test('gate negative control: the before-state Enter (1160 ms + fetch, isActive f
   assert.match(v.fails[1], /isActive false/)
 })
 
-test('gate: late but activated, or quick but unactivated, each fail on their own', () => {
+test('gate, late but activated, or quick but unactivated, each fail on their own', () => {
   assert.equal(pushTimingVerdict(rec(1080 + 1001, true)).pass, false)
   assert.equal(pushTimingVerdict(rec(1100, false)).pass, false)
   assert.equal(pushTimingVerdict(rec(1100, null)).pass, false) // no API: cannot judge, never a pass
 })
 
-test('gate: no push to the destination, or no input before it, fails', () => {
+test('gate, no push to the destination, or no input before it, fails', () => {
   assert.match(pushTimingVerdict(rec(1100, true, { pushes: [{ t: 1100, path: '/', active: true }] })).fails[0], /no push/)
   assert.match(pushTimingVerdict(rec(900, true)).fails[0], /no input/)
 })
 
-test('gate: the first push to the destination is the one judged', () => {
+test('gate, the first push to the destination is the one judged', () => {
   const v = pushTimingVerdict(
     rec(0, true, {
       pushes: [
