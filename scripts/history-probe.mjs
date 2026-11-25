@@ -69,6 +69,40 @@ export function verdict(rec) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// The ways from home to /work (SQ-141), as real input: [id, phone?, reach].
+// reach(page, read) returns a short label for the notes. The home
+// wheel/touch scroll-to-enter is retired (Hero.jsx header), so XW only checks
+// that a wheel never turns the page.
+const tabTo = async (page, read, selector) => {
+  // Safari's Tab skips buttons unless Option is held (its default setting).
+  for (const key of ['Tab', 'Alt+Tab'])
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press(key);
+      if (await read(`!!document.activeElement?.matches(${JSON.stringify(selector)})`)) return key;
+    }
+  return false;
+};
+export const HOME_PATHS = [
+  ['XN', false, async (page) => (await page.locator('.site-nav__links a[href="/work"]').click(), 'nav featured_projects click')],
+  ['XE', false, async (page) => (await page.locator('.hero__enter').click(), 'Enter click')],
+  ['XK', false, async (page, read) => `Tab to Enter=${await tabTo(page, read, '.hero__enter')} + Enter key${await page.keyboard.press('Enter') ?? ''}`],
+  ['XW', false, async (page) => {
+    await page.mouse.move(720, 450);
+    for (let i = 0; i < 30; i++) {
+      await page.mouse.wheel(0, 400);
+      await sleep(120);
+    }
+    return 'wheel down x30';
+  }],
+  ['XT', true, async (page) => (await page.tap('.hero__enter'), 'Enter tap')],
+  ['XM', true, async (page) => {
+    await page.tap('.site-nav__menu-pill');
+    await sleep(1200);
+    await page.tap('.mobile-menu__item[href="/work"]');
+    return 'menu featured_projects tap';
+  }],
+];
 const pathOf = (u) => (u.startsWith('about:') ? u : new URL(u).pathname.replace(/\/+$/, '') || '/');
 
 async function main() {
@@ -237,6 +271,59 @@ async function main() {
       rec.restored = await read("document.querySelector('.fp-card__client')?.textContent");
       rec.notes.push(`state=${JSON.stringify(await read('history.state'))}`);
     });
+    // ── Home → /work by each entry path, from an outside page (SQ-141, Nathan
+    // 11-24: Back from /work left the site). Real input only. Judged on the
+    // skippable count (Chrome's Back button skips those entries; Playwright's
+    // goBack walks CDP history and would not) and on two Backs: home, then
+    // the outside page. ──
+    const fromHome = (id, mobile, reach, onWork) =>
+      run(id, mobile, async ({ page, rec, read, swipe }) => {
+        rec.back = [];
+        await page.goto('about:blank');
+        await page.goto(BASE + '/', { waitUntil: 'load' });
+        await sleep(3500);
+        rec.notes.push(`via=${await reach(page, read)}`);
+        const atWork = await waitPath(page, /^\/work$/, id === 'XW' ? 5000 : 15000);
+        rec.notes.push(`atWork=${atWork}`);
+        if (!atWork && id === 'XW') return; // retired gesture: staying home is the pass
+        if (!atWork) throw new Error('never reached /work');
+        await sleep(3500);
+        // A wander on /work first (World Turns, a wheel home and back in):
+        // onWork returns the Backs it expects before home.
+        const extra = onWork ? await onWork({ page, swipe, rec }) : [];
+        for (const expect of [...extra, '/', 'about:blank']) {
+          await page.goBack({ timeout: 8000 }).catch(() => {});
+          await sleep(2500);
+          rec.back.push({ expect, got: pathOf(page.url()) });
+        }
+      });
+    for (const [id, mobile, reach] of HOME_PATHS) await fromHome(id, mobile, reach);
+    const reachOf = (want) => HOME_PATHS.find(([id]) => id === want)[2];
+    // XEt / XTt: Enter, then three World Turns on /work (wheel / swipe), Back.
+    await fromHome('XEt', false, reachOf('XE'), async ({ page }) => {
+      await page.mouse.move(720, 450);
+      for (let i = 0; i < 3; i++) {
+        await page.mouse.wheel(0, 400);
+        await sleep(2500);
+      }
+      return [];
+    });
+    await fromHome('XTt', true, reachOf('XT'), async ({ swipe }) => {
+      for (let i = 0; i < 3; i++) {
+        await swipe(-320);
+        await sleep(2500);
+      }
+      return [];
+    });
+    // XEr: Enter, wheel up home at World 1, Enter again; Back walks it all.
+    await fromHome('XEr', false, reachOf('XE'), async ({ page, rec }) => {
+      rec.notes.push(`home=${await wheelUntil(page, -400, /^\/$/, 40)}`);
+      await sleep(3500);
+      await page.locator('.hero__enter').click();
+      rec.notes.push(`again=${await waitPath(page, /^\/work$/)}`);
+      await sleep(3500);
+      return ['/', '/work'];
+    });
     await browser.close();
   }
 
@@ -391,6 +478,43 @@ async function main() {
       await step('forward', a);
       await step('forward', b);
     });
+    // SQ-141 in WebKit: desktop Safari for the desktop paths, the iPhone 17
+    // Pro descriptor (touch) for the phone ones. WebKit's goBack skips what
+    // WebKit marks skippable, so the two landings judge it directly.
+    for (const [base, mobile, reach] of HOME_PATHS) {
+      const id = base + 'w';
+      if (!want(id)) continue;
+      const ctx = await browser.newContext(mobile ? { ...devices['iPhone 17 Pro'] } : { viewport: { width: 1440, height: 900 } });
+      const page = await ctx.newPage();
+      const rec = { id, skippable: 0, back: [], notes: [] };
+      const LATENCY = Number(args.latency ?? 0); // the router's /work fetch, as on a phone network
+      if (LATENCY > 0)
+        await page.route(/\/work\/?(\?.*)?$/, async (route) => {
+          if (route.request().resourceType() !== 'document') await sleep(LATENCY);
+          await route.continue();
+        });
+      try {
+        await page.goto('about:blank');
+        await page.goto(BASE + '/', { waitUntil: 'load' });
+        await sleep(3500);
+        rec.notes.push(`via=${await reach(page, (e) => page.evaluate(e))}`);
+        const atWork = await waitPath(page, /^\/work$/, base === 'XW' ? 5000 : 15000);
+        rec.notes.push(`atWork=${atWork}`);
+        if (atWork) {
+          await sleep(3500);
+          for (const expect of ['/', 'about:blank']) {
+            await page.goBack({ timeout: 8000 }).catch(() => {});
+            await sleep(2500);
+            rec.back.push({ expect, got: pathOf(page.url()) });
+          }
+        } else if (base !== 'XW') throw new Error('never reached /work');
+      } catch (e) {
+        rec.notes.push('ERR ' + e.message);
+        rec.skippable += 1000;
+      }
+      results.push(rec);
+      await ctx.close();
+    }
     await browser.close();
   }
 
