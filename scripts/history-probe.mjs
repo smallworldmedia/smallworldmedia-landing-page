@@ -537,7 +537,7 @@ async function main() {
     ['TK', '/', '^/work$', false, async (p, read) => (await tabTo(p, read, '.hero__enter'), p.keyboard.press('Enter'))],
     ['TN', '/', '^/work$', false, (p) => p.locator('.site-nav__links a[href="/work"]').click()],
     ['TM', '/', '^/work$', true, async (p) => (await p.tap('.site-nav__menu-pill'), await sleep(1200), p.tap('.mobile-menu__item[href="/work"]'))],
-    ['TL', '/work', '^/$', null, (p, _r, tap) => (tap ? p.tap('.site-nav__logo') : p.locator('.site-nav__logo').click())],
+    ['TL', '/work', '^/$', null, (p, _r, tap) => (tap ? p.tap('.site-nav__logo:visible') : p.locator('.site-nav__logo:visible').first().click())],
     ['TZ', '/work', '^/work/.+', null, (p, _r, tap) => (tap ? p.tap('.fp-card__cta') : p.locator('.fp-card__cta').first().click())],
     ['TB', '/work/bedouin', '^/work/(?!bedouin$).+', null, (p, _r, tap) => (tap ? p.tap('.np-band') : p.locator('.np-band').click())],
     ['TC', '/work/bedouin', '^/work/(?!bedouin$).+', null, (p, _r, tap) => (tap ? p.tap('.detail-next') : p.locator('.detail-next').click())],
@@ -571,8 +571,9 @@ async function main() {
       for (const [base, start, dest, phoneOnly, act] of PUSH_PATHS) {
         const id = base + engine;
         if (!want(id)) continue;
-        // WebKit runs every path as an iPhone tap except the keyboard one.
-        const phone = engine === 'w' ? base !== 'TK' : phoneOnly === true;
+        // WebKit runs every path as an iPhone tap except the desktop-only UI
+        // (the keyboard, the desktop nav links), which runs desktop WebKit.
+        const phone = engine === 'w' ? !['TK', 'TN'].includes(base) : phoneOnly === true;
         const ctx = await ctxFor(phone);
         await ctx.addInitScript(recorder);
         const page = await ctx.newPage();
@@ -752,7 +753,8 @@ async function main() {
         await sleep(3000);
         await begin();
         await page.tap('.hero__enter');
-        await waitPath(page, /^\/work$/);
+        // The URL is /work from the tap on (SQ-141 holdEntry): wait for the swap itself.
+        await page.waitForFunction(() => !!document.querySelector('astro-island[component-url*="FeaturedProjects"]'), null, { timeout: 15000 });
         await sleep(500);
         const slug = await page.evaluate(() => window.__enterWorld ?? null);
         const worlds = await worldsOf(page);
