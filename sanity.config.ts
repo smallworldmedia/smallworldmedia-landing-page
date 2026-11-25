@@ -7,7 +7,7 @@ import { SortIcon, StackIcon } from '@sanity/icons'
 import { schemaTypes } from './src/schemas'
 import ProjectAssetsPane from './src/studio/ProjectAssetsPane.jsx'
 import SetFormInput from './src/studio/SetFormInput.jsx'
-import { typeOnlyIntent } from './src/studio/intentRouting.js'
+import { narrowListItemIntents } from './src/studio/intentRouting.js'
 
 /**
  * Singleton editor — prevents the globe-settings document from appearing
@@ -36,10 +36,12 @@ const projectLabel = (project: FeaturedProject) => project.title || project.clie
 /**
  * The orderable list claims every intent for every type (canHandleIntent(() => true)), so an edit
  * link to a media asset (a Set page's members) opened it under that list with the Project form
- * (SQ-143). Narrow its pane to its own type; any other type falls to the list that owns it.
+ * (SQ-143). Narrow its pane to its own type; any other type falls to the list that owns it. The
+ * plugin returns a serialized ListItem (a plain object), so narrowListItemIntents copies it rather
+ * than calling builder methods on it (those crashed the structure tool, 11-24).
  */
 const ownTypeIntentsOnly = (item: ReturnType<typeof orderableDocumentListDeskItem>, typeName: string) =>
-  item.child({ ...(item.getChild() as object), canHandleIntent: typeOnlyIntent(typeName) } as never)
+  narrowListItemIntents(item, typeName) as typeof item
 
 export default defineConfig({
   name: 'swm-portfolio',

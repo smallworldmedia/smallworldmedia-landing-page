@@ -12,6 +12,17 @@ export const typeOnlyIntent = (typeName) => (intent, params) =>
   (intent === 'edit' || intent === 'create') && params?.type === typeName
 
 /**
+ * A copy of a serialized list item whose child pane claims only `typeName`'s intents; every other
+ * field of the item and its child stays as given. orderableDocumentListDeskItem returns a plain,
+ * already-serialized ListItem with no builder methods: the first SQ-143 cut called .child() and
+ * .getChild() on it, and the structure tool crashed on load (11-24).
+ */
+export const narrowListItemIntents = (item, typeName) => ({
+  ...item,
+  child: { ...item.child, canHandleIntent: typeOnlyIntent(typeName) },
+})
+
+/**
  * The schema type a document opened by an intent gets, given the structure's panes in the order
  * the resolver visits them ({ schemaType, canHandleIntent }). The first pane that claims the
  * intent opens it with its own schema type; when none does, the fallback editor uses params.type.
