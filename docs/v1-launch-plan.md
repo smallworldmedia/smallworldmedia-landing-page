@@ -394,11 +394,12 @@ records (`docs/globe-worlds-plan.md`).
       retirement's steps 1–2 (schema `a78be23`, runner `5cea820`, plan `b9f95559`: 4 project-less
       Sets); the Cheetah Print rank tie (`c536f5a5`) and its cause, the Studio list's drag
       (`67aee92`, runner `e9b3fda`; Nathan: order is the Studio list's alone).
+    - **Done 11-25 (evening, pushed through `4f5e398`):** the retirement's steps 3–7 (intake writes
+      only `set` `7aa3600`; the site reads only the Set `58596e9`; 8 clearing plans, 723 pieces; the
+      schema drop `39f91bc`, hash `cee42ca9`; docs `4f5e398`) and the hosted Studio redeploy from
+      `39f91bc` on Nathan's go ("Push 39f91bc and 4f5e398 and redploy studio"); the branch preview
+      built `4f5e398` with the audit gate green.
     - **Left before `main`:**
-      - the hosted Studio redeploy (the 11-25 run was blocked by Claude Code's permission check;
-        Nathan runs it or allows it), which also carries the optional Set project;
-      - the retirement's steps 3–7 (intake writes `set`, the site drops its `displayGroup` fallback,
-        clearing plans, the schema commit alone, a Studio redeploy);
       - Phone Checks 440 (SQ-142) and 450 (SQ-141) on his iPhone; SQ-153;
       - the launch itself: freeze, retire worktrees, gates + `cms audit` 0, then `main` on his go.
 
