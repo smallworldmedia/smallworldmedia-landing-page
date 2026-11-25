@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = '8e2eb765b9d7fbbb5221bbbb64eb7973a0452bb915a4875b9eb1893c9b673ad0'
+export const SUPPORTED_SCHEMA_HASH = 'ba118894359b41d5089e3ae71018af2a41c2aa845701a4c4df86d34cd1604d94'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a client nothing references, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -46,7 +46,7 @@ export const FIELDS = {
   // A Set document (src/schemas/mediaSet.ts): the key the site groups by, its project and type. It has no orderRank; members order by theirs.
   mediaSet: ['title','slug','project','groupType','allowAsHero'],
 }
-const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], serviceTag: ['name','slug'], globeSettings: [], mediaSet: ['title','slug','project','groupType'] }
+const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], serviceTag: ['name','slug'], globeSettings: [], mediaSet: ['title','slug','groupType'] }
 // Media descriptors match the Studio caps (src/schemas/mediaAsset.ts); a project description is a blurb and stays uncapped here.
 export const CAPS = { mediaAsset: { alt: 150, description: 300 } }
 const text = (v, label) => invariant(typeof v === 'string' && v.trim().length > 0, `Invalid ${label}`)

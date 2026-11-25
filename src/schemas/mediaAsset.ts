@@ -282,7 +282,8 @@ export const mediaAsset = defineType({
       options: {
         filter: ({ document }) => {
           const project = (document?.project as { _ref?: string } | undefined)?._ref
-          return project ? { filter: 'project._ref == $project', params: { project } } : {}
+          // A piece with no project picks from the sets with no project (Nathan, 11-24: a set may exist without one).
+          return project ? { filter: 'project._ref == $project', params: { project } } : { filter: '!defined(project)' }
         },
       },
       description:

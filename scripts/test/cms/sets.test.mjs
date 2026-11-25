@@ -18,7 +18,9 @@ test('contract: a Set validates its own fields and a piece points at it', () => 
   validatePatch('mediaSet', { allowAsHero: false, groupType: 'deck' }, [])
   for (const bad of [{ groupType: 'sequence' }, { allowAsHero: 'yes' }, { allowAsHero: null }, { orderRank: '0|hzzzzz:' }, { project: 'project-example' }]) assert.throws(() => validatePatch('mediaSet', bad, []), undefined, JSON.stringify(bad))
   assert.throws(() => validatePatch('mediaSet', {}, ['title']), /Rejected unset/)
-  assert.throws(() => validateDocument({ ...doc, project: undefined }, { creation: true }), /Required project/)
+  // A set may exist without a project (Nathan, 11-24: a client's merch, banners or tour admats); its name, key and type stay required.
+  validateDocument({ ...doc, project: undefined }, { creation: true })
+  for (const k of ['title', 'slug', 'groupType']) assert.throws(() => validateDocument({ ...doc, [k]: undefined }, { creation: true }), new RegExp(`Required ${k}`))
   validatePatch('mediaAsset', { set: reference('mediaSet-a') }, []); validatePatch('mediaAsset', {}, ['set'])
   assert.throws(() => validatePatch('mediaAsset', { set: 'mediaSet-a' }, []))
   assert.throws(() => validatePatch('mediaAsset', { set: null }, []))

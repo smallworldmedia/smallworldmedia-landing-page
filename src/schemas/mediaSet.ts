@@ -31,8 +31,8 @@ export const mediaSet = defineType({
       name: 'project',
       type: 'reference',
       to: [{ type: 'project' }],
-      description: 'The project this set belongs to. Every piece in the set belongs to the same project.',
-      validation: (r) => r.required(),
+      description:
+        "The project this set belongs to. Every piece in the set belongs to the same project. Leave empty for a set of pieces with no project (a client's merch, banners or tour admats): every piece in it then has no project.",
     }),
     defineField({
       name: 'groupType',
