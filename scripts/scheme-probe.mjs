@@ -177,7 +177,7 @@
  *               eye plus a padding each side. --shots=DIR
  *               saves shift-<scheme>-<width>-<motion|reduced>-{rest,engaged,mid,next}.png. The rest pose is read once
  *               the eye has stopped moving (SQ-153: not before SQ-144's on-load footer slide has carried it up, or the hover lands
- *               on the logo ticker); an eye that never settles FAILS as "eye not settled", never measured mid-slide.
+ *               on the logo ticker); an eye that never settles FAILS as "eye not settled" (--settle-timeout=MS, 15000; --settle-timeout=300 is the control), never measured mid-slide.
  *               Negative controls: --inject='.swm-corner{--eye-shift:0px !important}' (a straight column) and
  *               --inject='.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer{display:none !important}'
  *               (the arrow hidden again) must FAIL.
@@ -1312,7 +1312,7 @@ function pageShift() {
  * unchanged within `tol` px over `hold` ms. Never measures mid-slide: when the eye has not settled by `timeout` it
  * throws "eye not settled" (the gate FAILS by that name) rather than read a pose that is still moving.
  */
-async function settleEye(page, { tol = 0.5, hold = 500, timeout = 15000 } = {}) {
+async function settleEye(page, { tol = 0.5, hold = 500, timeout = SETTLE_TIMEOUT } = {}) {
   await page.waitForFunction(() => window.__swmCommitted && window.__swmCommitted(), null, { timeout: 40000 }).catch(() => {});
   const read = () => page.evaluate(() => {
     const r = document.querySelector('.swm-corner .scheme-eye')?.getBoundingClientRect();
@@ -1884,7 +1884,7 @@ async function measureSeat(ctx, scheme, urlPath, label) {
   const gapOf = async () => {
     const r = await page.evaluate(pageWidgetRest);
     if (restPanelTop === undefined) restPanelTop = r?.footerTop ?? null;
-    return r?.tile ? { gap: gate.seatGap({ tileBottom: r.tile.y + r.tile.h, panelTop: r.footerTop, restPanelTop, vh: r.vp.h }), clear: r.ref.clear } : { gap: NaN, clear: null };
+    return r?.tile ? { gap: gate.seatGap({ tileBottom: r.tile.y + r.tile.h, panelTop: r.footerTop, restPanelTop, vh: r.vp.h }), clear: r.ref.clear, expect: r.ref.phone ? null : r.ref.rowCy - r.tile.h / 2 } : { gap: NaN, clear: null };
   };
   try {
     await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
@@ -2489,6 +2489,7 @@ const CLEAR_VIEWPORTS = [[1440, 900], [1024, 768], [1280, 800], [1920, 1080], [2
 const CLEAR_GAP = Number(arg('gap', 4)); // Nathan's number (SQ-125, 11-18: 2, then "lets bump the gap to 4 px"), the gate's own: a ?schemeblurbgap re-dial fails it unless this follows (--gap=8)
 const BAND_DPR = Number(arg('dpr', 1)); // the bands gate's device pixel ratio (a hand run at 2 or 3 reads the retina rows)
 const RIDE_GAP = Number(arg('ride-gap', 0)); // the ride gate's G in px, pinned (default 0: the run's own settled rest median)
+const SETTLE_TIMEOUT = Number(arg('settle-timeout', 15000)); // ms the eye gets to stop moving before the shift and seat runs fail as not settled (SQ-153; a value under the 500 ms hold is the control)
 const PHONE_DPR = Number(arg('phone-dpr', 3)); // the phone pass (bands, seams): the iPhone 390 stands for (SQ-126)
 async function clearPass(browser, scheme, want) {
   for (const [width, height] of CLEAR_VIEWPORTS) {

@@ -507,6 +507,13 @@ test('seat gate after the ride (SQ-153, SQ-144) the end sample on a riding route
   assert.equal(off.pass, false);
   assert.ok(off.offenders.some((o) => o.path === 'home end'), JSON.stringify(off.offenders));
   assert.equal(seat([at('home rest', 738, 778.8, 778.8), at('home end', NaN, 642.1, 778.8)]).pass, false);
+  // the declared seat: all samples agreeing but 4 px low (the whole corner moved, --inject translate 0 4px) fails, on the seat itself
+  const lowAll = [at('home rest', 742, 778.8, 778.8), at('home end', 605.3, 642.1, 778.8), at('work rest', 742, 1500, 1500)].map((s) => ({ ...s, expect: 162 }));
+  assert.equal(seat(lowAll.map(({ expect, ...s }) => s)).pass, true, 'without the declared seat the relative gate cannot see it');
+  const declared = seat(lowAll);
+  assert.equal(declared.pass, false);
+  assert.ok(declared.offenders.every((o) => /declared seat/.test(o.note)), JSON.stringify(declared.offenders));
+  assert.equal(seat(lowAll.map((s) => ({ ...s, gap: s.gap + 4 }))).pass, true, 'on the declared seat it passes');
 });
 
 test('badge gate and seat gate at 768 and under the bottom edge clears the screen corner and a badge left at the sitewide seat fails', () => {
