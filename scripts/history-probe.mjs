@@ -31,7 +31,10 @@
  * P2 = /work World 2 → its card → band → Back → Back → Forward → Forward.
  * Each step is judged on the URL, on the page the DOM shows (canonical), and
  * on staying put for 5 s. --latency=ms delays ClientRouter's page fetches (a
- * phone on a branch preview). Playwright's goBack is not iOS's edge swipe: no
+ * phone on a branch preview). SQ-141 round 2: T* = each click-started path's
+ * input → pushState ms and userActivation at the push (scripts/lib/pushTimingGate.mjs),
+ * TX = Back mid-dive; suffix c = Chromium, w = WebKit; --shots=dir saves TX's
+ * screenshot. Playwright's goBack is not iOS's edge swipe: no
  * swipe snapshot, no touches during the gesture, no bfcache, no memory kills.
  *
  * Exit code: 0 when every judged scenario passes verdict(), 1 otherwise.
@@ -40,6 +43,7 @@ import { writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { astroProps, mediaTokens, restoreFlashVerdict } from './lib/restoreFlashGate.mjs';
+import { pushTimingVerdict } from './lib/pushTimingGate.mjs';
 
 export const SKIPPABLE = 'NavigationEntryMarkedSkippable';
 
@@ -56,6 +60,7 @@ export function verdict(rec) {
   }
   if ('left' in rec && rec.left !== rec.restored) fails.push(`restored ${rec.restored}, left from ${rec.left}`);
   if (rec.flash) fails.push(...restoreFlashVerdict(rec.flash).fails);
+  if (rec.pushes) fails.push(...pushTimingVerdict(rec).fails);
   for (const b of rec.back ?? []) {
     const verb = b.dir === 'forward' ? 'Forward' : 'Back';
     if (b.expect !== b.got) fails.push(`${verb} landed ${b.got}, expected ${b.expect}`);
@@ -516,6 +521,116 @@ async function main() {
       await ctx.close();
     }
     await browser.close();
+  }
+
+  // ── Push timing (SQ-141 round 2): every click-started path, the ms from its
+  // input to the pushState that creates the destination entry, and
+  // userActivation.isActive at that push. Judged by scripts/lib/pushTimingGate.mjs
+  // (≤ 1000 ms, active). Chromium: desktop (click, key) or phone (tap) per path;
+  // WebKit: the iPhone 17 Pro descriptor, taps (TK runs desktop WebKit, keys).
+  // TX = Back pressed 400 ms into home's Enter dive: lands on home, the page
+  // shows home, and the next Back leaves the site (no stray /work entry). ──
+  const PUSH_PATHS = [
+    // [id, start, dest, phone?, act(page, read, tap)]
+    ['TE', '/', '^/work$', false, (p) => p.locator('.hero__enter').click()],
+    ['TT', '/', '^/work$', true, (p) => p.tap('.hero__enter')],
+    ['TK', '/', '^/work$', false, async (p, read) => (await tabTo(p, read, '.hero__enter'), p.keyboard.press('Enter'))],
+    ['TN', '/', '^/work$', false, (p) => p.locator('.site-nav__links a[href="/work"]').click()],
+    ['TM', '/', '^/work$', true, async (p) => (await p.tap('.site-nav__menu-pill'), await sleep(1200), p.tap('.mobile-menu__item[href="/work"]'))],
+    ['TL', '/work', '^/$', null, (p, _r, tap) => (tap ? p.tap('.site-nav__logo') : p.locator('.site-nav__logo').click())],
+    ['TZ', '/work', '^/work/.+', null, (p, _r, tap) => (tap ? p.tap('.fp-card__cta') : p.locator('.fp-card__cta').first().click())],
+    ['TB', '/work/bedouin', '^/work/(?!bedouin$).+', null, (p, _r, tap) => (tap ? p.tap('.np-band') : p.locator('.np-band').click())],
+    ['TC', '/work/bedouin', '^/work/(?!bedouin$).+', null, (p, _r, tap) => (tap ? p.tap('.detail-next') : p.locator('.detail-next').click())],
+    ['TR', '/work/bedouin', '^/work$', null, (p, _r, tap) => (tap ? p.tap('.detail-breadcrumb') : p.locator('.detail-breadcrumb').click())],
+  ];
+  const TIMING = [...PUSH_PATHS.flatMap(([id]) => [id + 'c', id + 'w']), 'TXc', 'TXw'];
+  if (TIMING.some(want)) {
+    const recorder = () => {
+      const r = (window.__pt = { inputs: [], pushes: [] });
+      for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'])
+        addEventListener(type, (e) => e.isTrusted && r.inputs.push({ t: performance.now(), type }), { capture: true });
+      const push = history.pushState;
+      history.pushState = function (s, t, url) {
+        r.pushes.push({ t: performance.now(), path: new URL(url ?? location.href, location.href).pathname, active: navigator.userActivation?.isActive ?? null });
+        return push.apply(this, arguments);
+      };
+    };
+    for (const [engine, type] of [['c', chromium], ['w', webkit]]) {
+      if (ENGINE !== 'all' && ENGINE !== (engine === 'c' ? 'chromium' : 'webkit')) continue;
+      if (!TIMING.some((id) => id.endsWith(engine) && want(id))) continue;
+      const browser = await type.launch({ headless: true });
+      const { defaultBrowserType, ...iphone } = devices['iPhone 17 Pro'];
+      const ctxFor = (phone) =>
+        browser.newContext(
+          !phone
+            ? { viewport: { width: 1440, height: 900 } }
+            : engine === 'w'
+              ? iphone
+              : { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true }
+        );
+      for (const [base, start, dest, phoneOnly, act] of PUSH_PATHS) {
+        const id = base + engine;
+        if (!want(id)) continue;
+        // WebKit runs every path as an iPhone tap except the keyboard one.
+        const phone = engine === 'w' ? base !== 'TK' : phoneOnly === true;
+        const ctx = await ctxFor(phone);
+        await ctx.addInitScript(recorder);
+        const page = await ctx.newPage();
+        const rec = { id, dest, skippable: 0, notes: [] };
+        try {
+          await page.goto(BASE + start, { waitUntil: 'load' });
+          await sleep(start === '/' ? 3500 : 4500);
+          await page.evaluate(() => (window.__pt.inputs.length = 0));
+          await act(page, (e) => page.evaluate(e), phone);
+          await waitPath(page, new RegExp(dest), 15000);
+          await sleep(1500);
+          Object.assign(rec, await page.evaluate(() => ({ inputs: window.__pt.inputs, pushes: window.__pt.pushes })));
+          rec.timing = pushTimingVerdict(rec);
+          rec.notes.push(`at=${pathOf(page.url())} ms=${rec.timing.ms} active=${rec.timing.active} pushes=${rec.pushes.map((p) => p.path).join(',')}`);
+        } catch (e) {
+          rec.notes.push('ERR ' + e.message);
+          rec.skippable += 1000;
+        }
+        results.push(rec);
+        await ctx.close();
+      }
+      if (want('TX' + engine)) {
+        const ctx = await ctxFor(engine === 'w');
+        const page = await ctx.newPage();
+        const rec = { id: 'TX' + engine, skippable: 0, back: [], notes: [] };
+        const shown = () =>
+          page.evaluate(() => {
+            const c = document.querySelector('link[rel=canonical]')?.getAttribute('href');
+            return c ? new URL(c).pathname.replace(/\/+$/, '') || '/' : null;
+          });
+        try {
+          await page.goto('about:blank');
+          await page.goto(BASE + '/', { waitUntil: 'load' });
+          await sleep(3500);
+          await (engine === 'w' ? page.tap('.hero__enter') : page.locator('.hero__enter').click());
+          await sleep(400);
+          rec.notes.push(`midDive=${pathOf(page.url())}`);
+          await page.goBack({ timeout: 8000 }).catch(() => {});
+          const trail = [];
+          for (let t = 0; t < 50; t++) {
+            const p = pathOf(page.url());
+            if (trail[trail.length - 1] !== p) trail.push(p);
+            await sleep(100);
+          }
+          rec.back.push({ dir: 'back', expect: '/', got: pathOf(page.url()), dom: await shown(), trail });
+          if (args.shots) await page.screenshot({ path: `${args.shots}/TX${engine}-after-back.png` });
+          await page.goBack({ timeout: 8000 }).catch(() => {});
+          await sleep(2500);
+          rec.back.push({ dir: 'back', expect: 'about:blank', got: pathOf(page.url()) });
+        } catch (e) {
+          rec.notes.push('ERR ' + e.message);
+          rec.skippable += 1000;
+        }
+        results.push(rec);
+        await ctx.close();
+      }
+      await browser.close();
+    }
   }
 
   // ── Return-restore first frame (SQ-131, Nathan 11-20 row 130: Back to /work

@@ -98,6 +98,7 @@ import {
   FOOTER_FINGER,
 } from '../lib/footerTune.js';
 import { requestInfoClose } from '../lib/infoPush.js';
+import { holdEntry } from '../lib/gestureHistory.js';
 import { signalRouteReady } from '../lib/overlayWipe.js';
 import SiteFooter, {
   FOOTER_REVEAL_EVENT,
@@ -1071,7 +1072,9 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // gesture vocabulary across home→/work→detail. The old chunk-4 master
   // timeline (blue cascade + recenter + fill spread) is retired from this
   // path — the ?herotune bench's dry-run still rehearses it for reference.
-  const enterWorld = () => {
+  // `arrive` is holdEntry('/work')'s commit: the /work entry was pushed in the
+  // tap itself (SQ-141), so the arrival replaces it, or is dropped after a Back.
+  const enterWorld = (arrive) => {
     if (departingRef.current) return;
     footerWipeRef.current?.kill();
     footerDriveRef.current.stop();
@@ -1092,7 +1095,8 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       // before the entered one; /work lets go once that card is up (10-06).
       coverToWork({ duration: 0 });
       handOffWorld(entered);
-      navigate('/work');
+      const opts = arrive();
+      if (opts) navigate('/work', opts);
       return;
     }
     departingRef.current = true;
@@ -1161,8 +1165,10 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
     // setTimeout, not delayedCall — the island's gsap context dies with the
     // swap and must not take the navigation with it (WorldCard's idiom).
     setTimeout(() => {
+      const opts = arrive();
+      if (!opts) return; // a Back mid-dive: the router has re-rendered home
       handOffWorld(entered);
-      navigate('/work');
+      navigate('/work', opts);
     }, enterMs + 60);
   };
 
@@ -1171,10 +1177,13 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // tween, the home page riding back up with it, and the zoom starts when that
   // lands — no snap, no zoom under a half-open drawer (SQ-70, Nathan 11-12).
   // Closed, it runs at once. The guard covers a route swap in the gap.
+  // The /work entry is pushed here, in the tap (SQ-141): the drawer's close and
+  // the dive both run after it, past WebKit's ~1 s gesture carry.
   const onEnterClick = () => {
     if (departingRef.current) return;
+    const arrive = holdEntry('/work');
     requestInfoClose(() => {
-      if (heroRef.current?.isConnected) enterWorld();
+      if (heroRef.current?.isConnected) enterWorld(arrive);
     });
   };
 

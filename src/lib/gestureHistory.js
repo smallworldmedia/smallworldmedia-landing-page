@@ -43,6 +43,39 @@ const tracker = typeof window !== 'undefined' ? trackActivation(window) : null;
  *  document holds an honoured activation, replace when it doesn't. */
 export const gestureHistory = () => (tracker ? tracker.options() : { history: 'replace' });
 
+// Click-started passages (SQ-141). A tap that plays a cover or a dive before
+// the swap (home's Enter, a World's zoom_in, the logo home, the detail chips,
+// the next-project band) used to push from a timer, and ClientRouter pushes
+// later still, after its fetch. WebKit carries a tap's gesture through a timer
+// for about 1 s only, so a push 1.16 s + fetch after the tap was "added
+// without a user gesture" and Back skipped the page the tap was on (Nathan's
+// iPhone ?histlog=1 walk, 11-25: home skipped, the visit left). holdEntry()
+// pushes the destination entry IN the tap, carrying the {index, scrollX,
+// scrollY} state ClientRouter keeps, and the passage's end commits the arrival
+// as a replace of that entry. A Back (or Forward) during the passage leaves
+// the entry in the forward list as a real destination entry and the arrival is
+// dropped: the router has already re-rendered the page the Back landed on.
+
+/** Push `href`'s entry now (call inside the input handler). Returns arrive():
+ *  the navigate() options for the passage's end — a replace of that entry —
+ *  or null when a back/forward ran in between (then don't navigate). */
+export function holdEntry(href, win = window) {
+  const h = win.history;
+  const cur = h.state ?? {};
+  // What ClientRouter's own push does first: the page left keeps its scroll.
+  h.replaceState({ ...cur, scrollX: win.scrollX, scrollY: win.scrollY }, '');
+  h.pushState({ index: (cur.index ?? 0) + 1, scrollX: 0, scrollY: 0 }, '', href);
+  let moved = false;
+  const onPop = () => {
+    moved = true;
+  };
+  win.addEventListener('popstate', onPop, { once: true });
+  return () => {
+    win.removeEventListener('popstate', onPop);
+    return moved ? null : { history: 'replace' };
+  };
+}
+
 // The browser's own Back animation (SQ-105). An iOS edge-swipe Back has
 // already animated to Safari's snapshot of the page behind; ClientRouter (5.x
 // reads no hasUAVisualTransition) would then run its view transition from the

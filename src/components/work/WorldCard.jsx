@@ -30,6 +30,7 @@ import { SplitText } from 'gsap/SplitText';
 import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
 import { CustomEase } from 'gsap/CustomEase';
 import { navigate } from 'astro:transitions/client';
+import { holdEntry } from '../../lib/gestureHistory.js';
 import {
   TURN_DURATION,
   TURN_EASE_PATH,
@@ -81,9 +82,11 @@ function enterWorld(e, slug, color, spectrum) {
     // scale-up enter-ramp under the rising cover (same duration, one gesture).
     new CustomEvent('swm:enter-world', { detail: { duration: coverS, color } })
   );
+  const arrive = holdEntry(`/work/${slug}`); // pushed in the tap (SQ-141)
   setTimeout(() => {
     departing = false;
-    navigate(`/work/${slug}`);
+    const opts = arrive();
+    if (opts) navigate(`/work/${slug}`, opts);
   }, coverS * 1000 + 60);
 }
 
