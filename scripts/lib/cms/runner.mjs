@@ -55,9 +55,10 @@ async function resolveReferences(operations, sanity) {
     invariant(project.client?._ref === op.after.client?._ref, `Project/client mismatch on ${op.id}`)
   }
   // A piece belongs to one project and so does its set: refuse a link across projects, created or patched.
+  // A piece with no project joins only a set with none (a client's merch, banners or admats; 11-25), and a project's piece never does.
   for (const op of operations) if (op.action !== 'unchanged' && op.after?._type === 'mediaAsset' && op.after.set?._ref) {
     const set = created.get(op.after.set._ref) || current.get(op.after.set._ref)
-    invariant(set.project?._ref && set.project._ref === op.after.project?._ref, `Set/project mismatch on ${op.id}: its set belongs to another project`)
+    invariant((set.project?._ref ?? null) === (op.after.project?._ref ?? null), `Set/project mismatch on ${op.id}: its set belongs to ${set.project?._ref ? 'another project' : 'no project'}`)
   }
   return externalIds.map(id => ({ id, rev: current.get(id)._rev, type: current.get(id)._type }))
 }

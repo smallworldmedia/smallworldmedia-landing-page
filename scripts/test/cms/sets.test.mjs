@@ -53,8 +53,13 @@ test('refused: a set from another project, a second set on an existing key, a du
   await assert.rejects(h.plan({ changes: await h.changes({ creates: [create('mediaSet-new-a', 'fresh-key'), create('mediaSet-new-b', 'fresh-key')] }) }), /Set key fresh-key already belongs to mediaSet-new-a/)
   await assert.rejects(h.plan({ changes: await h.changes({ patches: [{ id: 'mediaSet-other-admats', type: 'mediaSet', set: { slug: { _type: 'slug', current: 'taken-key' } }, unset: [] }] }) }), /Set key taken-key already belongs to mediaSet-taken/)
   assert.deepEqual([h.stats.commits, h.stats.images, h.stats.uploads], [0, 0, 0], 'a refused plan writes nothing')
-  // A piece with no project can join no set; a set keeps its own key when patched to it.
-  await assert.rejects(h.plan({ changes: await h.changes(link('mediaAsset-loose', 'mediaSet-taken')) }), /Set\/project mismatch on mediaAsset-loose/)
+  // A piece with no project joins only a set with no project (retirement step 2, 11-25), and a project's piece never joins one.
+  await assert.rejects(h.plan({ changes: await h.changes(link('mediaAsset-loose', 'mediaSet-taken')) }), /Set\/project mismatch on mediaAsset-loose: its set belongs to another project/)
+  const looseSet = create('mediaSet-loose-banners', 'loose-banners'); delete looseSet.project
+  const loose = await h.plan({ changes: await h.changes({ creates: [looseSet], patches: link('mediaAsset-loose', looseSet._id).patches }) })
+  assert.deepEqual(loose.operations.map(o => [o.action, o.id]), [['create', 'mediaSet-loose-banners'], ['patch', 'mediaAsset-loose']])
+  await assert.rejects(h.plan({ changes: await h.changes({ creates: [looseSet], patches: link('mediaAsset-one', looseSet._id).patches }) }), /Set\/project mismatch on mediaAsset-one: its set belongs to no project/)
+  // A set keeps its own key when patched to it.
   await h.plan({ changes: await h.changes({ patches: [{ id: 'mediaSet-taken', type: 'mediaSet', set: { slug: { _type: 'slug', current: 'taken-key' }, allowAsHero: true }, unset: [] }] }) })
   // A dangling set reference is refused like any other.
   await assert.rejects(h.plan({ changes: await h.changes(link('mediaAsset-one', 'mediaSet-nowhere')) }), /Unresolved\/wrong-type mediaSet reference/)
