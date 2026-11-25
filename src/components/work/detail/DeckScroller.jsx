@@ -50,11 +50,12 @@
  *        columns. Each page is as wide as its row is tall × ratio, so the
  *        frame's height sets how many slides show (horizontalStrip.js).
  * @param {number} [props.rows=1] - horizontal strips (axis 'x' only)
- * @param {Array<Array<Object>>} [props.columns] - US-5, the mockups wall: the
- *        pieces already packed into columns (liveFootageLayout mockupsWall,
- *        shortest column next). Each piece keeps its OWN aspect (no crop, no
- *        shared `ratio`), and each column wraps on its own cycle (mixedCycle).
- *        Omitted = the one-ratio wall, unchanged.
+ * @param {Array<Array<Object>>} [props.columns] - US-5, the mockups strip (axis
+ *        'x' only): each entry is one ROW of pieces. Each piece keeps its OWN
+ *        aspect (no crop, no shared `ratio`): one shared row height, each piece
+ *        as wide as that height × its ratio, and each row wraps on its own cycle
+ *        (horizontalStrip.js mixedStripCycle). Omitted = the one-ratio wall,
+ *        unchanged.
  * @param {string} [props.ariaLabel]
  */
 import { useEffect, useRef, useState } from 'react';
@@ -70,8 +71,7 @@ import {
 } from '../imageConfig.js';
 import { createPlayerGate } from '../directory/playerGate.js';
 import GatedVideo from './GatedVideo.jsx';
-import { horizontalLayout } from './horizontalStrip.js';
-import { mixedCycle } from './liveFootageLayout.js';
+import { horizontalLayout, mixedStripCycle } from './horizontalStrip.js';
 import { ratioOf } from './buildContentFlow.js';
 
 const PARAMS =
@@ -190,8 +190,9 @@ export default function DeckScroller({
   // Per-line (column on y, row on x) scroll offsets + cycle lengths, owned by
   // the ticker (never state).
   const motionRef = useRef({ offsets: [], cycle: 0, cycles: null, dirs: [] });
-  // A mixed wall (columns): which pieces, so the layout re-measures only on a new set.
-  const mixKey = columns ? columns.map((c) => c.map((p) => p._id).join('.')).join('|') : '';
+  // A mixed strip (columns on axis 'x'): which pieces, so the layout re-measures only on a new set.
+  const mixed = horizontal && !!columns;
+  const mixKey = mixed ? columns.map((c) => c.map((p) => p._id).join('.')).join('|') : '';
   const [layout, setLayout] = useState(null); // { lines, perLine }
   const gate = useWallGate(play);
 
@@ -210,13 +211,14 @@ export default function DeckScroller({
       let pageW; // the page's drawn width, for the images' `sizes`
       let seen = 1; // pages per line inside the frame at first paint (loaded eagerly)
       motionRef.current.cycles = null;
-      if (columns) {
+      if (mixed) {
         lines = columns.length;
-        const colW = (w - (lines - 1) * GAP_PX) / lines;
-        pageW = colW;
-        const cyc = columns.map((col) => mixedCycle(col.map(ratioOf), { colW, h, gap: GAP_PX }));
+        const rowH = (h - (lines - 1) * GAP_PX) / lines;
+        pageW = rowH; // a piece is drawn rowH × its ratio wide
+        const cyc = columns.map((row) => mixedStripCycle(row.map(ratioOf), { rowH, w, gap: GAP_PX }));
         reps = cyc.map((c) => c.reps);
         perLine = 0;
+        seen = Math.max(...cyc.map((c) => c.seen));
         motionRef.current.cycles = cyc.map((c) => c.cycle);
       } else if (horizontal) {
         lines = rows;
@@ -313,9 +315,9 @@ export default function DeckScroller({
 
   // Line i cycles pages (i + n·lines) mod N — reading order runs across the
   // wall then wraps, and every line stays populated on short sets.
-  // A mixed wall (columns): the column's own pieces, repeated whole to its cycle.
+  // A mixed strip (columns): the row's own pieces, repeated whole to its cycle.
   const linePages = (line, perLine) =>
-    columns
+    mixed
       ? Array.from({ length: layout.reps[line] }, () => columns[line]).flat()
       : Array.from({ length: perLine }, (_, n) => pages[(line + n * layout.lines) % pages.length]);
 
@@ -327,9 +329,9 @@ export default function DeckScroller({
       aria-label={ariaLabel}
       style={{ '--deck-wgap': `${GAP_PX}px`, '--deck-ratio': ratio }}
     >
-      {/* a mixed wall waits for the layout of ITS columns (the phone re-packs 2 → 1) */}
+      {/* a mixed strip waits for the layout of ITS rows */}
       {layout &&
-        (!columns || layout.lines === columns.length) &&
+        (!mixed || layout.lines === columns.length) &&
         Array.from({ length: layout.lines }, (_, line) => {
           const cycle = linePages(line, layout.perLine);
           return (
@@ -348,9 +350,9 @@ export default function DeckScroller({
                       page={p}
                       play={play}
                       gate={gate}
-                      own={columns ? ratioOf(p) : undefined}
+                      own={mixed ? ratioOf(p) : undefined}
                       ratio={ratio}
-                      wide={layout.pageW}
+                      wide={mixed ? layout.pageW * ratioOf(p) : layout.pageW}
                       eager={
                         n < layout.seen && (copy === 0) === (line % 2 === 0) && (n === 0 ? 'first' : true)
                       }
