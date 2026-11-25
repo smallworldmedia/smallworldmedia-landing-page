@@ -41,8 +41,9 @@
  *     field) says which surfaces open its viewer (GROUP_SURFACES). Pass
  *     `surface` and a piece whose set does not open there is dropped (except
  *     visuals and live-footage, below); leave it out and the lanes above run
- *     as they always did. groupTypeOf reads the field and, on a document from
- *     before the field, infers the type from mediaType / displayGroup.
+ *     as they always did. groupTypeOf reads the type the query projects (the
+ *     piece's Set's, 11-25) and, for a piece with no set, infers it from
+ *     mediaType (a cover with no project is album art).
  *     `admat` sets (still flyers, displayGroup `…-admats`) group like decks,
  *     pages in brandDeckOrder; a set of one rides the showcase at its place.
  *     A motion member (an animated flyer) joins its set on `detail`, where
@@ -283,8 +284,9 @@ const OFF_SURFACE_ORDINARY = ['visuals', 'live-footage', 'flyer-progression'];
 const ADMAT_GROUP_RE = /(^|-)admats?$/i;
 
 /**
- * An asset's group type: its `groupType` when it is one of GROUP_TYPES, else
- * the inference documents from before the field rely on. null = not grouped.
+ * An asset's group type: its `groupType` (its Set's type, as the query projects
+ * it) when it is one of GROUP_TYPES, else the inference a piece with no set
+ * relies on. null = not grouped.
  */
 export function groupTypeOf(asset) {
   if (GROUP_TYPES.includes(asset.groupType)) return asset.groupType;

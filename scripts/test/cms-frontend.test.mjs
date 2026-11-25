@@ -30,20 +30,24 @@ const base = {
   sourceFolder: '/original/checkout/media/Fixture/Branding', sourceManifest: 'Branding',
 }
 const media = (id, rank, fields) => ({ ...base, _id: id, orderRank: rank, title: id, ...fields })
+// A piece's group is its Set document (the legacy displayGroup / groupType retire, 11-25).
+const setOf = (key, groupType, project = 'project-fixture') => ({ _id: `mediaSet-${key}`, _type: 'mediaSet', title: key, slug: { current: key }, project: ref(project), groupType, allowAsHero: false })
+const inSet = (key) => ({ set: ref(`mediaSet-${key}`) })
 const documents = [
+  setOf('reviewed-deck', 'deck'), setOf('reviewed-carousel', 'carousel'), setOf('soundcloud-banners', 'banner'),
   { _id: 'client-fixture', _type: 'client', name: 'Fixture', slug: { current: 'fixture' } },
   { _id: 'project-fixture', _type: 'project', title: 'Studio title', slug: { current: 'fixture-branding' }, client: ref('client-fixture'), isFeatured: true, orderRank: '0|hzzzzz:' },
   { _id: 'image-page', _type: 'sanity.imageAsset', url: 'https://example.invalid/page.jpg', metadata: { dimensions: { width: 1200, height: 1500 } } },
   { _id: 'mux-ready', _type: 'mux.videoAsset', playbackId: 'fixture-playback', status: 'ready', data: { status: 'ready', aspect_ratio: '4:3' } },
   media('hero', '0|hzzzzz:', { mediaType: 'featured-project-reel', video }),
   media('cover', '0|i00007:', { mediaType: 'album-art', image, releaseInfo: { releaseArtist: 'Studio artist', releaseTitle: 'Studio release' } }),
-  media('page-2', '0|i0000f:', { mediaType: 'brand-deck', image, displayGroup: 'reviewed-deck', brandDeckOrder: 2 }),
-  media('page-1', '0|i0000n:', { mediaType: 'brand-deck', image, displayGroup: 'reviewed-deck', brandDeckOrder: 1, groupType: 'deck' }),
-  media('slide-1', '0|i0000v:', { mediaType: 'carousel-slide', image, displayGroup: 'reviewed-carousel', groupType: 'carousel' }),
-  media('slide-2', '0|i00013:', { mediaType: 'carousel-slide', image, displayGroup: 'reviewed-carousel' }),
+  media('page-2', '0|i0000f:', { mediaType: 'brand-deck', image, ...inSet('reviewed-deck'), brandDeckOrder: 2 }),
+  media('page-1', '0|i0000n:', { mediaType: 'brand-deck', image, ...inSet('reviewed-deck'), brandDeckOrder: 1 }),
+  media('slide-1', '0|i0000v:', { mediaType: 'carousel-slide', image, ...inSet('reviewed-carousel') }),
+  media('slide-2', '0|i00013:', { mediaType: 'carousel-slide', image, ...inSet('reviewed-carousel') }),
   media('motion', '0|i0001b:', { mediaType: 'motion_other', video }),
-  media('banner-2', '0|i0001c:', { mediaType: 'static_other', image, displayGroup: 'soundcloud-banners' }),
-  media('banner-1', '0|i0001d:', { mediaType: 'static_other', image, displayGroup: 'soundcloud-banners' }),
+  media('banner-2', '0|i0001c:', { mediaType: 'static_other', image, ...inSet('soundcloud-banners') }),
+  media('banner-1', '0|i0001d:', { mediaType: 'static_other', image, ...inSet('soundcloud-banners') }),
   media('drafts.unapproved', '0|000000:', { mediaType: 'static_4x5', image }),
   media('other-project', '0|000001:', { project: ref('other-project'), mediaType: 'static_4x5', image }),
 ]
@@ -59,9 +63,9 @@ test('published scoped detail query preserves hero, deck/carousel order and rele
   // Carousels group like decks (11-10): [{group, pages}], orderRank order within a group.
   assert.deepEqual(flow.carousels.map(({ group, pages }) => [group, pages.map(({ _id }) => _id)]), [['reviewed-carousel', ['slide-1', 'slide-2']]])
   assert.deepEqual(flow.admats, [])
-  // groupType (11-10) rides the query where the documents carry it, and reads as null where they don't.
+  // groupType is the piece's Set's type, and null for a piece with no set (the cover: groupTypeOf infers album art).
   const typeOf = (id) => detail.assets.find((a) => a._id === id).groupType
-  assert.deepEqual([typeOf('page-1'), typeOf('slide-1'), typeOf('slide-2'), typeOf('cover')], ['deck', 'carousel', null, null])
+  assert.deepEqual([typeOf('page-1'), typeOf('slide-1'), typeOf('slide-2'), typeOf('cover')], ['deck', 'carousel', 'carousel', null])
   // Banner groups (09-10): routed by displayGroup, orderRank order kept, out of the showcase.
   // 11-14: a set carries its Studio seat. banner-2 is the 8th asset (rank 7) and no tile
   // ranks after it, so the wall sits after both showcase tiles (cover, motion).
@@ -97,11 +101,12 @@ test('a -sequence group is ONE showcase tile: frames in Studio order, the least-
     still('image-logo-a', 'https://example.invalid/logo-a.png', 2000, 465, true),
     still('image-logo-b', 'https://example.invalid/logo-b.png', 2000, 465, true),
     still('image-logo-c', 'https://example.invalid/logo-c.jpg', 1920, 1080),
-    media('logo-a', '0|i0001e:', { mediaType: 'static_16x9', image: img('image-logo-a'), displayGroup: 'fixture-logo-sequence' }),
-    media('logo-b', '0|i0001f:', { mediaType: 'static_16x9', image: img('image-logo-b'), displayGroup: 'fixture-logo-sequence' }),
-    media('logo-clip', '0|i0001g:', { mediaType: 'motion_16x9', video, displayGroup: 'fixture-logo-sequence' }), // a video member keeps its own tile
-    media('logo-c', '0|i0001h:', { mediaType: 'static_16x9', image: img('image-logo-c'), displayGroup: 'fixture-logo-sequence' }),
-    media('solo', '0|i0001i:', { mediaType: 'static_4x5', image, displayGroup: 'solo-sequence' }), // a group of one stays a plain tile
+    setOf('fixture-logo-sequence', 'merch'), setOf('solo-sequence', 'merch'),
+    media('logo-a', '0|i0001e:', { mediaType: 'static_16x9', image: img('image-logo-a'), ...inSet('fixture-logo-sequence') }),
+    media('logo-b', '0|i0001f:', { mediaType: 'static_16x9', image: img('image-logo-b'), ...inSet('fixture-logo-sequence') }),
+    media('logo-clip', '0|i0001g:', { mediaType: 'motion_16x9', video, ...inSet('fixture-logo-sequence') }), // a video member keeps its own tile
+    media('logo-c', '0|i0001h:', { mediaType: 'static_16x9', image: img('image-logo-c'), ...inSet('fixture-logo-sequence') }),
+    media('solo', '0|i0001i:', { mediaType: 'static_4x5', image, ...inSet('solo-sequence') }), // a group of one stays a plain tile
   ]
   const detail = await query(FEATURED_PROJECT_DETAIL_QUERY, seqDocs, { projectId: 'project-fixture' })
   const flow = buildContentFlow(detail.assets)
@@ -123,7 +128,8 @@ test('directory query carries a video\'s length (an admat set holds an animated 
   const timed = [
     ...documents,
     { _id: 'mux-long', _type: 'mux.videoAsset', playbackId: 'long-playback', status: 'ready', data: { status: 'ready', aspect_ratio: '4:5', duration: 19.5 } },
-    media('flyer-clip', '0|i0001e:', { mediaType: 'brand-deck', groupType: 'admat', displayGroup: 'tour-admats', video: { _type: 'mux.video', asset: ref('mux-long') } }),
+    setOf('tour-admats', 'admat'),
+    media('flyer-clip', '0|i0001e:', { mediaType: 'brand-deck', ...inSet('tour-admats'), video: { _type: 'mux.video', asset: ref('mux-long') } }),
   ]
   const { assets } = await query(DIRECTORY_QUERY, timed)
   const durationOf = (id) => assets.find((a) => a._id === id).videoDuration
@@ -230,7 +236,7 @@ test('weighted beats: a still weighs 1, an animated flyer its clip (<= the previ
   assert.deepEqual([0, 4999, 5000, 10000, 15000, 19999, 20000].map((t) => weightedFrame(four, t)), [0, 0, 1, 2, 3, 3, 0])
 })
 
-test('a piece in a Set document projects the set\'s type and key, and the hero rule inputs; a piece with no set projects as before (US-10)', async () => {
+test('a piece in a Set document projects the set\'s type and key, and the hero rule inputs; a piece with no set projects no group, whatever legacy fields it keeps (US-10, 11-25)', async () => {
   const setDocs = [
     { _id: 'mediaSet-tour', _type: 'mediaSet', title: 'Tour', slug: { current: 'tour-admats' }, project: ref('project-fixture'), groupType: 'admat', allowAsHero: true },
     { _id: 'mediaSet-covers', _type: 'mediaSet', title: 'Covers', slug: { current: 'fixture-album-art' }, project: ref('project-fixture'), groupType: 'album-art', allowAsHero: false },
@@ -243,6 +249,8 @@ test('a piece in a Set document projects the set\'s type and key, and the hero r
     piece('set-flyer', '0|i0001k:', { set: ref('mediaSet-tour'), displayGroup: 'legacy-group', groupType: 'deck' }),
     piece('set-flyer-2', '0|i0001l:', { set: ref('mediaSet-tour') }),
     piece('set-cover', '0|i0001m:', { mediaType: 'album-art', set: ref('mediaSet-covers') }),
+    // taken out of its set in Studio, the legacy fields left behind (Andhera Shop Item Pages, 11-25): no group
+    piece('left-set', '0|i0001n:', { mediaType: 'motion_4x3', image: undefined, video, displayGroup: 'tour-admats', groupType: 'admat' }),
   ]
   const detail = await query(FEATURED_PROJECT_DETAIL_QUERY, withSets, { projectId: 'project-fixture' })
   const get = (id) => detail.assets.find((a) => a._id === id)
@@ -250,10 +258,9 @@ test('a piece in a Set document projects the set\'s type and key, and the hero r
   assert.deepEqual(pick(get('set-flyer')), ['mediaSet-tour', true, 'admat', 'tour-admats'])
   assert.deepEqual(pick(get('set-flyer-2')), ['mediaSet-tour', true, 'admat', 'tour-admats'], 'a member with no legacy fields still reads the set')
   assert.deepEqual(pick(get('set-cover')), ['mediaSet-covers', false, 'album-art', null], 'an album-art member keeps displayGroup null')
-  // Every piece with no set projects exactly as it did: setId null, the toggle null, its own fields.
-  for (const doc of documents.filter((d) => d._type === 'mediaAsset' && get(d._id))) {
-    assert.deepEqual(pick(get(doc._id)), [null, null, doc.groupType ?? null, doc.displayGroup ?? null], doc._id)
-  }
+  // A piece with no set projects no group: its own legacy displayGroup / groupType are never read.
+  assert.deepEqual(pick(get('left-set')), [null, null, null, null], 'a legacy displayGroup / groupType without a set is ignored')
+  for (const id of ['hero', 'cover', 'motion']) assert.deepEqual(pick(get(id)), [null, null, null, null], id)
   // The same columns reach the directory's pieces; /work's Worlds read the two coalesced fields only.
   const dir = await query(DIRECTORY_QUERY, withSets)
   assert.deepEqual(pick(dir.assets.find((a) => a._id === 'set-flyer')), ['mediaSet-tour', true, 'admat', 'tour-admats'])
@@ -265,4 +272,5 @@ test('a piece in a Set document projects the set\'s type and key, and the hero r
   // The page's flow groups the set by the projected key: a wall of two flyers, not the legacy deck.
   const flow = buildContentFlow(detail.assets, { surface: 'detail' })
   assert.deepEqual(flow.admats.map((s) => [s.group, s.items.map((a) => a._id)]), [['tour-admats', ['set-flyer', 'set-flyer-2']]])
+  assert.ok(flow.showcase.some((a) => a._id === 'left-set'), 'the piece left out of the set is an ordinary showcase tile')
 })

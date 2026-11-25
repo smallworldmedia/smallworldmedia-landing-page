@@ -12,7 +12,7 @@ import * as THREE from 'three'
 import gsap from 'gsap'
 import { parse, evaluate } from 'groq-js'
 import { FEATURED_WORLDS_QUERY } from '../../src/lib/queries.js'
-import { buildContentFlow } from '../../src/components/work/detail/buildContentFlow.js'
+import { buildContentFlow, groupTypeOf } from '../../src/components/work/detail/buildContentFlow.js'
 import buildWorldPools, { selectPool, WORLD_POOL_CAP, MIN_KIND_POOL } from '../../src/components/globe/buildWorldPools.js'
 import { makePattern, makeField, PATTERNS } from '../../src/components/globe/worldPatterns.js'
 import MeridianScroll, { initialBirth, poseTile, posePanel, scrollZeroTheta } from '../../src/components/globe/MeridianScroll.js'
@@ -131,7 +131,28 @@ const documents = [
   media('bts', '0|j:', { mediaType: 'motion_16x9', video: video('mux-b'), contentRole: 'process' }),
   { _id: 'image-still', _type: 'sanity.imageAsset', url: 'https://cdn.example/still.jpg', metadata: { dimensions: { width: 800, height: 1000 } } },
 ]
-const query = async (source, dataset = documents) => (await evaluate(parse(source), { dataset })).get()
+/* The fixtures name a piece's group with the legacy displayGroup / groupType; the live data holds Set
+ * documents (the sets migration) and the site reads only those (11-25). asSets does both steps the live
+ * data took: one Set per (project, group; a typed piece with no group name, keyed by its type), typed by the members' groupType or, where none, the inference
+ * groupTypeOf made from the legacy fields; a project's album art (typed or by mediaType) in one album-art
+ * Set; then the legacy fields are cleared. A piece already in a Set is left alone. */
+const asSets = (dataset) => {
+  const sets = new Map()
+  const out = dataset.map((doc) => {
+    if (doc._type !== 'mediaAsset' || doc.set) return doc
+    const { displayGroup, groupType, ...rest } = doc
+    const album = !displayGroup && (groupType === 'album-art' || doc.mediaType === 'album-art') && doc.project
+    // A cover with no project stays loose (no set, as live); a type with no group name keys its set by the type, as the flow did.
+    if (!displayGroup && !album && (!groupType || groupType === 'album-art')) return rest
+    const project = doc.project?._ref ?? 'none', key = album ? `${project}-album-art` : displayGroup ?? groupType, id = `mediaSet-${project}-${key}`
+    const type = album ? 'album-art' : groupType ?? groupTypeOf({ ...doc, displayGroup })
+    if (!sets.has(id)) sets.set(id, { _id: id, _type: 'mediaSet', title: key, slug: { current: key }, project: doc.project, groupType: type, allowAsHero: false })
+    else if (!sets.get(id).groupType) sets.get(id).groupType = type
+    return { ...rest, set: ref(id) }
+  })
+  return [...out, ...sets.values()]
+}
+const query = async (source, dataset = documents) => (await evaluate(parse(source), { dataset: asSets(dataset) })).get()
 
 test('buildWorldPools holds exactly the /work World media: hero, showcase Tiles, album art', async () => {
   const rows = await query(FEATURED_WORLDS_QUERY)

@@ -24,7 +24,7 @@ export function setCanLead(set) {
 
 /**
  * Does a project's first piece lead as its whole set? `asset` is the piece as the site queries
- * project it: `setId` (its Set document, when it has one), `groupType` (the set's type first) and
+ * project it: `setId` (its Set document, when it has one), `groupType` (the set's type) and
  * `setAllowsHero`. `type` is the piece's group type as the caller resolves it (the site passes
  * groupTypeOf, which also infers a type for pieces without the field).
  *
