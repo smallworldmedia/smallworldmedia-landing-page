@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-24*
+*Last Updated: 2026-11-25*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -87,6 +87,13 @@ thread (SQ-124, 11-18: the /work pager's rest pulse, off by default since 11-20 
 Skip targets that are not painted: Blink restyles an animated `display:none` element every frame. A pulse
 that must survive a recolour cannot tween a colour FROM the accent, because GSAP records the start
 once; the pager fades a white twin of its number on opacity instead (`.fp-scale__peak`).
+
+A CSS transition runs on wall-clock time from the frame it starts, so a long task right after it
+starts (a phone's World Turn landing) lets it finish unseen: the next painted frame is the end value.
+`playTransitionThroughStalls` (`motion.js`) keeps the CSS (look, duration, easing) and owns only the
+clock: it pauses the element's running transition of one property and advances it each frame by the
+frame's dt, capped at 50 ms, and its `onDone` replaces a timer for whatever follows the transition
+(SQ-142: the pager chip drops `data-show` when its wipe has actually played; a re-engage kills it).
 
 Globe tiles: `globe/tileSwap.js` is the one refcount-safe way to put an asset on a tile (`loadTile`,
 `heldThumbId` ownership). A tile's asset changes only where its screen shows no media (the parked
@@ -552,7 +559,7 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
   under `scripts/test/legal-scroll.test.mjs`, `scripts/lib/plateauGate.mjs` (memory-probe: a count
   plateaus or climbs, SQ-129; `stepGate`, the opening step's cap, SQ-133; `roundGate`, the resting footprint over hold rounds, SQ-136) under `scripts/test/plateau-gate.test.mjs`, `scripts/test/step-gate.test.mjs` and `scripts/test/round-gate.test.mjs`, `scripts/lib/restoreFlashGate.mjs`
-  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138; the wrapped mode, SQ-140) under `scripts/test/footer-row.test.mjs`. The 11-24 wave added `eyeRideGate.mjs` (`eye-ride.test.mjs`), `dirFilterResetGate.mjs` (`dir-filter-reset.test.mjs`), `fontCoverageGate.mjs` (`font-coverage.test.mjs`) and `imageSharpGate.mjs` (`image-sharp.test.mjs`). Every gate
+  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138; the wrapped mode, SQ-140) under `scripts/test/footer-row.test.mjs`. The 11-24 wave added `eyeRideGate.mjs` (`eye-ride.test.mjs`), `dirFilterResetGate.mjs` (`dir-filter-reset.test.mjs`), `fontCoverageGate.mjs` (`font-coverage.test.mjs`) and `imageSharpGate.mjs` (`image-sharp.test.mjs`); SQ-142 added `chipWipeGate.mjs` (pager-probe `--scenario=chipwipe`, the chip's exit wipe sampled every frame, `--browser=webkit`, `--stall=MS` busy-waits as `data-exit` lands) under `chip-wipe.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
   `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named
