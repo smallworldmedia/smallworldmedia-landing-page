@@ -3,7 +3,8 @@
  * BaseLayout — HTML document shell.
  *
  * Handles: charset, viewport, meta, fonts, favicon,
- * Netlify hidden form, global CSS, and the persistent SiteShell.
+ * Netlify hidden form, global CSS, the persistent SiteShell, and
+ * Plausible analytics (production builds only).
  *
  * The SiteShell (nav + drawer + overlay) uses `transition:persist`
  * so it survives page navigations without reloading state.
@@ -78,6 +79,16 @@ const isHome = Astro.url.pathname === '/';
 // Process-page chrome variant (transparent nav over the brand-black field)
 // + the route's scroll unlock key off this one — same server-side rule.
 const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
+
+/* Plausible visit counts (11-24, Nathan): production builds only. Netlify sets
+   CONTEXT to 'production' for main's build and to 'branch-deploy' or
+   'deploy-preview' for every other one; dev servers and local builds have none,
+   so previews, probes and dev traffic never reach the stats. The script sets no
+   cookies and stores nothing on the device, which the privacy copy
+   (PrivacyContent.jsx) describes. It sits in <head>, so a ClientRouter swap
+   keeps it rather than re-running it, and its own history tracking counts each
+   swap as a pageview. */
+const analytics = process.env.CONTEXT === 'production';
 
 /* The site-wide studio copy (10-08, Nathan) — the footer blurb and the tagline,
    from the `siteSettings` singleton in Sanity. Fetched HERE because this is the
@@ -198,6 +209,17 @@ const roster = await getDirectoryData()
 
     {/* Inter (the UI stack's fallback behind ABC Areal) is self-hosted: its @font-face lives in
         global.css, so no Google Fonts stylesheet or preconnect. */}
+
+    {/* Privacy-friendly analytics by Plausible: production only (`analytics` above) */}
+    {analytics && (
+      <>
+        <script is:inline async src="https://plausible.io/js/pa-SKEgfMNuIOLiFkhOIoZCY.js"></script>
+        <script is:inline>
+          window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+          plausible.init()
+        </script>
+      </>
+    )}
 
     {/* Favicons */}
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
