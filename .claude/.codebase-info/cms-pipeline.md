@@ -18,11 +18,12 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
 - `manifest.mjs` — `parseManifest()` (headers client/services/year/project; columns file, mediaType,
   serviceType, title, isHero, sortOrder, aspectRatio, contentRole, displayGroup, groupType,
   brandDeckOrder, sanityId; Mode 1 header services vs Mode 2 per-row) and `inspectFile()`
-  (path/symlink guard, sha256, dimensions). `groupType` (b54bf9f, 11-11) must be one of
-  `GROUP_TYPES` and, like every column, is written only when the row is created (`runner.mjs`
-  create path); on a bound row the audit's `manifest-drift` compares it, but a plan never replays
-  it. A set type other than album-art without a `displayGroup` is refused at plan time
-  (`validateDocument`). displayGroup convention: a group ending `-banner(s)` (e.g.
+  (path/symlink guard, sha256, dimensions). `displayGroup` and `groupType` name the Set a new row
+  joins or creates, never fields on the piece (those left the schema 11-25, `39f91bc`): `groupType`
+  must be one of `GROUP_TYPES`; at plan time a groupType with no set to land on (album art aside) is
+  refused, and so is a displayGroup naming no set when the row has no groupType to create it with
+  (`runner.mjs` `linkSet`). On a bound row the audit's `manifest-drift` skips both columns (its group
+  is its Set, edited in Studio). Key convention (the set's key): one ending `-banner(s)` (e.g.
   `soundcloud-banners`, mediaType static_other) renders in the detail page's BannerViewer; a group
   ending `-sequence` (e.g. `imperfect-records-wide-logo-sequence`) makes its stills one tile that
   cuts through them on the site's one clock (`src/lib/mediaSequence.js`)
@@ -34,9 +35,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   is writable as a whole keyed array (newly added picks must be published video mediaAssets).
   mediaAsset `splitIntoThirds` (11-05) is allowlisted as a boolean, refused on a non-video document;
   its schema landed alone with the hash `8165cbfe` (`d47079e`).
-  mediaAsset `groupType` (11-10) is allowlisted as `GROUP_TYPES` (album-art, deck, banner, admat,
-  carousel, and since 11-11 merch, visuals, live-footage, mockups, flyer-progression); `validateDocument`
-  requires `displayGroup` for every type but album-art. It landed alone with the hash `70b35be3`
+  `groupType` (11-10) takes `GROUP_TYPES` (album-art, deck, banner, admat, carousel, and since 11-11
+  merch, visuals, live-footage, mockups, flyer-progression); since 11-25 only a Set has one. It began
+  on mediaAsset, landing alone with the hash `70b35be3`
   (`1d181ae`); merch/visuals/live-footage with `94b8dbe6` (`b73fd3b`); mockups/flyer-progression with
   `eb3c783a` (`893361b`), then `fc3c0040` (`54fac5d`, the description's apostrophe had closed its
   single-quoted string and broken `astro build`: esbuild every schema file before committing).
@@ -51,7 +52,11 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   `allowAsHero`; required title, slug, groupType) and mediaAsset `set` a reference to one;
   `references()` types it as a mediaSet. Schema and hash `205ffc6c` landed alone (`6695510`), the tool
   after (`4b106b8`). `HASHED_SCHEMAS` includes mediaSet. A Set's `project` became optional (retirement
-  step 1, 11-25) with the hash `ba118894` (`a78be23`).
+  step 1, 11-25) with the hash `ba118894` (`a78be23`). The Display Group / Group Type retirement
+  (Nathan 11-24/25) ended with mediaAsset's `displayGroup` and `groupType` leaving the schema and the
+  allowlist, hash `cee42ca9` (`39f91bc`), after intake stopped writing them (`7aa3600`) and eight
+  clearing plans unset them on 723 pieces: a write or an unset of either is now a rejected field, and a
+  deck page or carousel slide needs a `set`.
   Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
@@ -79,8 +84,10 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   to a set of another project: the set's project and the piece's must be equal, none with none
   (`5cea820`, 11-25), so a project-less piece joins only a project-less set. Intake: a new row with a displayGroup joins that key's set in its
   project (or `<key>-<project slug>`), album art joins `<project slug>-album-art`; a set the project
-  lacks is created first with the row's groupType and "Can be the hero" off (no groupType: noted,
-  not linked). The legacy displayGroup / groupType are still written.
+  lacks is created first with the row's groupType and "Can be the hero" off (no groupType: refused at
+  plan time). Only `set` is written (`7aa3600`). A project-less row joins its client's project-less
+  set (`mediaSet-<client slug>-<key>`, created with no `project`); a project-less set named for another
+  client is refused.
 - `adapters.mjs` — Sanity + Mux clients (lazy credentials, streaming uploads, Mux direct upload with
   passthrough = op id; `preparing` resumes; audit reads `sanity.snapshot()` — paged raw perspective, secrets excluded — and `mux.listAssets()`), sharp/ffprobe probes (rejects non-square SAR). `sanity.findTags(slugs, names)` also
   matches `lower(name)` (a renamed tag). Delete
@@ -99,9 +106,10 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   `hidden-from-site` (info, SQ-83) lists each mediaAsset ticked `hideFromSite` (id, title); its
   files stay in use, so it never warns.
   Sets (US-10): `set-project-mismatch` and `set-key-duplicate` (errors), `set-empty` (warning: a Set
-  no published piece points at), `set-drift` (info: a legacy displayGroup or groupType that differs
-  from its set's; the set wins on the site) and `set-missing` (info: a piece with a displayGroup, or
-  project album art, and no set). Sets are left out of `slug-collision`.
+  no published piece points at) and `set-missing` (info: project album art with no set; the site still
+  shows it as album art from its mediaType). `set-drift` was retired with the fields (`39f91bc`): a
+  leftover displayGroup / groupType on a piece is now `unknown-field`. Sets are left out of
+  `slug-collision`.
 - `sets.mjs` — the Set naming both the runner and the migration use: `setId(projectSlug, key)` =
   `mediaSet-<project slug>-<key>`, `albumArtKey`, `projectKey` (a key another project shares becomes
   `<key>-<project slug>`), `keyInWords` (the title), `isProjectAlbumArt`, `newSet`, `ref`, `baseId`.
@@ -118,6 +126,8 @@ Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE
 column after `displayGroup`; never uploads, never overwrites bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
 
 ## Sets migration (US-10)
+Done: every legacy group got its Set (11-16 → 11-25) and the legacy fields are gone, so a re-run
+finds nothing to place; the script is kept for its record.
 `node --env-file=.env.local scripts/cms-sets-migration.mjs --project-id ID --dataset NAME --out DIR` reads
 the dataset and writes `--changes` request files (`_cms-request_sets-migration-2026-11-<n>.json`), never
 Sanity: one Set per (project, legacy displayGroup) plus one album-art set per project with album art;
