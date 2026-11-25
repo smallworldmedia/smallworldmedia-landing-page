@@ -107,7 +107,7 @@ records (`docs/globe-worlds-plan.md`).
        `live-footage`;
      - the COCO 2026 cleanup, with its deletes applied as `ecde6bb9`.
    - **US-5** (schema `893361b`, fixed by `54fac5d`; SQ-58, SQ-59 and `03b70f2`; fold `f25f7ae`):
-     - two more types: `mockups` (a masonry wall at each piece's own aspect) and
+     - two more types: `mockups` (a masonry wall at each piece's own aspect; since SQ-154, 11-24, one full-width horizontal strip) and
        `flyer-progression` (a strip on the project page, a cycler on the globe and /work; the
        directory flips through both);
      - content Rounds A, B (`29e1b2d3`) and C (`71d7ccd4`, alt text, the Rossi labels,
