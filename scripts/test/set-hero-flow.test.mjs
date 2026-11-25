@@ -103,6 +103,19 @@ test('?heroset preview: a legacy visuals set (no Set document) leads; without it
   assert.equal('heroSet' in buildContentFlow([clip('hero'), still('t1')], { surface: 'detail', heroSetPreview: true }), false)
 })
 
+test('album art leads as the whole cover wall without the preview or the toggle (11-24); a lone cover is the plain hero', () => {
+  const cover = (id, extra = {}) => still(id, 'album-art', { groupType: 'album-art', ...extra })
+  const flow = buildContentFlow([cover('c1'), still('t1'), cover('c2'), cover('c3')], { surface: 'detail' })
+  assert.deepEqual([flow.heroSet.type, ids(flow.heroSet.items), flow.albumArt, flow.albumArtSeat], ['album-art', ['c1', 'c2', 'c3'], [], null])
+  assert.deepEqual(ids(flow.showcase), ['t1'])
+  const off = (id) => cover(id, { setId: 'mediaSet-art', setAllowsHero: false })
+  assert.deepEqual(ids(buildContentFlow([off('c1'), off('c2')], { surface: 'detail' }).heroSet.items), ['c1', 'c2'], 'the Set toggle off still leads')
+  // NC: one cover is just the hero; a cover not first stays in the cover wall; other surfaces never lead
+  assert.equal('heroSet' in buildContentFlow([cover('c1'), still('t1')], { surface: 'detail' }), false)
+  assert.equal('heroSet' in buildContentFlow([still('t0'), cover('c1'), cover('c2')], { surface: 'detail' }), false)
+  assert.equal('heroSet' in buildContentFlow([cover('c1'), cover('c2')], { surface: 'work' }), false)
+})
+
 test('every type the hero box holds leads from its own lane; a set of one is just the hero', () => {
   const cover = (id) => still(id, 'album-art', { groupType: 'album-art' })
   const covers = [cover('c1'), still('t1'), cover('c2'), cover('c3')]

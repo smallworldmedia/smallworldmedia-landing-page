@@ -268,6 +268,18 @@ test('setHeroNote: why a set will not lead, and when it does', () => {
   assert.equal(setHeroNote(buildRows(ps, [set('s', 'deck')]), 'nope'), null)
 })
 
+test('album art leads whole in Studio too, toggle or not (11-24): label and note agree with the page', () => {
+  const ps = [piece('a', 100, { set: 's' }), piece('b', 200, { set: 's' }), piece('z', 300)]
+  const off = heroOf(buildRows(ps, [set('s', 'album-art', false)]))
+  assert.equal(off.wholeSet, true)
+  assert.equal(off.label, 'Hero: whole set')
+  assert.match(setHeroNote(buildRows(ps, [set('s', 'album-art', false)]), 's'), /album art always leads as its whole set/)
+  // not first: no nudge to drag it up, whatever the toggle says
+  const later = [piece('z', 50), ...ps.slice(0, 2)]
+  assert.equal(setHeroNote(buildRows(later, [set('s', 'album-art', true)]), 's'), null)
+  assert.equal(setHeroNote(buildRows(later, [set('s', 'album-art', false)]), 's'), null)
+})
+
 test('mergeVersions + expandPatches: a rank lands on the published doc and its draft twin, once each', () => {
   const docs = [
     { _id: 'both', title: 'published', orderRank: rank(100) },

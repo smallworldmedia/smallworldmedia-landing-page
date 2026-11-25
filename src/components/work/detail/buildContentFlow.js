@@ -83,7 +83,7 @@
  *     hero is assets[0] whatever its type and never reaches this check.
  * 14. US-10 (11-16, Nathan): a set can lead the project page. On `detail`, when the
  *     hero's set may lead (leadsAsSet, src/lib/setHero.js: its Set document's "Can be
- *     the hero", or a legacy deck), the output also carries `heroSet: {group, type,
+ *     the hero", album art always (11-24), or a legacy deck), the output also carries `heroSet: {group, type,
  *     items}`: every member, the hero included, in rank order. Those members are in no
  *     bucket and the set has no rank seat, so it is never drawn twice. Without a
  *     leading set the output has no `heroSet` key and is as it always was.
@@ -435,7 +435,7 @@ const HERO_SET_LANE = {
 /**
  * The set that leads a project page in its own viewer (US-10, Nathan 11-16), or null. On `detail`
  * only: when the hero (assets[0]) belongs to a set that may lead (leadsAsSet, setHero.js: its Set
- * document's "Can be the hero", or a legacy deck), that set's every member, the hero included, in
+ * document's "Can be the hero", album art always (11-24), or a legacy deck), that set's every member, the hero included, in
  * rank order (a deck's and an admat's pages in brandDeckOrder, as their walls always sat).
  * `preview` (?heroset=1) treats any first piece's set as allowed, legacy sets included. A set of one
  * is no set (a deck of one keeps leading, as it did): the piece leads on its own.

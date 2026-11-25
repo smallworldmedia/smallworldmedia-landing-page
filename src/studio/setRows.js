@@ -250,10 +250,13 @@ export function setHeroNote(rows, setId) {
   if (!setCanLead({ allowAsHero: true, groupType: set.groupType })) {
     return "This type can't lead a project page yet, so the set's first piece is the hero when the set is first."
   }
-  if (set.allowAsHero === true && !first) {
+  // Album art leads as its whole set, toggle or not (11-24, src/lib/setHero.js).
+  const always = set.groupType === 'album-art'
+  if (set.allowAsHero === true && !first && !always) {
     return "Can be the hero is on, but this set isn't first in its project's list, so it doesn't lead the page. Drag it to the top of Featured Project Assets."
   }
-  if (set.allowAsHero === true) return 'This set is first in its project and can be the hero, so the page opens on the whole set.'
+  if (first && always) return 'This set is first in its project, and album art always leads as its whole set, so the page opens on every cover.'
+  if (first && set.allowAsHero === true) return 'This set is first in its project and can be the hero, so the page opens on the whole set.'
   if (first) return "This set is first in its project, but Can be the hero is off, so the page opens on the set's first piece."
   return null
 }
