@@ -143,7 +143,9 @@
  *   seat        the badge's gap above the viewport's bottom edge is the same on every route (home, /work,
  *               a detail page, the directory, /process, /privacy), at rest and at the footer's end state
  *               (scrolled to the end, a wheel on home to reveal it), at this width; on a phone every gap is
- *               also at least the clearance.
+ *               also at least the clearance. Since SQ-144's ride (SQ-153) the gap is read from the viewport's bottom lifted
+ *               with the links panel where the eye rides it (home, process: min(panel top + its resting lift, viewport
+ *               bottom), gate.seatGap), after the eye has settled (the on-load footer slide done), so the footer's end equals the rest seat.
  *   rightEdge   the tile's right edge equals the viewport's within 0.5 px on home, /work and /privacy at
  *               390, 1024, 1440 and 1920, at rest and engaged (once per scheme, whatever --width).
  *   noClip      frames of the entrance, the exit and a page through the stations (ArrowDown x2, ArrowUp x2):
@@ -173,7 +175,9 @@
  *               shifted eye, and /work's lens arrow, mirrored, is shown in the gap, pointing left, on the lens
  *               line; at rest the arrow waits ENTIRELY beyond the viewport's right edge (pass 11) and the badge is the
  *               eye plus a padding each side. --shots=DIR
- *               saves shift-<scheme>-<width>-<motion|reduced>-{rest,engaged,mid,next}.png.
+ *               saves shift-<scheme>-<width>-<motion|reduced>-{rest,engaged,mid,next}.png. The rest pose is read once
+ *               the eye has stopped moving (SQ-153: not before SQ-144's on-load footer slide has carried it up, or the hover lands
+ *               on the logo ticker); an eye that never settles FAILS as "eye not settled", never measured mid-slide.
  *               Negative controls: --inject='.swm-corner{--eye-shift:0px !important}' (a straight column) and
  *               --inject='.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer{display:none !important}'
  *               (the arrow hidden again) must FAIL.
@@ -1303,6 +1307,36 @@ function pageShift() {
 }
 
 /**
+ * Wait for the corner eye to come to rest (SQ-153): every island committed, no on-load `--footer-slide` left on <html>
+ * (the panel parks at the fold, then slides in about 2 s after load and the eye rides up with it), and the eye's rect
+ * unchanged within `tol` px over `hold` ms. Never measures mid-slide: when the eye has not settled by `timeout` it
+ * throws "eye not settled" (the gate FAILS by that name) rather than read a pose that is still moving.
+ */
+async function settleEye(page, { tol = 0.5, hold = 500, timeout = 15000 } = {}) {
+  await page.waitForFunction(() => window.__swmCommitted && window.__swmCommitted(), null, { timeout: 40000 }).catch(() => {});
+  const read = () => page.evaluate(() => {
+    const r = document.querySelector('.swm-corner .scheme-eye')?.getBoundingClientRect();
+    return { r: r ? [r.left, r.top, r.width, r.height] : null, sliding: !!document.documentElement.style.getPropertyValue('--footer-slide') };
+  });
+  const t0 = Date.now();
+  let ref = null;
+  let since = t0;
+  let last = null;
+  while (Date.now() - t0 < timeout) {
+    const s = await read();
+    last = s;
+    if (s.r && !s.sliding && ref && s.r.every((v, i) => Math.abs(v - ref[i]) <= tol)) {
+      if (Date.now() - since >= hold) return;
+    } else {
+      ref = s.r && !s.sliding ? s.r : null;
+      since = Date.now();
+    }
+    await sleep(50);
+  }
+  throw new Error(`eye not settled within ${timeout} ms (${last?.sliding ? 'the on-load footer slide is still running' : last?.r ? `rect ${last.r.map((v) => v.toFixed(1)).join(' ')} still moving` : 'no eye found'})`);
+}
+
+/**
  * The shift run: one home page, motion on or reduced, the badge at rest, then engaged (a mouse hover, or a held
  * CDP touch on a phone) and settled: the geometry for gate.shift, with screenshots (engaged, then mid-scrub, a
  * ArrowDown pressed a moment ago) under --shots. S is the DEFAULT shift, one rest eye width, never read back
@@ -1312,6 +1346,7 @@ async function measureShift(browser, scheme, width, { reduced }) {
   const phone = width <= 480;
   const ctx = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: 1, reducedMotion: reduced ? 'reduce' : 'no-preference', ...(phone ? { isMobile: true, hasTouch: true } : {}) });
   await ctx.route(/stream\.mux\.com/, (r) => r.abort());
+  await ctx.addInitScript(hydrationHook);
   const page = await ctx.newPage();
   const tag = `${scheme}-${width}-${reduced ? 'reduced' : 'motion'}`;
   const shot = async (name) => {
@@ -1325,7 +1360,7 @@ async function measureShift(browser, scheme, width, { reduced }) {
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 60000 });
     if (INJECT) await page.addStyleTag({ content: INJECT });
     await page.evaluate(() => document.fonts.ready);
-    await sleep(1500);
+    await settleEye(page);
     const rest = await page.evaluate(pageShift);
     await shot('rest');
     const cdp = phone ? await ctx.newCDPSession(page) : null;
@@ -1838,20 +1873,24 @@ async function measurePersist(browser, scheme, width) {
 }
 
 /**
- * The badge's gap above the viewport's bottom edge on one route at one width: at rest, then at the footer's end
- * state (scrolled to the end; a wheel as well, which is what reveals the footer on home).
+ * The badge's gap above its reference line on one route at one width: at rest, then at the footer's end state
+ * (scrolled to the end; a wheel as well, which is what reveals the footer on home). The line is the viewport's bottom,
+ * lifted with the links panel where the eye rides it (gate.seatGap, SQ-153), measured once the eye has settled. The rest
+ * pose's panel top is the route's own reference for the end sample.
  */
 async function measureSeat(ctx, scheme, urlPath, label) {
   const page = await ctx.newPage();
+  let restPanelTop;
   const gapOf = async () => {
     const r = await page.evaluate(pageWidgetRest);
-    return r?.tile ? { gap: r.vp.h - (r.tile.y + r.tile.h), clear: r.ref.clear } : { gap: NaN, clear: null };
+    if (restPanelTop === undefined) restPanelTop = r?.footerTop ?? null;
+    return r?.tile ? { gap: gate.seatGap({ tileBottom: r.tile.y + r.tile.h, panelTop: r.footerTop, restPanelTop, vh: r.vp.h }), clear: r.ref.clear } : { gap: NaN, clear: null };
   };
   try {
     await page.goto(`${BASE}${urlPath}${urlPath.includes('?') ? '&' : '?'}scheme=${scheme}`, { waitUntil: 'load', timeout: 90000 });
     await page.waitForSelector('.swm-corner[data-ready]', { timeout: 30000 });
     if (INJECT) await page.addStyleTag({ content: INJECT });
-    await sleep(1500);
+    await settleEye(page);
     const out = [{ label: `${label} rest`, ...(await gapOf()) }];
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await page.mouse.move(200, 300);
