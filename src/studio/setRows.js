@@ -12,6 +12,8 @@
 //   - Moving a set rewrites ALL its members as one contiguous run between the neighbours'
 //     boundaries, internal order kept, so a non-contiguous set becomes contiguous.
 //   - Moving a member inside its set keeps the set where it is (planMemberMove).
+//   - A write never takes a rank another piece holds, listed or not (clearOf): order is the Studio
+//     list's alone (Nathan 11-25), so a tie this list can't show must never come from it.
 //
 // The hero rule is src/lib/setHero.js and nothing here restates it.
 
@@ -131,6 +133,28 @@ const lowerBound = (prevRow, hi) => {
 }
 const upperBound = (nextRow) => (nextRow ? nextRow.min : MAX)
 
+/**
+ * `lo` raised past every other piece's rank below `hi`, so the gap (lo, hi) holds no rank a piece
+ * already has. A row bounds the gap only by its lowest and highest member, and a set whose members
+ * interleave with another set's leaves pieces inside that gap: on 11-20 Cheetah Print's Logo
+ * Reveal, dropped below the mockups set, took Billboard — Miami Teaser's 0|i0000f:, the midpoint
+ * between the set's first member and the next row. `others` are the ranks of every piece not
+ * being moved, listed or not.
+ */
+function clearOf(lo, hi, others) {
+  for (const r of others) if (r > lo && r < hi) lo = r
+  return lo
+}
+
+/** The ranks of the pieces that are not `moving`. */
+const ranksBut = (pieces, moving) => {
+  const ids = new Set(moving.map((m) => m.id))
+  return pieces.flatMap((p) => (ids.has(p.id) || !p.orderRank ? [] : [p.orderRank]))
+}
+
+/** The ranks of the pieces no row lists (process pieces, deck pages with no set): a renumber keeps clear of them. */
+const unlistedRanks = (rows, pieces) => ranksBut(pieces, rows.flatMap((r) => r.members))
+
 /** Patches for the pieces whose rank actually changes. */
 const changed = (pieces, ranks) =>
   pieces.flatMap((piece, i) => (piece.orderRank === ranks[i] ? [] : [{ id: piece.id, orderRank: ranks[i] }]))
@@ -138,13 +162,16 @@ const changed = (pieces, ranks) =>
 /**
  * The last resort, for duplicate ranks (no room between two neighbours) and for a list with
  * unranked pieces: rank every piece again, in row order, the way the orderable list's "Reset
- * Order" does. Only the pieces whose rank differs come back.
+ * Order" does, stepping over the ranks in `taken` (pieces the list doesn't show). Only the
+ * pieces whose rank differs come back.
  */
-function renumber(rowsInOrder) {
+function renumber(rowsInOrder, taken = []) {
+  const skip = new Set(taken)
   let rank = LexoRank.min()
   const pieces = rowsInOrder.flatMap((row) => row.members)
   const ranks = pieces.map(() => {
-    rank = rank.genNext().genNext()
+    do rank = rank.genNext().genNext()
+    while (skip.has(rank.toString()))
     return rank.toString()
   })
   return changed(pieces, ranks)
@@ -160,20 +187,23 @@ const inRange = (list, ...indexes) => indexes.every((i) => Number.isInteger(i) &
 
 /**
  * Move the row at `from` so it ends up at index `to`. Returns [{ id, orderRank }] for the pieces
- * to write: one for a single piece; every member, as one contiguous run, for a set.
+ * to write: one for a single piece; every member, as one contiguous run, for a set. `pieces` is
+ * every piece of the project, listed or not (useProjectRows's `pieces`), so no write lands on a
+ * rank one of them holds.
  */
-export function planMove(rows, from, to) {
+export function planMove(rows, from, to, pieces = rows.flatMap((r) => r.members)) {
   if (from === to || !inRange(rows, from, to)) return []
   const moving = rows[from]
   const rest = rows.filter((_, i) => i !== from)
   const prevRow = rest[to - 1]
   const nextRow = rest[to]
-  if (rows.some((row) => row.unranked)) return renumber(withMoved(rows, from, to))
+  const taken = unlistedRanks(rows, pieces)
+  if (rows.some((row) => row.unranked)) return renumber(withMoved(rows, from, to), taken)
 
   const hi = upperBound(nextRow)
-  const lo = lowerBound(prevRow, hi)
+  const lo = clearOf(lowerBound(prevRow, hi), hi, ranksBut(pieces, moving.members))
   const ranks = spread(lo, hi, moving.members.length)
-  if (!ranks) return renumber(withMoved(rows, from, to))
+  if (!ranks) return renumber(withMoved(rows, from, to), taken)
   return changed(moving.members, ranks)
 }
 
@@ -182,31 +212,31 @@ export function planMove(rows, from, to) {
  * never leaves its place: the new rank sits between the member's new neighbours, and at an end
  * of the set it sits between the member beside it and the set's outer neighbour row. If that
  * leaves no room (duplicate ranks, or a set that was not contiguous), the whole set is laid
- * down again as one run between the outer neighbours.
+ * down again as one run between the outer neighbours. `pieces` as in planMove.
  */
-export function planMemberMove(rows, setIndex, from, to) {
+export function planMemberMove(rows, setIndex, from, to, pieces = rows.flatMap((r) => r.members)) {
   const row = rows[setIndex]
   if (!row || row.kind !== 'set') return []
   const count = row.members.length
   if (from === to || !inRange(row.members, from, to)) return []
   const order = row.members.slice()
   order.splice(to, 0, order.splice(from, 1)[0])
-  if (rows.some((r) => r.unranked)) {
-    return renumber(rows.map((r, i) => (i === setIndex ? { ...r, members: order } : r)))
-  }
+  const taken = unlistedRanks(rows, pieces)
+  const relaid = () => renumber(rows.map((r, i) => (i === setIndex ? { ...r, members: order } : r)), taken)
+  if (rows.some((r) => r.unranked)) return relaid()
 
   const prevRow = rows[setIndex - 1]
   const nextRow = rows[setIndex + 1]
   const before = order[to - 1]
   const after = order[to + 1]
   const hi = after ? after.orderRank : upperBound(nextRow)
-  const lo = before ? before.orderRank : lowerBound(prevRow, hi)
+  const lo = clearOf(before ? before.orderRank : lowerBound(prevRow, hi), hi, ranksBut(pieces, [order[to]]))
   const one = spread(lo, hi, 1)
   if (one) return [{ id: order[to].id, orderRank: one[0] }]
 
   const runHi = upperBound(nextRow)
-  const run = spread(lowerBound(prevRow, runHi), runHi, count)
-  if (!run) return renumber(rows.map((r, i) => (i === setIndex ? { ...r, members: order } : r)))
+  const run = spread(clearOf(lowerBound(prevRow, runHi), runHi, ranksBut(pieces, order)), runHi, count)
+  if (!run) return relaid()
   return changed(order, run)
 }
 

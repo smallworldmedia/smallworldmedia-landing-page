@@ -51,7 +51,7 @@ function rowBody(row, heroLabel) {
 
 export default function ProjectAssetsPane({ options }) {
   const { projectId } = options || {}
-  const { loading, error, rows, commit } = useProjectRows(projectId)
+  const { loading, error, rows, pieces, commit } = useProjectRows(projectId)
   const { ChildLink, groupIndex, routerPanesState } = usePaneRouter()
   const openId = routerPanesState[groupIndex + 1]?.[0]?.id
 
@@ -100,7 +100,7 @@ export default function ProjectAssetsPane({ options }) {
   return (
     <Box padding={2} style={{ height: '100%', overflow: 'auto' }}>
       <Stack gap={2}>
-        <ReorderList items={items} onMove={(from, to) => commit(planMove(rows, from, to))} />
+        <ReorderList items={items} onMove={(from, to) => commit(planMove(rows, from, to, pieces))} />
         <Box padding={2}>
           <Text size={0} muted>
             The top row is the project page's hero. A set is one row: drag it to move all its pieces together.

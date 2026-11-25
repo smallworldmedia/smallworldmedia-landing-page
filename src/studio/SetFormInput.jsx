@@ -13,7 +13,7 @@ import { planMemberMove, setHeroNote } from './setRows.js'
 import { useProjectRows } from './useProjectRows.js'
 
 function SetMedia({ setId, projectId }) {
-  const { loading, error, rows, commit } = useProjectRows(projectId)
+  const { loading, error, rows, pieces, commit } = useProjectRows(projectId)
 
   if (error) {
     return (
@@ -76,7 +76,7 @@ function SetMedia({ setId, projectId }) {
           <Text size={1}>{note}</Text>
         </Card>
       )}
-      <ReorderList items={items} onMove={(from, to) => commit(planMemberMove(rows, setIndex, from, to))} />
+      <ReorderList items={items} onMove={(from, to) => commit(planMemberMove(rows, setIndex, from, to, pieces))} />
       <Text size={0} muted>
         {titleCase(row.set.groupType)} set. Drag a piece, or use the arrows, to reorder it inside the set; the set keeps its place in the project.
       </Text>

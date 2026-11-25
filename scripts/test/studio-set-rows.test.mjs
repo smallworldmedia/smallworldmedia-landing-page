@@ -4,6 +4,7 @@
 //   node --test scripts/test/studio-set-rows.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { LexoRank } from 'lexorank'
 import {
   mergeVersions,
   buildRows,
@@ -223,6 +224,73 @@ test('planMemberMove: a piece row, or a position outside the set, writes nothing
   assert.deepEqual(planMemberMove(rows, 0, 0, 1), [])
   assert.deepEqual(planMemberMove(rows, 1, 0, 5), [])
   assert.deepEqual(planMemberMove(rows, 1, 1, 1), [])
+})
+
+// No write takes a rank another piece holds (Nathan 11-25: order is the Studio list's alone).
+const between = (lo, hi) => LexoRank.parse(lo).between(LexoRank.parse(hi)).toString()
+const heldBy = (pieces, plan) => {
+  const writing = new Set(plan.map((p) => p.id))
+  const held = new Set(pieces.filter((p) => !writing.has(p.id)).map((p) => p.orderRank))
+  return plan.filter((p) => held.has(p.orderRank)).map((p) => `${p.id} ${p.orderRank}`)
+}
+
+test('planMove: a piece dropped below an interleaved set takes a free rank (Cheetah Print, 11-20)', () => {
+  // The live ranks before his drag: the mockups set's members sit among the flyer admats set's,
+  // and the old midpoint between the mockups row (0|i00007:) and the admats row (0|i0000n:) was
+  // Miami Teaser's own 0|i0000f:.
+  const sets = [set('mockups', 'mockups'), set('admats', 'admat')]
+  const pieces = [
+    piece('logo-reveal', 0, { orderRank: '0|hzzzzz:' }),
+    piece('highway', 0, { set: 'mockups', orderRank: '0|i00007:' }),
+    piece('miami-teaser', 0, { set: 'mockups', orderRank: '0|i0000f:' }),
+    piece('key-art-red', 0, { set: 'admats', orderRank: '0|i0000n:' }),
+    piece('rafael', 0, { set: 'mockups', orderRank: '0|i0000v:' }),
+    piece('admat-2', 0, { set: 'admats', orderRank: '0|i00013:' }),
+  ]
+  const rows = buildRows(pieces, sets)
+  assert.deepEqual(keys(rows), ['logo-reveal', 'mockups', 'admats'])
+  const plan = planMove(rows, 0, 1, pieces) // Logo Reveal below the mockups row
+  assert.deepEqual(touched(plan), ['logo-reveal'])
+  assert.deepEqual(heldBy(pieces, plan), [], 'no piece already holds the written rank')
+  assert.deepEqual(keys(after(pieces, plan, sets).rows), ['mockups', 'logo-reveal', 'admats'], 'the list shows the drop')
+})
+
+test('planMove: a write steps over a piece the list does not show, given the project\'s pieces', () => {
+  const mid = between(rank(300), rank(500))
+  const pieces = [piece('a', 100), piece('b', 300), piece('bts', 0, { contentRole: 'process', orderRank: mid }), piece('c', 500)]
+  const rows = buildRows(pieces, [])
+  assert.deepEqual(keys(rows), ['a', 'b', 'c'])
+  const plan = planMove(rows, 0, 1, pieces) // a between b and c
+  assert.deepEqual(heldBy(pieces, plan), [])
+  assert.deepEqual(keys(after(pieces, plan, []).rows), ['b', 'a', 'c'])
+  assert.equal(planMove(rows, 0, 1)[0].orderRank, mid, 'without the pieces the list leaves out, the planner cannot see the process clip')
+})
+
+test('planMove: a renumber steps over the ranks of pieces the list does not show', () => {
+  const first = LexoRank.min().genNext().genNext().toString()
+  const pieces = [piece('a', 300), piece('b', 0, { orderRank: undefined }), piece('bts', 0, { contentRole: 'process', orderRank: first })]
+  const rows = buildRows(pieces, [])
+  const plan = planMove(rows, 1, 0, pieces) // the unranked piece to the top: everything is ranked again
+  assert.deepEqual(heldBy(pieces, plan), [])
+  assert.deepEqual(keys(after(pieces, plan, []).rows), ['b', 'a'])
+})
+
+test('planMemberMove: a member moved inside an interleaved set takes a free rank', () => {
+  // set-d's d1 and d2 have set-e's e1 between them, exactly at their midpoint.
+  const sets = [set('set-d', 'deck'), set('set-e', 'admat')]
+  const pieces = [
+    piece('d1', 100, { set: 'set-d' }),
+    piece('e1', 0, { set: 'set-e', orderRank: between(rank(100), rank(300)) }),
+    piece('d2', 300, { set: 'set-d' }),
+    piece('d3', 500, { set: 'set-d' }),
+  ]
+  const rows = buildRows(pieces, sets)
+  assert.deepEqual(keys(rows), ['set-d', 'set-e'])
+  const plan = planMemberMove(rows, 0, 2, 1, pieces) // d3 between d1 and d2
+  assert.deepEqual(heldBy(pieces, plan), [])
+  const next = after(pieces, plan, sets)
+  assert.deepEqual(next.rows[0].members.map((m) => m.id), ['d1', 'd3', 'd2'])
+  assert.deepEqual(keys(next.rows), ['set-d', 'set-e'])
 })
 
 test('heroOf: a set with the toggle on leads whole; off, or a banner set, leads by its first piece', () => {
