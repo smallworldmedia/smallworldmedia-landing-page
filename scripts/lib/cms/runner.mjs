@@ -144,25 +144,32 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
     const existing = byId(collections.flatMap(c => c.docs).filter(d => d._type === 'mediaAsset' && d.client?._ref === client._id && d.sourceFolder === sourceFolder && d.sourceManifest === sourceManifest))
     for (const id of boundIds) existing.set(id, bound.get(id))
     const matched = new Set(), unboundRows = []
-    // A new row joins the set its displayGroup names (a key, within this project) or its project's album-art set;
-    // a set the project lacks is created first, with the row's groupType and "Can be the hero" off. Legacy fields still get written.
+    // A new row joins the set its displayGroup names (a key, within this project; with no project, within the client's
+    // project-less sets) or its project's album-art set; a missing set is created first, with the row's groupType and
+    // "Can be the hero" off. Only `set` is written: the piece's own displayGroup / groupType are retiring (11-25).
     let datasetSets; const plannedSets = new Set()
     const note = text => { if (!informational.includes(text)) informational.push(text) }
     const linkSet = async row => {
       const album = isProjectAlbumArt({ displayGroup: row.displaygroup, groupType: row.grouptype, mediaType: row.mediatype })
-      if (!project || !(row.displaygroup || album)) return null
-      const projectSlug = project.slug.current, group = row.displaygroup
+      // A cover with no project stays loose (Nathan 11-16): the site reads album art from its mediaType.
+      if (!row.displaygroup && !(album && project)) return null
+      const owner = project ? project.slug.current : client.slug.current, group = row.displaygroup
       datasetSets ||= (await sanity.findSets()).filter(d => !d._id.startsWith('drafts.') && !d._id.startsWith('versions.'))
-      const candidates = album ? [albumArtKey(projectSlug)] : [group, `${group}-${projectSlug}`]
-      const found = datasetSets.filter(d => d.project?._ref === project._id && candidates.includes(d.slug?.current))
-      invariant(found.length <= 1, `Project ${projectSlug} has several sets for ${candidates[0]}; resolve in Studio first`)
-      if (found.length) { if (row.grouptype && found[0].groupType !== row.grouptype) note(`${row.file}: its set ${found[0]._id} is type ${found[0].groupType}, the row says ${row.grouptype}; the set wins`); return found[0]._id }
+      const candidates = album ? [albumArtKey(owner)] : [group, `${group}-${owner}`]
+      const found = datasetSets.filter(d => (d.project?._ref ?? null) === (project?._id ?? null) && candidates.includes(d.slug?.current))
+      invariant(found.length <= 1, `${project ? 'Project' : 'Client'} ${owner} has several sets for ${candidates[0]}; resolve in Studio first`)
+      if (found.length) {
+        // A set with no project names no client either, so only its client-named id says it is this client's.
+        invariant(project || found[0]._id === setId(owner, found[0].slug.current), `${row.file}: the set ${found[0]._id} has no project and is not named for client ${owner}; link the piece with a changes request`)
+        if (row.grouptype && found[0].groupType !== row.grouptype) note(`${row.file}: its set ${found[0]._id} is type ${found[0].groupType}, the row says ${row.grouptype}; the set wins`)
+        return found[0]._id
+      }
       const groupType = album ? 'album-art' : row.grouptype
-      if (!groupType) { note(`${row.file}: displayGroup ${group} has no set in ${projectSlug} and no groupType column to create one with; the piece is not linked to a set`); return null }
-      const key = album ? candidates[0] : projectKey(group, projectSlug, datasetSets.some(d => d.slug?.current === group)), id = setId(projectSlug, key)
+      invariant(groupType, `${row.file}: displayGroup ${group} names no set in ${owner}, and the row has no groupType to create one with; add it (a piece's own displayGroup is no longer written)`)
+      const key = album ? candidates[0] : projectKey(group, owner, datasetSets.some(d => d.slug?.current === group)), id = setId(owner, key)
       if (!plannedSets.has(id)) {
         plannedSets.add(id)
-        const doc = newSet({ projectSlug, projectId: project._id, key, groupType }), { _id, _type, ...fields } = doc
+        const doc = newSet({ projectSlug: owner, projectId: project?._id, key, groupType }), { _id, _type, ...fields } = doc
         validateDocument(doc, { creation: true })
         operations.push({ id: _id, action: 'create', type: _type, before: null, after: doc, set: fields, unset: [], upload: false, diff: diffOf(null, doc, fields, []) })
       }
@@ -197,9 +204,11 @@ export async function planChanges({ checkout, target, manifest, changes, sanity,
       const title = row.title || path.basename(row.file), set = { title, slug: { _type: 'slug', current: legacySlug(title) }, mediaType: row.mediatype, client: ref(client._id), services }
       if (project) set.project = ref(project._id)
       if (header.year) set.yearStart = +header.year
-      for (const [col, field] of [['contentrole','contentRole'],['displaygroup','displayGroup'],['grouptype','groupType']]) if (row[col]) set[field] = row[col]
+      if (row.contentrole) set.contentRole = row.contentrole
       if (row.branddeckorder) set.brandDeckOrder = +row.branddeckorder
       const linked = await linkSet(row); if (linked) set.set = ref(linked)
+      // A type the row names must land on a set, or it would be lost; a cover typed album-art needs none.
+      else invariant(!row.grouptype || row.mediatype === 'album-art', `${row.file}: groupType ${row.grouptype} has no set to land on; name its set in displayGroup`)
       const after = { _id: id, _type: 'mediaAsset', ...set, sourceFolder, sourceManifest }
       operations.push({ id, action: 'create', type: 'mediaAsset', before: null, after, set, unset: [], source, upload: true, rowFile: row.file, diff: [] })
     }

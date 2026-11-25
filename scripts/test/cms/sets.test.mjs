@@ -70,10 +70,14 @@ test('intake: a row joins the set its displayGroup names, a missing set is creat
   const existing = setDoc('mediaSet-example-project-existing-group', 'existing-group', { groupType: 'merch' })
   const elsewhere = setDoc('mediaSet-other-brand-guidelines-deck', 'brand-guidelines-deck', { project: reference('project-other'), groupType: 'deck' })
   const h = await harness(t, { docs: [project(), project('project-other', 'other-project'), existing, elsewhere] })
-  const rows = [['a.jpg', 'static_1x1', 'A', 'tour-admats', 'admat', ''], ['b.jpg', 'static_1x1', 'B', 'tour-admats', 'admat', ''], ['c.jpg', 'album-art', 'C', '', 'album-art', ''], ['d.jpg', 'static_1x1', 'D', 'loose-group', '', ''],
+  const rows = [['a.jpg', 'static_1x1', 'A', 'tour-admats', 'admat', ''], ['b.jpg', 'static_1x1', 'B', 'tour-admats', 'admat', ''], ['c.jpg', 'album-art', 'C', '', 'album-art', ''],
     ['e.jpg', 'static_1x1', 'E', 'brand-guidelines-deck', 'deck', ''], ['f.jpg', 'static_1x1', 'F', 'existing-group', 'merch', '']]
-  for (const [file] of rows) await h.file(file)
-  const manifest = path.join(h.media, '_manifest.md'); await writeFile(manifest, table(rows))
+  for (const [file] of [...rows, ['d.jpg']]) await h.file(file)
+  const manifest = path.join(h.media, '_manifest.md')
+  // A group with no set and no type to create one with would be lost (the piece's displayGroup is no longer written): refused.
+  await writeFile(manifest, table([...rows, ['d.jpg', 'static_1x1', 'D', 'loose-group', '', '']]))
+  await assert.rejects(h.plan({ manifest }), /d\.jpg: displayGroup loose-group names no set in example-project, and the row has no groupType/)
+  await writeFile(manifest, table(rows))
   const p = await h.plan({ manifest })
   const types = p.operations.map(o => `${o.type}:${o.id}`)
   assert.deepEqual(p.operations.filter(o => o.type === 'mediaSet').map(o => [o.id, o.after.slug.current, o.after.groupType, o.after.allowAsHero]), [
@@ -83,18 +87,42 @@ test('intake: a row joins the set its displayGroup names, a missing set is creat
   const at = id => types.findIndex(x => x.endsWith(`:${id}`)), assetOf = title => p.operations.find(o => o.after.title === title)
   for (const title of ['A', 'B', 'C', 'E']) assert.ok(at(assetOf(title).after.set._ref) < at(assetOf(title).id), `the set for ${title} is created before the piece`)
   assert.deepEqual([assetOf('A').after.set, assetOf('B').after.set].map(s => s._ref), ['mediaSet-example-project-tour-admats', 'mediaSet-example-project-tour-admats'])
-  assert.equal(assetOf('D').after.set, undefined); assert.match(p.informational.join('\n'), /d\.jpg: displayGroup loose-group has no set in example-project and no groupType column/)
   assert.equal(assetOf('F').after.set._ref, existing._id); assert.ok(!types.includes(`mediaSet:${existing._id}`), 'an existing set is linked, not recreated')
   assert.equal(p.operations.filter(o => o.type === 'mediaAsset').every(o => o.set.orderRank), true, 'ranks go to pieces only')
   const result = await h.apply(p)
-  assert.deepEqual([result.created, result.failed, result.pending, result.issues], [9, 0, 0, []])
+  assert.deepEqual([result.created, result.failed, result.pending, result.issues], [8, 0, 0, []])
   assert.deepEqual(h.db.get(assetOf('A').id).set, reference('mediaSet-example-project-tour-admats'))
-  assert.equal(h.db.get(assetOf('A').id).displayGroup, 'tour-admats'); assert.equal(h.db.get(assetOf('A').id).groupType, 'admat', 'the legacy fields are still written')
+  for (const title of ['A', 'C', 'F']) assert.deepEqual([h.db.get(assetOf(title).id).displayGroup, h.db.get(assetOf(title).id).groupType], [undefined, undefined], `${title}: only set is written (11-25)`)
   const bound = parseManifest(await readFile(manifest, 'utf8')).assets
   assert.deepEqual(bound.map(r => r.sanityid), p.operations.filter(o => o.type === 'mediaAsset').map(o => o.id), 'only pieces are written back to the manifest')
   // Rerunning is a no-op: every row is bound, so no set is planned again.
   const again = await h.plan({ manifest })
   assert.deepEqual([...new Set(again.operations.map(o => o.action))], ['unchanged'])
+})
+
+test('intake with no project: a row joins its client\'s set, a missing one is created with no project, a cover stays loose, another client\'s set refuses (11-25)', async t => {
+  const table = rows => `# Collection\nclient: Example\nservices: branding\n\n| file | mediaType | title | displayGroup | groupType | sanityId |\n|---|---|---|---|---|---|\n${rows.map(r => `| ${r.join(' | ')} |`).join('\n')}\n`
+  const { project: _, ...noProject } = setDoc('mediaSet-example-example-merch', 'example-merch', { groupType: 'merch' })
+  const projectSet = setDoc('mediaSet-example-project-example-banners', 'example-banners', { groupType: 'banner' })
+  const h = await harness(t, { docs: [project(), noProject, projectSet] })
+  const rows = [['m.jpg', 'static_1x1', 'M', 'example-merch', '', ''], ['n.jpg', 'static_1x1', 'N', 'example-banners', 'banner', ''], ['o.jpg', 'album-art', 'O', '', 'album-art', '']]
+  for (const [file] of rows) await h.file(file)
+  const manifest = path.join(h.media, '_manifest.md'); await writeFile(manifest, table(rows))
+  const p = await h.plan({ manifest })
+  const assetOf = title => p.operations.find(o => o.after.title === title)
+  assert.equal(assetOf('M').after.set._ref, noProject._id, 'the client-named set with no project')
+  // A key another project's set holds: this client's project-less set takes `<key>-<client slug>`, created first, with no project.
+  const created = p.operations.filter(o => o.type === 'mediaSet')
+  assert.deepEqual(created.map(o => [o.id, o.after.slug.current, o.after.groupType, 'project' in o.after]), [['mediaSet-example-example-banners-example', 'example-banners-example', 'banner', false]])
+  assert.equal(assetOf('N').after.set._ref, created[0].id)
+  assert.equal(assetOf('O').after.set, undefined, 'a cover with no project stays loose')
+  const result = await h.apply(p)
+  assert.deepEqual([result.created, result.failed], [4, 0])
+  // NC: a project-less set on the key, named for another client, is not this client's to join.
+  const { project: __, ...foreign } = setDoc('mediaSet-other-client-shared-merch', 'shared-merch', { groupType: 'merch' })
+  const h2 = await harness(t, { docs: [foreign] }); await h2.file('x.jpg')
+  const manifest2 = path.join(h2.media, '_manifest.md'); await writeFile(manifest2, table([['x.jpg', 'static_1x1', 'X', 'shared-merch', 'merch', '']]))
+  await assert.rejects(h2.plan({ manifest: manifest2 }), /x\.jpg: the set mediaSet-other-client-shared-merch has no project and is not named for client example/)
 })
 
 test('audit: a dataset with no sets has 0 errors and only info set-missing findings', () => {

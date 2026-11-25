@@ -155,11 +155,14 @@ test('exact approval and saved-plan matching; tampered patch/plan rejected', asy
   assert.equal(h.stats.images,0)
 })
 test('ready images videos reels deck pages and carousel slides scoped to selected files', async t => {
-  const h = await harness(t)
+  // A deck page and a carousel slide land on their sets: with no project, the client's own (mediaSet-<client slug>-<key>).
+  const clientSet = (key, groupType) => ({ _id: `mediaSet-example-${key}`, _type: 'mediaSet', _rev: `r-${key}`, title: key, slug: { _type: 'slug', current: key }, groupType, allowAsHero: false })
+  const h = await harness(t, { docs: [clientSet('deck-one', 'deck'), clientSet('carousel', 'carousel')] })
   for (const file of ['still.jpg','video.mp4','reel.mov','pages/01.jpg','slides/01.jpg','outside-scope.jpg']) await h.file(file)
   const p = await h.plan({manifest:await h.manifest([row('still.jpg'),row('video.mp4','motion_1x1','Video'),row('reel.mov','featured-project-reel','Reel'),row('pages/01.jpg','brand-deck','Page','','','deck-one','1'),row('slides/01.jpg','carousel-slide','Slide','','','carousel')])})
   const result = await h.apply(p); assert.equal(result.created,5); assert.equal(result.failed,0); assert.equal(h.stats.images,3); assert.equal(h.stats.uploads,2)
   assert.equal(p.operations.length,5)
+  assert.deepEqual(p.operations.filter(o => o.set.set).map(o => [o.after.title, o.set.set._ref]), [['Page','mediaSet-example-deck-one'],['Slide','mediaSet-example-carousel']])
   const journal = await readFile(path.join(h.store.dir(p.id),'journal.json'),'utf8'); assert.ok(!journal.includes('signed-secret')); assert.ok(!journal.includes('https://'))
 })
 test('preparing remains pending; resume attaches final ready aspect without a second upload', async t => {
@@ -266,10 +269,18 @@ test('video rebind refuses an unready or wrong-type target, an image asset, an u
   assert.equal(h.db.get(old._id).video.asset._ref,'mux-wrong'); assert.equal(h.stats.commits,0)
 })
 
-test('groupType: one of the ten set types; every type but album art names its set with displayGroup', async t => {
-  for (const groupType of ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']) validatePatch('mediaAsset',{groupType},[])
-  validatePatch('mediaAsset',{},['groupType'])
-  for (const set of [{groupType:'sequence'},{groupType:'Album Art'},{groupType:null},{groupType:1}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
+test('groupType: one of the ten set types on a Set; a piece\'s own displayGroup / groupType may be cleared, never written (11-25)', async t => {
+  const types = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']
+  for (const groupType of types) validatePatch('mediaSet',{groupType},[])
+  for (const set of [{groupType:'sequence'},{groupType:'Album Art'},{groupType:null},{groupType:1}]) assert.throws(() => validatePatch('mediaSet',set,[]))
+  // Retiring on a piece: a clearing plan unsets them; any write, valid value or not, is refused and points at the Set.
+  validatePatch('mediaAsset',{},['groupType','displayGroup'])
+  for (const groupType of types) assert.throws(() => validatePatch('mediaAsset',{groupType},[]),/groupType is retiring: a piece's group is its Set/)
+  assert.throws(() => validatePatch('mediaAsset',{displayGroup:'tour-admats'},[]),/displayGroup is retiring/)
+  validatePatch('mediaAsset',{set:reference('mediaSet-example-tour-admats')},[])
+  const { _rev, ...created } = existingMedia('mediaAsset-new',{set:reference('mediaSet-x')})
+  validateDocument(created,{creation:true})
+  assert.throws(() => validateDocument({...created,groupType:'admat'},{creation:true}),/groupType is retiring/)
   assert.throws(() => validatePatch('project',{groupType:'deck'},[]))
   validateDocument(existingMedia('mediaAsset-cover',{mediaType:'album-art',groupType:'album-art'}))
   validateDocument(existingMedia('mediaAsset-admat',{mediaType:'static_4x5',groupType:'admat',displayGroup:'tour-admats'}))
@@ -281,20 +292,24 @@ test('groupType: one of the ten set types; every type but album art names its se
   for (const set of [{groupType:'mockup'},{groupType:'flyer progression'}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
 })
 
-test('a manifest groupType column types new rows; a bad value, or a set type without its set, refuses', async t => {
+test('a manifest groupType column types a new row\'s set; a bad value, or a type with no set to land on, refuses', async t => {
   const table = rows => `# Collection\nclient: Example\nservices: branding\n\n| file | mediaType | title | displayGroup | groupType | sanityId |\n|---|---|---|---|---|---|\n${rows.map(r => `| ${r.join(' | ')} |`).join('\n')}\n`
   assert.throws(() => parseManifest(table([['a.jpg','static_1x1','A','set-mockups','mockup','']])),/Invalid groupType/)
   const loose = await harness(t); await loose.file('a.jpg')
   await writeFile(path.join(loose.media,'_manifest.md'), table([['a.jpg','static_1x1','A','','admat','']]))
-  await assert.rejects(loose.plan({manifest:path.join(loose.media,'_manifest.md')}),/admat piece requires displayGroup/)
+  await assert.rejects(loose.plan({manifest:path.join(loose.media,'_manifest.md')}),/a\.jpg: groupType admat has no set to land on; name its set in displayGroup/)
   assert.equal(loose.stats.commits,0)
   const h = await harness(t); await h.file('a.jpg'); await h.file('b.jpg')
   const manifest = path.join(h.media,'_manifest.md')
   await writeFile(manifest, table([['a.jpg','static_1x1','A','tour-mockups','mockups',''],['b.jpg','static_1x1','B','','','']]))
   const p = await h.plan({manifest})
-  assert.deepEqual(p.operations.map(o => [o.action,o.set.displayGroup,o.set.groupType]),[['create','tour-mockups','mockups'],['create',undefined,undefined]])
-  const result = await h.apply(p); assert.equal(result.created,2); assert.equal(result.failed,0)
-  assert.equal(h.db.get(p.operations[0].id).groupType,'mockups'); assert.equal(h.db.get(p.operations[1].id).groupType,undefined)
+  // No project: the row's set is the client's, created first with no project; the piece carries only `set`.
+  assert.deepEqual(p.operations.map(o => [o.action,o.type,o.id.startsWith('mediaSet-') ? o.id : o.after.title]),[['create','mediaSet','mediaSet-example-tour-mockups'],['create','mediaAsset','A'],['create','mediaAsset','B']])
+  assert.deepEqual([p.operations[0].after.groupType, 'project' in p.operations[0].after], ['mockups', false])
+  const result = await h.apply(p); assert.equal(result.created,3); assert.equal(result.failed,0)
+  const a = h.db.get(p.operations[1].id), b = h.db.get(p.operations[2].id)
+  assert.deepEqual([a.set?._ref, a.displayGroup, a.groupType], ['mediaSet-example-tour-mockups', undefined, undefined])
+  assert.deepEqual([b.set, b.groupType], [undefined, undefined])
 })
 
 test('splitIntoThirds: a boolean flag on video assets only; null and non-booleans are rejected', async t => {

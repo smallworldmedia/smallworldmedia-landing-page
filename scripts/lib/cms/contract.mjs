@@ -56,6 +56,10 @@ export const FIELDS = {
   // A Set document (src/schemas/mediaSet.ts): the key the site groups by, its project and type. It has no orderRank; members order by theirs.
   mediaSet: ['title','slug','project','groupType','allowAsHero'],
 }
+// Retiring (the Display Group / Group Type retirement, Nathan 11-24): a piece's group is its Set. A plan may clear
+// these fields, never write them; a schema commit drops them once the clearing plans have applied.
+export const RETIRING = { mediaAsset: ['displayGroup','groupType'] }
+const retiring = (type, has) => { for (const k of RETIRING[type] || []) invariant(!has(k), `${k} is retiring: a piece's group is its Set; write set (a mediaSet reference) instead`) }
 const required = { mediaAsset: ['title','slug','mediaType','client'], project: ['slug','client'], client: ['name','slug'], serviceTag: ['name','slug'], globeSettings: [], mediaSet: ['title','slug','groupType'] }
 // Media descriptors match the Studio caps (src/schemas/mediaAsset.ts); a project description is a blurb and stays uncapped here.
 export const CAPS = { mediaAsset: { alt: 150, description: 300 } }
@@ -101,7 +105,7 @@ export function validateField(field, v) {
   throw new Error(`Unsupported schema field ${field}`)
 }
 export function validatePatch(type, set = {}, unset = []) {
-  invariant(FIELDS[type], `Unsupported document type ${type}`); keys(set, FIELDS[type], 'set')
+  invariant(FIELDS[type], `Unsupported document type ${type}`); keys(set, FIELDS[type], 'set'); retiring(type, k => Object.hasOwn(set, k))
   invariant(Array.isArray(unset) && new Set(unset).size === unset.length, 'Invalid unset')
   for (const k of unset) invariant(FIELDS[type].includes(k) && !required[type].includes(k) && k !== 'video' && !Object.hasOwn(set, k), `Rejected unset field ${k}`)
   for (const [k, v] of Object.entries(set)) { validateField(k, v); if (CAPS[type]?.[k]) invariant(v.length <= CAPS[type][k], `${k} over ${CAPS[type][k]} characters`) }
@@ -109,13 +113,13 @@ export function validatePatch(type, set = {}, unset = []) {
 export function patched(before, set, unset) { const result = clean(before); Object.assign(result, clean(set)); for (const k of unset) delete result[k]; return result }
 export function validateDocument(doc, { creation = false } = {}) {
   invariant(validId(doc._id) && FIELDS[doc._type], 'Invalid document identity/type')
-  if (creation) keys(doc, ['_id','_type',...FIELDS[doc._type], ...(doc._type === 'mediaAsset' ? ['sourceFolder','sourceManifest','image','video'] : [])], 'document')
+  if (creation) { keys(doc, ['_id','_type',...FIELDS[doc._type], ...(doc._type === 'mediaAsset' ? ['sourceFolder','sourceManifest','image','video'] : [])], 'document'); retiring(doc._type, k => doc[k] !== undefined) }
   for (const k of required[doc._type]) { invariant(doc[k] !== undefined, `Required ${k} on ${doc._id}`); validateField(k, doc[k]) }
   if (doc.yearStart != null && doc.yearEnd != null) invariant(doc.yearEnd >= doc.yearStart, 'yearEnd precedes yearStart')
   if (creation) for (const k of FIELDS[doc._type]) if (doc[k] !== undefined) validateField(k, doc[k])
   if (doc._type === 'mediaAsset') {
-    if (doc.mediaType === 'brand-deck') invariant(Number.isInteger(doc.brandDeckOrder) && doc.brandDeckOrder > 0 && !!doc.displayGroup, 'Deck pages require displayGroup and positive brandDeckOrder')
-    if (doc.mediaType === 'carousel-slide') invariant(!!doc.displayGroup, 'Carousel slides require displayGroup')
+    if (doc.mediaType === 'brand-deck') invariant(Number.isInteger(doc.brandDeckOrder) && doc.brandDeckOrder > 0 && !!(doc.set || doc.displayGroup), 'Deck pages require a set and positive brandDeckOrder')
+    if (doc.mediaType === 'carousel-slide') invariant(!!(doc.set || doc.displayGroup), 'Carousel slides require a set')
     if (doc.splitIntoThirds) invariant(isVideoType(doc.mediaType), 'splitIntoThirds applies to video media only')
     if (doc.groupType && doc.groupType !== 'album-art') invariant(!!doc.displayGroup || !!doc.set, `A ${doc.groupType} piece requires displayGroup or a set`)
   }
