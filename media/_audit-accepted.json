@@ -71,6 +71,13 @@
       "mediaType": "static_1x1",
       "reason": "Approved static_1x1 on the 10-23 decisions page: the label follows the 1.27:1 photo inside blurred fill, not the 3:4 file.",
       "decided": "2026-10-23"
+    },
+    {
+      "check": "label-ratio",
+      "id": "mediaAsset-09138d04-1bc2-4e2d-a202-6b7b821e4e45",
+      "mediaType": "static_other",
+      "reason": "Nathan 11-24: keep static_other for the COCO Sosa billboard (2754x2062, about 4:3); static_1x1 would crop it square.",
+      "decided": "2026-11-24"
     }
   ]
 }
