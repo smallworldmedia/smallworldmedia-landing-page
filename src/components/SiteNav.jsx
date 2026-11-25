@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import gsap from 'gsap';
 import { navigate } from 'astro:transitions/client';
+import { holdEntry } from '../lib/gestureHistory.js';
 import { wipeIn, wipeOut, holdForRoute, NAV_WIPE_OUT_S } from '../lib/overlayWipe.js';
 import { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
 import { NAV_BLACK } from '../lib/navAccent.js';
@@ -151,7 +152,11 @@ export default function SiteNav({
     window.dispatchEvent(
       new CustomEvent('swm:envelop', { detail: { duration: fadeS, color: NAV_BLACK, navSync: true } })
     );
-    setTimeout(() => navigate('/'), fadeS * 1000 + 60);
+    const arrive = holdEntry('/'); // pushed in the tap (SQ-141)
+    setTimeout(() => {
+      const opts = arrive();
+      if (opts) navigate('/', opts);
+    }, fadeS * 1000 + 60);
   };
 
   const handleStartProject = (e) => {

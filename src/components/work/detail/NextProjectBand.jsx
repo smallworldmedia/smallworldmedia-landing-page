@@ -97,7 +97,7 @@ import {
 import { TOUCH_GAIN } from '../../../lib/touchTune.js';
 import { createRubberBand } from '../../../lib/rubberBand.js';
 import { retargetNavAccent } from '../../../lib/navAccent.js';
-import { gestureHistory } from '../../../lib/gestureHistory.js';
+import { gestureHistory, holdEntry } from '../../../lib/gestureHistory.js';
 import { IMG_FORMAT, DETAIL_MAX_SECONDS, muxStream, wrapAtDetailCap } from '../imageConfig.js';
 import { TURN_EASE_PATH, PREFERS_REDUCED_MOTION } from '../world/worldConfig.js';
 
@@ -489,7 +489,9 @@ export default function NextProjectBand({ next }) {
   // fixed box at its measured rect, it grows to the full viewport while its
   // confined blue rises to solid, all on the Turn curve. Continues from
   // wherever the drag left off; navigate() fires at arrival. ──
-  const commit = () => {
+  // `arrive`: a click pushed the next entry in the tap (holdEntry, SQ-141);
+  // the drag commit has none and keeps gestureHistory()'s push-or-replace.
+  const commit = (arrive) => {
     if (departingRef.current) return;
     departingRef.current = true;
     gestureRef.current.clearIdle();
@@ -501,9 +503,13 @@ export default function NextProjectBand({ next }) {
 
     // A wheel/drag commit pushes only under an honoured activation, else it
     // replaces (SQ-100); a click is honoured, so it pushes as before.
-    const opts = gestureHistory();
+    const opts = arrive ? null : gestureHistory();
+    const go = () => {
+      const o = arrive ? arrive() : opts;
+      if (o) navigate(`/work/${next.slug}`, o);
+    };
     if (PREFERS_REDUCED_MOTION) {
-      navigate(`/work/${next.slug}`, opts);
+      go();
       return;
     }
 
@@ -530,7 +536,7 @@ export default function NextProjectBand({ next }) {
     });
 
     const ease = CustomEase.create('swmNextBand', TURN_EASE_PATH);
-    const tl = gsap.timeline({ onComplete: () => navigate(`/work/${next.slug}`, opts) });
+    const tl = gsap.timeline({ onComplete: go });
     // Finish the drag choreography — text completes its run to the left
     // edge, the media window opens fully off its pinned edge.
     tl.to(proxyRef.current, {
@@ -728,7 +734,8 @@ export default function NextProjectBand({ next }) {
   const onClick = (e) => {
     if (PREFERS_REDUCED_MOTION) return; // plain ClientRouter navigation
     e.preventDefault();
-    commit();
+    if (departingRef.current) return;
+    commit(holdEntry(`/work/${next.slug}`));
   };
 
   return (
