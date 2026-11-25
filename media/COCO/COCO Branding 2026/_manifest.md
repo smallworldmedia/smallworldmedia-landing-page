@@ -61,3 +61,5 @@ project: coco-branding-2026
 | Liverpool 091226/B2B Lineup 3x4.png | static_3x4 | COCO Liverpool 091226 B2B Lineup | Event / Tour Creative | coco-2026-admats | mediaAsset-04d4e307-e704-4654-b21a-eb5fd21e22ea |
 | The Cause 050226/Announce 4x5.mp4 | motion_4x5 | COCO @ The Cause 050226 Announce | Event / Tour Creative | coco-2026-admats | mediaAsset-4a76a206-9f5f-4053-9a2a-66196495c2b4 |
 | coco_ig-mockup.png | static_9x16 | COCO Instagram Mockup | Branding | coco-mockups | mediaAsset-542817b3-52cc-49ee-bb03-79ff86326f40 |
+| Mockups/coco-sticker_1.png | static_4x5 | COCO Logo Sticker | Branding | coco-mockups | mediaAsset-2775ecee-06a2-4a13-bc91-c7da2cdc50d9 |
+| Mockups/coco-billboard-horiz.png | static_other | COCO Billboard — Sosa Brand New EP | Branding | coco-mockups | mediaAsset-09138d04-1bc2-4e2d-a202-6b7b821e4e45 |
