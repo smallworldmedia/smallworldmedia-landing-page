@@ -1,0 +1,104 @@
+# Architecture
+
+*Last Updated: 2026-11-24*
+
+## Summary
+
+The site is a statically built Astro 5 app. Every public route is a `.astro` page that fetches its
+Sanity data at build time and mounts one large React island (`client:only="react"` on `/`, `/process`;
+`client:load` on `/work`, `/work/[slug]` and `/work/directory`). The home, /work and /process islands
+each own a route-scoped three.js canvas plus the route's wheel/touch model; Lenis smooth scroll is on
+only where the island does not own the wheel (detail pages, the Project Directory, /process).
+
+Three persistent islands in `src/layouts/BaseLayout.astro` survive `ClientRouter` soft navigations:
+`SiteShell` (nav, info drawer, inquiry overlay, `RouteFill`), `SiteTagline` (tagline pill, privacy
+pill + overlay) and `SiteScheme` (the colour-scheme corner pager, US-7, 11-14). Routes talk to them
+only through `window` CustomEvents (`swm:*`) and `<html>` data attributes, never through shared React
+state. See `communication.md`.
+
+The site wears one of three colour schemes (`project`, `black`, `blue`; US-7). A fourth, `spectrum`,
+is parked (11-15): no picker station, never stored, still a `?scheme=spectrum` preview. DOM colour
+is CSS keyed on `html[data-scheme]` (`styles/scheme.css`), the two live canvases (home globe, /work
+Worlds) recolour on the `swm:scheme` event, and `lib/colorScheme.js` is the one authority. See
+`patterns.md` § Colour scheme.
+
+Cross-route transitions follow ADR-0002 "Envelopment": a route swap bridged by the persisted
+`RouteFill` blue panel and the globe loader (`ui/GlobeLoader.jsx`; it replaced the `overviews_loading`
+bar in SQ-32, 11-08), not a shared canvas. The leaving island dispatches
+`swm:envelop`, navigates with `setTimeout` + `navigate()`, and the arriving island releases the fill.
+
+## High-Level Diagram
+
+```
+Sanity (b60h4u7o/production) ──build-time GROQ──▶ .astro pages ──props──▶ React islands
+   ▲                                                   │
+   │ npm run cms (plan/apply/verify)                   ├─ /          LandingPage → Hero → VideoGlobe → useGlobeScene
+media/**/_manifest.md + Mux uploads                    ├─ /work      FeaturedProjects → WorldScene → useWorldScene
+                                                       ├─ /work/:slug FeaturedProjectDetail → flushGrid + DeckScroller
+                                                       ├─ /work/directory DirectoryPage → DirectoryFilter + DirectoryGrid (chunkFlushGrid, playerGate)
+                                                       └─ /process   ProcessPage → useProcessScene + scroll driver
+BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, ProjectOverlay) + SiteTagline + SiteScheme
+              ◀──── swm:* window events + <html data-*> latches ────▶ route islands
+```
+
+## Components
+
+| Component | Lives in | Responsibility |
+|---|---|---|
+| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; a PopulationDirector (built on `refine/globe-worlds`, folded 10-31; on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name strips placed camera-relative on each world change (`?popnames`, off by default since Nathan's 10-24 bake); the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way. Media spans (`?popunits`, on by default since Nathan's 10-23 bake, Q1, and `?popunits=0` is the globe without them; `docs/globe-worlds-plan.md` § Media spans) let one classed asset span 2×1, 1×2, 2×2 or (`?popshapes=wide`, the default since 10-24) 3×2 tiles as one picture: classed at build (`mediaClass.js`), planned by the director, and windowed per frame on the CPU (`unitSpan.js`, `PopulationDirector.place()`), with one stream and one chip per unit. The globe rests at `?herotilt` −10° (10-24; the north pole out of sight) and takes no drag on any screen (phones since 10-07, desktop since 10-27; /lab/globe keeps its drag), so the pose a world lands at is known and the fast handoff (`?pophandoff`, the default since Nathan's 10-28 call; `today` is the one before it) plans that world's board ahead; a world holds `?pophold` 7 s (± 40%, 10-28) |
+| /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
+| Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
+| Project Directory | `src/components/work/directory/`, `src/styles/directory.css` + `directory-grid.css` | `/work/directory` (11-03): every asset in one flush grid built on the detail grid's units (`tileGrid.js`, `chunkFlushGrid`, MediaSlot's directory mode) under a sticky filter (service tags OR together, the drawer's client narrows on top, the state in the URL); one player gate caps the videos playing at once |
+| /process | `src/components/process/` | Scroll narrative in seven stages (hero globe-O break → five Stages → CTA finale): a ScrollTrigger + quantizer driver over one scene that reuses the globe geometry/material, with project-colour chips in the scene |
+| Persistent chrome | `src/components/SiteShell.jsx`, `SiteNav.jsx`, `SiteFooter.jsx`, `SiteTagline.jsx`, `SiteScheme.jsx`, `RouteFill.jsx`, overlays | Nav, drawer, inquiry form (Netlify Forms), privacy, footer reveal, route-fill bridge, logo ticker, the colour-scheme corner pager |
+| Shared motion libs | `src/lib/` | `dragMomentum`, `overlayWipe`, `scramble`, `charCut`, `mediaSequence` (the one clock every sequence tile cuts on), `smoothScroll`, `settleResize` — single sources of truth |
+| Data layer | `src/lib/sanityClient.js`, `src/lib/queries.js`, `src/lib/siteCopy.js`, `src/schemas/` | Build-time fetch, GROQ, the memoized site-copy read, Sanity schema for the Studio (embedded at `/studio` in local dev only since SQ-145; the hosted Studio otherwise) |
+| CMS toolchain | `scripts/cms.mjs`, `scripts/lib/cms/` | Preview-first ingest of manifests into Sanity + Mux; `node --test` suite |
+
+## Data Flow
+
+1. Build: each page runs `sanityFetch(QUERY)` (`src/lib/sanityClient.js`, CDN, drafts excluded), shapes
+   the result (`buildAssetPool` for globe routes, `buildContentFlow` for /work, `buildWorldPools` for
+   the home globe's population modes, `colorPool` for the /process chips), and passes plain props into
+   the island. No client-side Sanity calls.
+   **Site-wide copy is a special case of the same rule** (10-08): the footer blurb and the tagline
+   live on the `siteSettings` singleton, and `src/lib/siteCopy.js` memoizes the PROMISE so the whole
+   build makes one request for them (`src/lib/buildMemo.js`; on the dev server the memo lapses two
+   seconds after it lands, so a reload reads Sanity again). `BaseLayout.astro` awaits it — the one file every route passes
+   through, /privacy, /terms and /404 included — and hands it to the two persistent islands as a `siteCopy`
+   prop (`SiteTagline`, and `SiteShell` → `InfoPanel` → `SiteNav`); `index.astro` awaits the same
+   memo and threads it `LandingPage` → `Hero` → `SiteFooter`, because the footer blurb reaches the
+   panel through Hero. It travels as SERIALIZED PROPS rather than a module import for a load-bearing
+   reason: these are React islands, two of them `transition:persist`, and a module-level value set in
+   .astro frontmatter exists on the SERVER ONLY — the island's client bundle would hydrate with the
+   build-time default and flash the old copy.
+   **The Client Roster takes the same road** (11-03): `BaseLayout.astro` derives the drawer's names
+   from `getDirectoryData()` (`src/lib/directoryData.js`, the directory's one memoized fetch) and
+   threads them `SiteShell` → `InfoPanel` as `roster`, so the drawer and the directory read one
+   result (`communication.md`).
+2. Runtime media: images via Sanity CDN / Mux thumbnails (`globe/TextureManager.js`), video via hls.js
+   into a fixed `<video>` pool (`globe/VideoSlotPool.jsx`); schedulers (`LivePanelScheduler`,
+   `world/worldLive.js`) promote a handful of visible tiles to live video at ~2 Hz. Under the population
+   modes the globe scheduler shares streams: one decode per clip feeds every tile showing it (`?poplive`),
+   and under media spans each stream takes a planned rung inside a fixed decode budget (`?poptier`).
+   Every autoplay stream is a Mux clip of its surface's window, with no audio on muted surfaces
+   (`work/imageConfig.js`, `work/hlsVideoOnly.js`; the video diet, 10-09). Under the fast handoff
+   (built 10-27, the default since 10-28; `?pophandoff=today` is the one before), the globe fetches the next world's clips during the hold (`globe/streamPrefetch.js`,
+   `work/hlsPrimed.js`) and starts a change's clips while it lands.
+3. Content ingest: `media/<Client>/<Collection>/_manifest.md` → `npm run cms plan` → approve →
+   `apply` (Sanity docs + Mux uploads, journaled) → `verify`. See `cms-pipeline.md`.
+
+## Key Decisions & Constraints
+
+- ADRs in `docs/adr/`: 0001 project-doc-first featured projects; 0002 Envelopment route swap; 0003
+  math-first composites (one geometry brain, thin renderer per surface, e.g. `work/bandLayout.js`);
+  0004 /process is ScrollTrigger + house accumulator quantizer.
+- Production branch is `main` and still serves the old landing page; all v1 work lives on
+  `feature/v1-launch` with a stable Netlify branch preview. Merge to main is the launch.
+- `/lab/globe` and `/specimen` are built but redirected at Netlify and by `Astro.redirect` in
+  frontmatter; their components are dormant, not deleted. `/work/directory` was too until 11-03: the
+  old directory's components and `work.css` were deleted (`18fd851`), it was rebuilt on the detail
+  page's grid, and the route went back on (`251e7b3`); `docs/project-directory-plan.md`.
+- Every knob is a URL `?param` first, baked only on Nathan's stated value (`docs/tunables-guide.md`,
+  gated by `scripts/tunables-keys.mjs --check`).
+- Playwright is deliberately not a dependency; `scripts/pager-probe.mjs`, `scripts/process-probe.mjs`, `scripts/globe-probe.mjs`, `scripts/scheme-probe.mjs` and `scripts/globe-timing.mjs` resolve it from the npx cache (`PLAYWRIGHT_PATH` overrides).

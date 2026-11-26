@@ -1,3 +1,54 @@
 [build]
-  command = "npm run build"
+  # The CMS audit gates every deploy build (scripts/audit-gate.mjs): an error finding stops the build and
+  # the last good deploy stays live. Needs SANITY_READ_TOKEN (a Viewer token) in the site's environment.
+  command = "node scripts/audit-gate.mjs && npm run build"
   publish = "dist"
+
+# The build content-hashes every file under /_astro/, so a name never changes content:
+# cache them for a year with no revalidation. HTML keeps Netlify's default revalidation.
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# v1 launch: internal prototype + font specimen disabled — CDN-level
+# redirect (force overrides the meta-refresh page Astro.redirect emits for
+# the static route).
+[[redirects]]
+  from = "/lab/globe"
+  to = "/"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/specimen"
+  to = "/"
+  status = 302
+  force = true
+
+# v1 launch (11-12): /process disabled the same way.
+[[redirects]]
+  from = "/process"
+  to = "/"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/process/"
+  to = "/"
+  status = 302
+  force = true
+
+# FP-4b (2026-07-16): homegrwxn merged INTO rossi — permanent move; bellaire
+# unfeatured for now — soft redirect until it returns.
+[[redirects]]
+  from = "/work/homegrwxn"
+  to = "/work/rossi"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/work/bellaire"
+  to = "/work"
+  status = 302
+  force = true

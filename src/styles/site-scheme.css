@@ -1,0 +1,1191 @@
+/* The colour-scheme widget's skin and seat (SQ-92, the eye SQ-98). The widget is the
+   /work graticule pager (GraticulePager) mounted a second time in the lower-right
+   corner, inside a .swm-corner wrapper, with every station drawn as a globe-iris circle
+   and NO visible text (Nathan 11-14). pager-scale.css already skins a .fp-scale for the
+   .swm-corner host as /work's chip-and-names instrument; this sheet re-seats and
+   re-draws it as an EYE: at rest two lids round an iris (the committed scheme); engaged,
+   the column deploys and each circle slides into the eye and becomes its iris.
+   SKIN ONLY: no motion constant, easing, detent, magnet or timing of the ENGINE is touched
+   (the strip, the magnet, the detents, the falloff curve's shape are /work's). The column's
+   entrance and exit are this skin's own (the four progresses --eye-ts / -tg / -tn / -tf, below), in
+   place of /work's per-row cascade.
+
+   THE EYE. All measures are in units where the iris width = --scheme-swatch = 26 (1 unit
+   = 1px at size 26; ?schemesize scales the whole eye, Nathan's 18 is the default): the eye box
+   is --eye-u-w x --eye-u-h units (53.28 x 30.64 at the default ?schemelids 1.12, 48 x 28 at 1: the
+   lids' arcs scaled about the eye's centre, the box keeping today's margins round them, SQ-107
+   pass 11). The lids (the lens art, schemeSwatches.jsx EyeArt) sit in the chip, above the window,
+   so they paint over the moving circles.
+
+   NO HARD CLIP (Nathan 11-16, pass 5). No circle is ever cut by a straight box edge: the window
+   paints with no mask (the lid mask and the window's vertical feather are gone: they cut a circle
+   flat where it crossed the iris's band) and every circle's OPACITY is its own fade, a function of
+   its distance from the lens (--ndr, the engine's continuous one): the circles SHOWN are the two
+   above the lens and the one below it, the viewport's bottom edge is the only hard edge, and any
+   other circle is faded out before it reaches the window's edge.
+
+   Every rule is scoped under .swm-corner. Imported after pager-scale.css (BaseLayout),
+   it out-specifies that sheet with the .swm-corner__pager class SiteScheme gives the
+   pager root: R below = .swm-corner .fp-scale.swm-corner__pager (0,3,0), one class
+   above pager-scale.css's :is(.fp[data-pager='scale'], .swm-corner) .fp-scale rules,
+   and R + one class (0,4,0) ties its state rules (data-open / data-charged), which it
+   then beats on source order.
+
+   What the pager skin keeps, and what this sheet does with each part:
+     root / chip / lens   kept: the lens is the eye's box, holding the eye art
+                          (.fp-scale__lens-art: lids + the committed iris)
+     window / strip       kept: the column of circles, --scale-rows each side (see --scale-rows)
+     stations             kept: each is a button holding one circle, centred on the lens axis
+     num / peak / den     hidden (display:none): digits, no text is painted
+     pulse                hidden: the rest pulse is a /work digit veil
+     pointer              kept (SQ-107 pass 10): /work's lens arrow, mirrored to point LEFT at the selected
+                          eye, in the gap the engaged shift opens between it and the viewport's edge;
+                          pass 11: it slides in from beyond the edge on the slide's timing, no fade
+     box                 hidden: /work already ships it with no fill (11-13)
+     hairline / seams     hidden: the axis stroke and the wheel seams are /work's ruler
+     tick / slice         hidden: the per-station ::before / ::after marks are the same ruler
+     hint / freeze        not rendered (hintOn and pauseOn are false); no scrim, no pause screen
+   Tunables (docs/tunables-guide.md): ?schemerows (the window), ?schemesize, ?schemegap (the one
+   spacing dial, at every width), ?schemepad, ?schemelift, ?schemenear, ?schemefar, ?schemein,
+   ?schemeout, ?schemeshift, ?schemeslide, ?schemegrow, ?schemestep, ?schemelids, all written as custom
+   properties on .swm-corner by SiteScheme. */
+
+/* THE ENGAGE AS A SEQUENCE (SQ-107 pass 11, Nathan 11-17). Four progresses, each 0 (at rest) to 1
+   (engaged), each its own transition on the pager root, started one after the other:
+     --eye-ts  the SLIDE: the selected eye steps left off the edge (the shift, and the arrow riding in)
+     --eye-tg  the GROW: the eye's lift (?schemelift), once the slide has ended; the lens circle's own
+               entrance rides it, so the rest iris hands over to it when the grow is done
+     --eye-tn  the NEAR ring (one station out): a beat (?schemestep) after the grow starts
+     --eye-tf  the FAR ring (two stations out): a beat after the near ring
+   A circle's own progress reads them by its continuous distance from the lens (--ndr: the eye's at 0,
+   the near ring's at 1, the far ring's at 2, interpolated between, so a scrub mid-entrance stays
+   continuous). The release plays the cascade backwards: far, near, the eye shrinks, then it slides back.
+   Registered so each interpolates as a number, and inherited so the window, the chip and the stations
+   read the live value. The delays between the groups are the transition-delays below; SiteScheme
+   rewrites them at each engage and release (--eye-dl-*, siteSchemeLogic.eyeDelays) so a group that has
+   moved never waits out a delay that belongs to a group that never started. */
+@property --eye-ts {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-tg {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-tn {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-tf {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+/* THE CHAINS, REGISTERED (SQ-133, the iPhone tab kill). An unregistered custom property computes to its var()-
+   substituted TOKENS, so a chain that names another several times over grows at every link: --badge-yt reached 3272
+   characters on each of the 19 badges, --eye-cyt 793 on each of 114 elements, 1.34M characters of computed custom
+   properties across the widget's 155 elements. WebKit re-substitutes and re-parses all of it at every style recalc,
+   and a scheme preview restyles the whole widget for the length of the ink fade: memory-probe --run=eye (WebKit, 402
+   x 874 @3) measured the page process stepping 350 -> 602 MiB on the engage and the first two previews, all of it
+   WebKit malloc, and ~170 MiB of the 350 is this same style at rest (the stations display:none: 190 -> 205). Registered,
+   each link computes to ONE number or length at its own element, so the next link reads a number. The values, and so
+   the look, are the same; inherits: true keeps the unregistered inheritance; no rule transitions any of them. Only the
+   widget's own links: --sel, --sdx and --fs are the /work engine's (pager-scale.css, LOCKED) and stay as they are. */
+/* The seat's own link (SQ-144): on home the lens centre follows the footer panel every frame, and an unregistered --badge-cy would
+   carry the whole seat chain's tokens to each of the widget's elements, re-substituted at each restyle (the cost above). One
+   length, computed once at .swm-corner. */
+@property --badge-cy {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --eye-r {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-cr {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --badge-rn {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --eye-cband {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --eye-cyt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --eye-cyb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-yt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-yb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-o {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-xt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-xb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-hh {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-bt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-bb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-nt {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-nb {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@property --badge-edge {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+.swm-corner {
+  /* Iris diameter at rest (Nathan 11-16: ?schemesize=18). ?schemesize dials it, and the eye
+     (--eye-u-w x --eye-u-h in iris units of 26) scales with it. */
+  --scheme-swatch: 18px;
+  /* The eye box in iris units (SQ-107 pass 11, ?schemelids): the lids scaled by k = 1.12 about the eye's centre
+     (arcs through (+-22k, 0) of radius 27.5k, apex 11k, stroke LID_W unscaled), the box keeping today's margins
+     round them (1.25 units at the sides, 2.25 above and below): 44k + 4 by 22k + 6, = 48 x 28 at k = 1.
+     schemeSwatches.eyeGeometry is the one derivation; SiteScheme writes these two when ?schemelids is given. */
+  --eye-u-w: 53.28;
+  --eye-u-h: 30.64;
+  --eye-w: calc(var(--scheme-swatch) * var(--eye-u-w) / 26);
+  --eye-h: calc(var(--scheme-swatch) * var(--eye-u-h) / 26);
+  /* Engaged (held, hovered, wheel- or drag-invoked): the whole eye scales up by --eye-engaged,
+     and the column's circles go large (the lens), medium (one station out), small (two out),
+     each as a fraction of the large: --eye-near, --eye-far. The engine's own proximity
+     falloff does the ranking (the pager root, below). Nathan's numbers (11-16, ?schemelift=1.5
+     ?schemenear=0.8 ?schemefar=0.5). */
+  --eye-engaged: 1.5;
+  --eye-near: 0.8;
+  --eye-far: 0.5;
+  /* THE SPACING (?schemegap, PROPOSED): the edge-to-edge gap between the lens circle and the
+     circle next to it, once engaged. Today's pitch of 48px left 23.7px between them at Nathan's
+     sizes (48 - 27/2 - 21.6/2); the default is 10px, 42% of it. The row pitch FOLLOWS it
+     (both radii plus the gap), at EVERY width: GraticulePager takes cssPitch for this widget, so
+     the <=768 tier no longer writes its own 48px (/work's pager keeps its pitch, untouched). */
+  --scheme-gap: 10px;
+  --scheme-pitch: calc(
+    var(--scheme-swatch) * var(--eye-engaged) * (1 + max(var(--eye-near), var(--eye-far))) / 2 + var(--scheme-gap)
+  );
+  /* The window's reach in stations EACH side of the lens: the engine's --scale-rows, a bare number
+     (it parses it). ?schemerows dials it (rows / 2). The circles SHOWN are one above the lens and
+     the one below it (every tier since 11-20); the window only has to reach past the faded ones. */
+  --scale-rows: 3;
+  /* The rest press target: the WCAG / house 44px minimum. */
+  --scheme-hit: 44px;
+  /* The engaged press target reaches this many stations above the lens and below it (the gaps
+     between circles must not leak the pointer out and commit mid-scrub, and nothing invisible
+     beyond the shown circles should take it). */
+  --eye-hit-up: 1.5;
+  --eye-hit-down: 1.5;
+  /* HOW MANY CIRCLES SHOW ABOVE THE LENS: ONE, on every tier (SQ-107 pass 11, Nathan 11-17, desktop: "on desktop lets
+     have the fade on the top outer globe not show that second smaller one since it overlaps with the text blurb";
+     phones too since 11-20: "remove that second smaller globe that is at the top on the engaged stage of the eye
+     badge ... let's also remove it for mobile"; phones kept two, fading over rows - 2.3 stations, before). BAKED, no
+     ?param. --eye-up-shown is how many stay whole above the lens and --eye-up-span the stations over which the next
+     one fades away after that (the far circle, two out, is at nothing by its own station), each a continuous
+     function of --eye-above (the circle's own station distance above the lens). SiteScheme reads --eye-up-shown to
+     know whether the far ring (two stations out) is ever seen. Below the lens one shows at every width (--eye-down).
+     The press target above the lens (--eye-hit-up) reaches the near circle and a half. */
+  --eye-up-shown: 1;
+  --eye-up-span: 1;
+  /* HOW MANY CIRCLES SHOW BELOW THE LENS (SQ-121): the same pair, for the stations under it. 1 and half a station
+     is the whole fade at 768px and under (the viewport's edge cuts that circle there). Above 768px the seat block
+     below sets 0 and 1: no ring under the lens, so the engaged column ends at the lens badge's own bottom edge
+     and that edge can sit just above the footer blurb. */
+  --eye-down-shown: 1;
+  --eye-down-span: 0.5;
+  /* THE SEQUENCE'S TIMINGS (SQ-107 pass 11, PROPOSED; each a ?param, all on --ease-draw: no overshoot, a steep
+     launch, a smooth deceleration; reduced motion: instant, below). Engage: the slide (--eye-slide, ?schemeslide)
+     from 0, the grow (--eye-grow, ?schemegrow) the moment the slide has ended, the near ring a beat
+     (--eye-step, ?schemestep) after the grow starts, the far ring a beat after that; each RING EYE's own slide out
+     from behind the centre eye (SQ-116: no longer a fade) is --eye-in (?schemein) long, its slide back --eye-out
+     (?schemeout). Release, the cascade backwards: the far ring leaves first, the near ring a beat later, a beat after
+     that the eye shrinks (the grow's length), then it slides back (the slide's length). At the defaults the engage
+     runs 0 / 160 / 230 / 300 ms to 500 ms (slide, grow, near, far) and the release 0 / 70 / 140 / 300 ms to 460 ms
+     (far, near, shrink, slide back). */
+  --eye-slide: 160ms;
+  --eye-grow: 160ms;
+  --eye-step: 70ms;
+  --eye-in: 200ms;
+  --eye-out: 200ms;
+  /* THE SHIFT (SQ-107 pass 10, ?schemeshift, PROPOSED; Nathan 11-17: "account for your thumb covering
+     the selected eye when you are scrolling ... the same small arrow and x position offset utilized in
+     the /work pager"). Engaged, every circle steps LEFT, away from the viewport's right edge, by this
+     much times /work's own stagger taper --sw (1 at the lens, 0.444 one station out, 0.111 two out: the
+     engine's --scale-slice-reach 3 and --scale-slice-exp 2, global.css), so the farther a circle is from
+     the selected one the closer to the edge it sits, and it flows with the scrub exactly as /work's
+     slices do. The shift ramps with the slide (--eye-ts): 0 at rest. The badge widens LEFT with the
+     selected eye and keeps its right edge on the viewport's. Default: 78 iris units, Nathan's 54 px at size 18
+     (11-20, Phone Checks row 190; it was pass 10's 48 units, one rest eye width, 33.23 px), which the lids'
+     growth (pass 11) does not move. 0 = a straight column. */
+  --eye-shift: calc(var(--scheme-swatch) * 78 / 26);
+  /* THE BADGE (Nathan 11-16, pass 5): a horizontal rectangle hugging the eye with the SAME padding
+     on all four sides, --badge-pad (?schemepad; Nathan's 4): the eye plus --badge-pad each side,
+     no size knob of its own. Its RIGHT EDGE IS THE VIEWPORT'S RIGHT EDGE on every route at every
+     width: no inset, no gap; its corners are square. It is part of the pager (its ::before, drawn
+     behind the lids), so it grows with the eye on the grow (--eye-tg), and the eye, the iris and the
+     badge scale about ONE point: the badge's right edge at its vertical centre. Nothing climbs:
+     the selected circle stays at its rest height.
+     ONE SEAT, SITEWIDE (Nathan 11-16, pass 7: "I prefer the slight raise off of the bottom of the
+     viewport, let's apply that sitewide": Chrome rounds a badge in the true corner off).
+     --badge-cy is the lens centre's height above the viewport's bottom edge: what was home's seat,
+     on EVERY route, centred on the bottom-left corner row (the privacy pill's line at rest). It
+     holds there when the links footer reveals: the badge stays at the same place on every route
+     and every scroll stop (the 8 px easing home had above 768px, onto the copyright's line, is
+     gone with the seat blend). --scheme-bottom (the wrapper's bottom) follows. The links footer
+     rises behind the badge; it does not carry it.
+     SQ-121 (11-18): above 768px the seat is no longer this row's height: the min-width block below raises it
+     onto the footer blurb (one seat on every route still). The row's height stays the base value, the floor of the
+     phone rule. */
+  --badge-pad: 4px;
+  --badge-w: calc(var(--eye-w) + 2 * var(--badge-pad));
+  --badge-h: calc(var(--eye-h) + 2 * var(--badge-pad));
+  /* The background strip's band pitch: the badge's height plus this much to spare on EACH side of the window (SQ-125, the thin
+     colour strip on the bottom of the rest and engaged chips). --badge-h is fractional, so the browser paints the box on whole
+     pixels (snapped OUT by up to a pixel an edge) and the hard stop between two bands, which sat exactly on the window's
+     edge, then fell a pixel inside it: the last row showed the NEXT station's colour. A band wider than the window by
+     2px a side covers every snapped row, and a settled station shows its own band to the edge. */
+  --badge-strip-pad: 2px;
+  --badge-strip-h: calc(var(--badge-h) + 2 * var(--badge-strip-pad));
+  --badge-cy-floor: calc(var(--footer-bottom-inset) + var(--pill-pad-y) + var(--lh-pill) / 2);
+  --badge-cy: var(--badge-cy-floor);
+  --scheme-bottom: calc(var(--badge-cy) - var(--scale-rows) * var(--scheme-pitch));
+  /* THE BACKGROUND STRIP (pass 7). Each station has its own background panel: project's glass (the
+     page behind, blurred, under a veil of white: never opacity, which below 1 would show the SHARP
+     original through the blur, so the veil is the colour's alpha), black's page colour, blue's page
+     colour. Read off the role tokens each scheme sets, never a raw hue and never --scheme-page
+     (the CURRENT scheme's). The badge rectangle is a clipping window onto the vertical strip of the
+     panels, in SCHEMES order; the strip rides the engine's continuous column position, one detent =
+     one badge height (the ::before, below).
+     Nathan 11-17: "lighten the hue or the shade of the glass effect background on the multicolor so it's
+     not as dark of a gray, and then make the black background be a light black so it reads as just off
+     of if it is sitting on top of a black container / page element". --badge-veil is the glass's white
+     (?schemeglass, 35%, Nathan 11-18; it was 22%), --badge-black-mix the white mixed into black's panel
+     (?schemeblack, 10%, #1a1a1a, Nathan 11-18; it was the page black itself). Both panels, the lens strip's and
+     each ring station's, read these two tokens. */
+  --badge-veil: 35%;
+  --badge-black-mix: 10%;
+  --badge-glass: color-mix(in srgb, var(--color-white) var(--badge-veil), transparent);
+  --badge-black: color-mix(in srgb, var(--color-white) var(--badge-black-mix), var(--color-black));
+  --badge-blur: 12px;
+  /* THE PHONE'S RAISE (pass 9, ?schemeclear; Nathan's 64, 11-20): a square-cornered box flush with the right edge
+     clears a screen corner of radius R only when its bottom edge is at least R above the viewport's
+     bottom (the arc meets the right edge at height R). Nathan's phone is 393 px wide with a 55 px
+     display radius, and Chrome iOS slides its toolbar away on a scroll so the viewport reaches the
+     physical bottom. --badge-clear is where the badge's BOTTOM edge sits above the viewport's bottom at
+     rest, at <= 768px only: Nathan's 64 (11-20, Phone Checks row 190; it was 55 + 1 = 56). An iPhone 16
+     Pro Max has a larger radius, a 13 / 14 a smaller one (about 47). viewport-fit=cover is NOT set
+     (BaseLayout), so env(safe-area-inset-*) is 0 and cannot do this. 0 is today's seat (the max() floor
+     below). */
+  --badge-clear: 64px;
+}
+
+/* Phones only (the house breakpoint): lift the seat so the badge's bottom edge sits --badge-clear above
+   the viewport's bottom, never lower than the sitewide seat. The lens centre is then clear + half the
+   badge's height; everything that rides --badge-cy (the wrapper, the engaged column, the strip, the
+   pager, the menu wipe) rides it. Above 768px the seat is unchanged. */
+@media (max-width: 768px) {
+  .swm-corner {
+    --badge-cy: max(var(--badge-cy-floor), calc(var(--badge-clear) + var(--badge-h) / 2));
+  }
+}
+
+/* THE DESKTOP SEAT (SQ-121, Nathan 11-18: the engaged eyes cover the footer blurb's text and the privacy pill on home at rest;
+   SQ-125, Nathan 11-18: "move the eye badge up higher on desktop so that the lower badge clears the black footer blurb container
+   with 2 px of gap", then 11-18: "lets bump the gap to 4 px for engaged and footer blurb container"). DECIDED: ONE desktop seat on every route. The blurb belongs to the links footer, which every route reveals,
+   so the seat stays put across routes and scroll stops (the 11-16 "one seat, sitewide" holds above 768px too; only its height
+   moves). It is DERIVED from the black panel's own height, which is a straight line of the blurb's size, so it tracks the width:
+   the lens centre is the panel's top edge at the footer's resting pose, plus --badge-blurb-gap (?schemeblurbgap, 4, Nathan's
+   number), plus how far the engaged column reaches BELOW the lens (--seat-below). The lens never moves between rest and engaged,
+   so ONE height has to clear the panel for both: the engaged column's lowest visible part (the near ring under the lens, with its
+   own badge) has its bottom edge --badge-blurb-gap above the panel and, at rest, the smaller badge and the eye sit higher still.
+   THE PANEL'S TOP, from home's resting footer: Hero's FOOTER_REST_DESKTOP (0.47, --seat-rest here, held equal by a test) of the
+   panel's height shows above the viewport's bottom, so the top edge is 0.47 x H above it. H, measured on the real page at 1024,
+   1100, 1130, 1160, 1280, 1440, 1600, 1920 and 2560 wide (to 0.01 px of a straight line through all of them): 196.91 px of
+   fixed pad, rows and clearance (html{font-size:14px} pins the rem chain above 768px) plus 2.4 x the blurb's size (the blurb's
+   line at 1.15 and the odometer line under it at 1.25, both riding the size), plus ONE MORE blurb line (1.15 x the size) when the
+   copy wraps. It wraps exactly when the size has been held up at its floor over the fill's own size (--seat-blurb-fill is the
+   size that would fill the measure, global.css's expression: the line is wider than the measure when the size exceeds that over
+   --footer-blurb-fill), so min() and max() with a steep slope make the step with no breakpoint and no typed division. That is
+   exact where the old envelope over-cleared by 5 to 10 px between about 1130 and 1500 wide. --seat-blurb-size is global.css's
+   --footer-blurb-size where home publishes it, and the same expression where it does not (every other route), so the seat is
+   the same everywhere. scripts/scheme-probe.mjs's `clear` gate measures the gap on the real page at 1440 x 900, 1024 x 768,
+   1280 x 800, 1920 x 1080 and 2560 x 1440, so a copy or panel change that moves the panel fails there.
+   THE RING BELOW THE LENS (Nathan 11-18, on the first SQ-125 seat, which hid it: "why aren't i seeing the black scheme below
+   the currently selected? that one needs to be accounted for in the vertical positioning"): ONE circle shows under the lens
+   (--eye-down-shown 1, the phone's own number; the next fades within half a station), and the seat is raised to clear it. The
+   column under the lens is then the pitch plus the near ring's half (--seat-below, 51.8px at the defaults), not the lens
+   badge's half (21.9px): the eye sits 29.9px higher in the corner than the ring-less seat. The LOWEST VISIBLE PART of the
+   engaged column, the near ring's own badge, is then --badge-blurb-gap above the panel's top edge (the clear gate measures
+   that part, and fails a column with no ring under the lens). ?schemedown=0 (--eye-down-desk) hides it again, with the
+   seat for the lens badge alone (the press target under the lens shrinks to the lens badge's half and a bit, 0.75 of a
+   station), to compare. */
+@media (min-width: 769px) {
+  .swm-corner {
+    --eye-down-shown: var(--eye-down-desk, 1);
+    --eye-down-span: calc(1 - 0.5 * var(--eye-down-desk, 1));
+    --eye-hit-down: calc(0.75 + 0.75 * var(--eye-down-desk, 1));
+    --badge-blurb-gap: 4px;
+    --seat-blurb-fill: calc(
+      var(--footer-blurb-fill, 0.995) * (100vw - var(--nav-inset) - var(--chrome-right-inset)) /
+        var(--footer-blurb-em, 55.722)
+    );
+    --seat-blurb-size: var(--footer-blurb-size, max(var(--text-blurb, 1.4rem), var(--seat-blurb-fill)));
+    --seat-rest: 0.47;
+    --seat-panel-h: calc(
+      196.91px + 2.4 * var(--seat-blurb-size) +
+        min(
+          1.15 * var(--seat-blurb-size),
+          max(0px, 1000 * (var(--seat-blurb-size) - var(--seat-blurb-fill) / var(--footer-blurb-fill, 0.995)))
+        )
+    );
+    --seat-panel-top: calc(var(--seat-rest) * var(--seat-panel-h));
+    --seat-below: max(
+      calc(var(--eye-engaged) * var(--badge-h) / 2),
+      calc(
+        var(--eye-down-shown) *
+          (var(--scheme-pitch) + var(--eye-near) * var(--eye-engaged) * var(--badge-h) / 2)
+      )
+    );
+    --badge-cy: calc(var(--seat-panel-top) + var(--badge-blurb-gap) + var(--seat-below));
+  }
+}
+
+/* THE EYE RIDES THE HOME FOOTER (SQ-144, Nathan 11-24: "the eye keeps the same gap above the black footer panel, riding up with
+   it"). On home the panel is not parked at its resting pose: the wheel, the finger, the on-load slide and the info drawer's push
+   all move it, and the seat above held still while it did. Here the panel's top is read where it is live: its progress
+   --footer-reveal (the share of the panel's height above the viewport's bottom, written to <html> in the SAME per-frame paint
+   that sets the panel's transform, so there is no transition and no second seat), less the on-load slide (--footer-slide, px,
+   down) and the drawer's push (--info-push, px, down), the two `translate`s global.css adds to the panel. Everything else of the
+   seat is the block above: at the resting pose this is --seat-rest x --seat-panel-h again, byte for byte, so the gap G between
+   the eye badge's bottom and the panel's top (40.8 px at the defaults) is the one Nathan sees today, and it is held at every
+   frame, parked below the fold (the eye sits G above the viewport's bottom) through the full reveal and back. The rule is
+   gated on Hero's home latch (data-footer-rest), so every other route and the first paint before it keep the static seat; the
+   fallbacks make a missing --footer-reveal the resting pose. Phones have no ride: the media query is the desktop's. */
+@media (min-width: 769px) {
+  html[data-footer-rest] .swm-corner {
+    --seat-panel-top: max(
+      0px,
+      calc(
+        var(--footer-reveal, var(--seat-rest)) * var(--seat-panel-h) - var(--footer-slide, 0px) - var(--info-push, 0px)
+      )
+    );
+  }
+}
+
+/* The seat on half pixels. The blurb's size is fractional, so the seat is too, and a lens centred on a fraction
+   of a pixel shimmers by a quarter pixel as the engaged badge grows (the jitter gate's reversal limit, 0.25, was hit
+   at 1440 x 900 without this). Half a pixel (SQ-125; it was a whole one): the 4px gap is held to 0.5, and rounding the
+   centre to a whole pixel alone spends up to all of that (measured 1.86 to 2.29), while half a pixel spends at most
+   a quarter and the jitter gate reads the same (worst reversal 0.17, limit 0.25). round() where the browser has it
+   (Chrome 125, Safari 15.4, Firefox 118); older ones keep the fractional seat above, exact to the line.
+   THE SEAMS ON WHOLE PIXELS (SQ-126, Nathan 11-18: the badge above the lens clipped into it, the one below stopped short).
+   The lens badge (the pager's ::before, scaled 1.5) and each neighbour's station (scaled 0.8) are laid out at fractional
+   positions, and the browser snaps each one's box to the device pixel grid on its own before scaling it, so the neighbour's
+   clip edge, exactly the lens's edge in the maths, painted up to a pixel off it, by an amount that moved with the seat's
+   fraction at each width. Here every one of those snaps is a no-op: the lens centre on a whole pixel (the seat rounds to
+   1px, not 0.5), the badge a multiple of 4px tall (round(29.21, 4px) = 28: its top, centre and both 1.5x edges whole
+   pixels; the eye is not resized, the padding above and below it is 3.39 instead of 4) and the pitch an even number of
+   px (round(34.3, 2px) = 34: every station's top a whole pixel from the lens centre). The lens badge's box is then
+   centred on the eye by its own height. SQ-127 (Nathan 11-19, "File a phone ticket"): phones take the same three roundings
+   in their own block below, with their own seat; the lens badge's centring and the glass neighbour's inset() serve both tiers. */
+@supports (width: round(1px, 1px)) {
+  @media (min-width: 769px) {
+    .swm-corner {
+      --badge-h: round(calc(var(--eye-h) + 2 * var(--badge-pad)), 4px);
+      --scheme-pitch: round(
+        calc(
+          var(--scheme-swatch) * var(--eye-engaged) * (1 + max(var(--eye-near), var(--eye-far))) / 2 + var(--scheme-gap)
+        ),
+        2px
+      );
+      --badge-cy: round(calc(var(--seat-panel-top) + var(--badge-blurb-gap) + var(--seat-below)), 1px);
+    }
+  }
+
+  /* Phones (SQ-127): the same whole pixels at 768px and under. The badge, the pitch and the seat round exactly as above
+     (28 px, 34 px), and the seat is the phone's own: ?schemeclear 64 under the badge's bottom edge, plus half the badge,
+     on a whole pixel (78 at the defaults: 64 + 14). Nothing else of the phone moves: the shift, the fade numbers and the
+     one circle above the lens are the base block's. */
+  @media (max-width: 768px) {
+    .swm-corner {
+      --badge-h: round(calc(var(--eye-h) + 2 * var(--badge-pad)), 4px);
+      --scheme-pitch: round(
+        calc(
+          var(--scheme-swatch) * var(--eye-engaged) * (1 + max(var(--eye-near), var(--eye-far))) / 2 + var(--scheme-gap)
+        ),
+        2px
+      );
+      --badge-cy: round(max(var(--badge-cy-floor), calc(var(--badge-clear) + var(--badge-h) / 2)), 1px);
+    }
+  }
+
+  /* Both tiers. The class doubled: this block sits above the badge's own rule, which it must outrank. */
+  .swm-corner[data-ready] .fp-scale.swm-corner__pager.swm-corner__pager::before {
+    top: calc((var(--eye-h) - var(--badge-h)) / 2);
+  }
+
+  /* The glass neighbour (the one badge with a backdrop-filter) is cut by the same window as a single rectangle, inset()
+     rather than the polygon: Chrome draws a polygon clip on a backdrop-filter element through a mask whose edge landed
+     0.75px off the lens's (measured, every width; the opaque black and blue badges keep the polygon, exact). A ring badge
+     is shorter than the lens badge, so what shows of it is always one piece, above the window (top to --badge-yt) or
+     below it (--badge-yb to the bottom); inside it nothing shows. The 1e5x terms pick the side off --badge-yt alone: a window
+     that starts above the badge's top (yt <= 0.01px, the settled lens station's yt is exactly 0) insets the top to --badge-yb
+     clamped to the box, so the lens station itself (yb = its height) is cut away whole and its veil never paints under the
+     lens badge's (SQ-126 rework: two 35% layers read as ~58% white); a window that starts inside or below it insets the
+     bottom to show 0..yt. */
+  .swm-corner .fp-scale.swm-corner__pager .scheme-badge[data-scheme='project'] {
+    --badge-hh: calc(var(--badge-bh) + (var(--badge-xt) + var(--badge-xb)) / var(--eye-r));
+    clip-path: inset(
+      min(clamp(0px, var(--badge-yb), var(--badge-hh)), max(0px, 100000 * (0.01px - var(--badge-yt)))) 0
+        min(max(0px, var(--badge-hh) - var(--badge-yt)), max(0px, 100000 * (var(--badge-yt) - 0.01px))) 0
+    );
+  }
+}
+
+/* — The wrapper is the widget's SEAT and its footprint: fixed, its eye one padding off the viewport's
+   right edge (the badge's own padding takes it to the edge), as wide as the eye and as tall as the
+   window, so one box holds the widget at rest and deployed. It paints nothing and takes no pointer;
+   the pager inside is absolute, centred on the window's middle, where the lens rests (the pager's own
+   geometry).
+   z 101: ABOVE the shell (100), on purpose (SQ-107 pass 7). The route fill and the loader (RouteFill)
+   are the shell's first children, so a passage covered the badge and uncovered it again: the fade
+   Nathan saw on every page change. The shell is one stacking context, so nothing between the fill and
+   the nav can be seated from outside it: the badge goes above it, and gives way (below) to what must
+   cover it. The info drawer, the privacy notice and the inquiry overlay (SiteShell's data-chrome-open)
+   hide it, never fading it through a page change. The phone menu's takeover does NOT hide it (SQ-107
+   pass 8): the takeover is portaled into SiteShell's .site-menu-host (global.css, z 102), one level
+   above this badge, so its own wipe paints over the badge as the edge passes, up and back down, and
+   holds over it through a page change made from the menu (SiteNav makes the badge inert meanwhile).
+   Its stacking context also caps the engaged lift pager-scale.css gives a .swm-corner pager (z 120)
+   at 101. — */
+.swm-corner {
+  position: fixed;
+  right: var(--badge-pad);
+  bottom: var(--scheme-bottom);
+  z-index: 101;
+  width: var(--eye-w);
+  height: calc(2 * var(--scale-rows) * var(--scheme-pitch));
+  pointer-events: none;
+  transition:
+    opacity 0.2s var(--ease-micro),
+    visibility 0s;
+}
+
+/* The badge: the eye's box plus --badge-pad on all four sides, a rectangle with square corners,
+   drawn as the pager's ::before behind everything in it (z -1 in the pager's own stacking
+   context: its `translate` and `isolation`). It scales with --eye-lift about the eye's centre,
+   and the pager's translate (below) anchors its right edge, so rest and engaged are one
+   component. It appears with the eye (data-ready), never before it.
+   THE STRIP (pass 7): the rectangle is a clipping window, its background the panels of the three
+   stations stacked in SCHEMES order (project's glass, black, blue) as three hard-stopped bands of one
+   badge height plus --badge-strip-pad a side each (--badge-strip-h, SQ-125: so a settled station fills the window to its
+   last pixel row whatever the browser snaps the fractional box to), repeating. The strip's offset is the engine's own
+   continuous column position (--scale-qf, the value the circles ride; --scale-cur until its first frame) times one band
+   pitch, less the pad: one detent = one band of travel, in the column's direction (to the next scheme the current
+   panel leaves by the top edge as the next rises from the bottom). At rest and at every detent exactly
+   one panel fills the badge; between detents one straight seam crosses it. background-repeat
+   follows the column's wrap. Only the backgrounds are clipped: the circles are the window's, never
+   this box's. The blur stays on (under an opaque panel it is not seen). */
+.swm-corner[data-ready] .fp-scale.swm-corner__pager::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  /* Pass 10: it widens LEFT with the selected eye. The box is drawn --eye-s / --eye-lift wider and its
+     centre sits half that much left of the eye's, so after the lift about its centre its right edge is
+     where it was (the pager's translate keeps that on the viewport's) and its left edge is one lifted
+     padding left of the shifted eye. At rest --eye-s is 0 and this is the pass-9 box. */
+  left: calc(-1 * var(--badge-pad) - var(--eye-s) * (1 + 1 / var(--eye-lift)) / 2);
+  top: calc(-1 * var(--badge-pad));
+  width: calc(var(--badge-w) + var(--eye-s) / var(--eye-lift));
+  height: var(--badge-h);
+  transform-origin: 50% 50%;
+  scale: var(--eye-lift);
+  background-image: linear-gradient(
+    to bottom,
+    var(--badge-glass) 0 33.3333%,
+    var(--badge-black) 33.3333% 66.6667%,
+    var(--color-electric-blue) 66.6667% 100%
+  );
+  background-size: 100% calc(3 * var(--badge-strip-h));
+  background-repeat: repeat-y;
+  background-position: 0 calc(-1 * (var(--scale-qf, var(--scale-cur)) * var(--badge-strip-h) + var(--badge-strip-pad)));
+  -webkit-backdrop-filter: blur(var(--badge-blur));
+  backdrop-filter: blur(var(--badge-blur));
+}
+
+/* Yield: invisible and inert while the info drawer, the privacy notice or the project
+   overlay (SiteShell's data-chrome-open) is open. visibility drops after the fade, so the
+   swatches cannot be focused or clicked behind the overlay. */
+html[data-chrome-open] .swm-corner {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s var(--ease-micro),
+    visibility 0s linear 0.2s;
+}
+
+/* The phone menu (SiteNav's takeover, <= 768px) has no rule here: it wipes over the badge itself
+   (.site-menu-host, global.css, one level above this badge) and SiteNav makes the badge inert under it. */
+
+/* — The pager: R = .swm-corner .fp-scale.swm-corner__pager. One eye wide and tall (the
+   lens), seated so the lens sits at the wrapper's vertical middle. — */
+.swm-corner .fp-scale.swm-corner__pager {
+  --pager-u: 1px;
+  --scale-w: var(--eye-w);
+  --scale-num-h: var(--eye-h);
+  --scale-pad: 0px;
+  --scale-pitch: var(--scheme-pitch);
+  /* The engine's own proximity falloff, re-enabled (SQ-101), ranks the circles by their
+     distance from the lens: one station out lands at --scale-sel, the lens at --scale-sel x
+     --scale-sel-bump, two out (the roster) at 1. Hold 0, radius 2 and exponent 1 make that a
+     straight line, so the three sizes in units of the smallest are 1, near / far, 1 / far.
+     --scale-sel and the bump solve for them (the lens circle is 1 / far, one out is (sel +
+     1) / 2). A circle's art is drawn at the LARGE size (.scheme-swatch, below) and shrinks by
+     its row's scale, so the lens circle is exactly the eye's iris at the lifted size. */
+  --scale-falloff: 2;
+  --scale-falloff-hold: 0;
+  --scale-falloff-exp: 1;
+  --scale-sel: calc(2 * max(var(--eye-near), var(--eye-far)) / var(--eye-far) - 1);
+  --scale-sel-bump: calc(1 / (var(--eye-far) * var(--scale-sel)));
+  /* The grow's progress and the lift it gives the eye (1 at rest). */
+  --eye-lift: calc(1 + (var(--eye-engaged) - 1) * var(--eye-tg));
+  /* The selected eye's shift at this instant (pass 10): the dial times the SLIDE's progress. Everything that
+     steps off the edge reads it. */
+  --eye-s: calc(var(--eye-shift) * var(--eye-ts));
+  position: absolute;
+  left: 0;
+  top: calc(var(--scale-rows) * var(--scale-pitch) - var(--scale-lens-y));
+  right: auto;
+  bottom: auto;
+  transform: none;
+  /* The badge, the eye and the iris grow together leftward and keep the BADGE's right edge on the
+     viewport's (the centre moves left by half the growth of the eye plus its padding): ONE anchor,
+     the badge's right edge at its vertical centre, so the padding ratio holds and nothing climbs. */
+  translate: calc((1 - var(--eye-lift)) * (var(--eye-w) / 2 + var(--badge-pad))) 0;
+  width: var(--scale-w);
+  height: var(--scale-num-h);
+  pointer-events: auto;
+  /* Its own stacking context (the badge sits at z -1 inside it), whatever the translate. */
+  isolation: isolate;
+}
+
+/* The entrance and the exit: four transitions, one per group, the delays between them what makes it a
+   sequence. The class is doubled so it outranks pager-scale.css's engaged-state transition (z-index only),
+   whatever order the host class and data-open land in; the z-index hold is that sheet's, kept.
+   RELEASE (the base): far leaves first, the near ring a beat later, a beat after that the eye shrinks, then
+   it slides back. The --eye-dl-* fallbacks are the nominal delays; SiteScheme writes the live ones at each
+   release (a group that has moved never waits out a delay that belongs to a group that never started). */
+.swm-corner .fp-scale.swm-corner__pager.swm-corner__pager {
+  transition:
+    --eye-ts var(--eye-slide) var(--ease-draw) var(--eye-dl-s, calc(2 * var(--eye-step) + var(--eye-grow))),
+    --eye-tg var(--eye-grow) var(--ease-draw) var(--eye-dl-g, calc(2 * var(--eye-step))),
+    --eye-tn var(--eye-out) var(--ease-draw) var(--eye-dl-n, var(--eye-step)),
+    --eye-tf var(--eye-out) var(--ease-draw) var(--eye-dl-f, 0ms),
+    z-index 0s linear var(--pager-scrim-ms);
+}
+
+/* ENGAGE: the slide first, the grow when it has ended, the near ring a beat after the grow starts, the far ring
+   a beat after that. */
+.swm-corner .fp-scale.swm-corner__pager.swm-corner__pager[data-open] {
+  --eye-ts: 1;
+  --eye-tg: 1;
+  --eye-tn: 1;
+  --eye-tf: 1;
+  transition:
+    --eye-ts var(--eye-slide) var(--ease-draw) var(--eye-dl-s, 0ms),
+    --eye-tg var(--eye-grow) var(--ease-draw) var(--eye-dl-g, var(--eye-slide)),
+    --eye-tn var(--eye-in) var(--ease-draw) var(--eye-dl-n, calc(var(--eye-slide) + var(--eye-step))),
+    --eye-tf var(--eye-in) var(--ease-draw) var(--eye-dl-f, calc(var(--eye-slide) + 2 * var(--eye-step))),
+    z-index 0s;
+}
+
+/* The rest press target, at least 44 x 44 and spanning the badge (the eye and its padding). Engaged:
+   it spans the shown column (--eye-hit-up stations above the lens, --eye-hit-down below) so the gaps
+   between circles do not leak the pointer out and commit mid-scrub. */
+.swm-corner .fp-scale.swm-corner__pager::after {
+  inset: min(calc(-1 * var(--badge-pad)), calc((var(--scale-num-h) - var(--scheme-hit)) / 2))
+    min(calc(-1 * var(--badge-pad)), calc((var(--scale-w) - var(--scheme-hit)) / 2));
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-open]::after {
+  top: calc(var(--scale-lens-y) - var(--eye-hit-up) * var(--scale-pitch));
+  bottom: calc(var(--scale-lens-y) - var(--eye-hit-down) * var(--scale-pitch));
+  /* The lifted badge outgrows the root by its own growth each side: the pad follows it. On the left it
+     also reaches the shift (pass 10), so a finger over the shifted eyes keeps the scrub. */
+  left: calc(
+    min(
+        calc((1 - var(--eye-lift)) * var(--scale-w) / 2 - var(--eye-lift) * var(--badge-pad)),
+        calc((var(--scale-w) - var(--scheme-hit)) / 2)
+      ) - var(--eye-s)
+  );
+  right: min(
+    calc((1 - var(--eye-lift)) * var(--scale-w) / 2 - var(--eye-lift) * var(--badge-pad)),
+    calc((var(--scale-w) - var(--scheme-hit)) / 2)
+  );
+}
+
+/* — Nothing with text, and nothing that belongs to /work's ruler, is painted. — */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__num,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__peak,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__den,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__pulse,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__box,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__hair,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__seam {
+  display: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__station::before,
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__station::after {
+  display: none;
+}
+
+/* — The chip: just the lens, the eye's box (the denominator row is gone). Engaged it steps left by the
+   shift (pass 10): the lids, the rest iris, the focus ring and the arrow ride with it, on
+   the slide (--eye-ts). A paint-only translate: the box, and so every hit measure, stays put. — */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__chip {
+  height: var(--scale-num-h);
+  translate: calc(-1 * var(--eye-s)) 0;
+}
+
+/* THE ARROW (pass 10). /work's lens pointer (pager-scale.css: the border triangle, 0.571rem x 0.858rem,
+   Round 7's size, opacity 0.2s --ease-micro, 80 ms later on open, instant under reduced motion: all of
+   that is /work's, untouched), MIRRORED to point LEFT at the selected eye. It sits in the gap the shift
+   opens between the eye and the viewport's right edge, centred on the lens line, on the lids' own ink so
+   it reads on every station's panel. The chip carries the shift, so it is put back here: its centre is
+   the middle of the eye's right edge and the viewport's (the badge's own lifted padding included), in
+   chip coordinates half the arrow's width (0.571rem) left of that. The pointer's flipper-spring
+   deflection (--box-dy) is /work's box, which is not here: the arrow stays on the lens line.
+   PASS 11, it SLIDES IN from the viewport's edge, never fading. At rest it sits entirely beyond the right edge
+   (--eye-arrow-off: the gap's centre's distance to the edge, plus the arrow's own width, plus 1 px, so not a
+   pixel shows at any width or padding), at opacity 1 throughout with no opacity transition (pager-scale.css's
+   fade is overridden here, /work's pointer untouched); engaged it is at its seat in the gap. The offset rides
+   the SLIDE's progress (--eye-ts), so it arrives as the gap finishes opening and goes back out past the edge
+   with the slide-back; during the grow it stays centred in the gap (the seat reads --eye-lift and --eye-s).
+   Reduced motion: --eye-ts snaps, so it snaps between off-screen and its seat. */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__pointer {
+  --eye-arrow-off: calc((1 - var(--eye-ts)) * (var(--badge-pad) / 2 + 0.2855rem + 1px));
+  left: calc(
+    var(--eye-w) / 2 + var(--eye-lift) * (var(--eye-w) + var(--badge-pad)) / 2 + var(--eye-s) / 2 - 0.2855rem +
+      var(--eye-arrow-off)
+  );
+  border-left: 0 solid transparent;
+  border-right: 0.571rem solid var(--color-white);
+  transform: none;
+  opacity: 1;
+  transition: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-open] .fp-scale__pointer {
+  opacity: 1;
+  transition: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__lens {
+  width: var(--scale-w);
+  height: var(--scale-num-h);
+  padding: 0;
+  border-radius: 999px;
+  /* No accent fill, no white charge: the lids are the only chrome, the iris is the face. */
+  background: transparent;
+  transition: none;
+}
+
+/* Keyboard focus: the house white 2px ring around the WHOLE eye. */
+.swm-corner .fp-scale.swm-corner__pager:has(.fp-scale__station:focus-visible) .fp-scale__lens {
+  outline: 2px solid var(--color-white);
+  /* 4px round the eye at rest; engaged (keyboard focus engages it) the offset also takes up
+     the eye's lift. */
+  outline-offset: calc(4px + (var(--eye-lift) - 1) * var(--eye-h) / 2);
+}
+
+/* The lens art: the eye (lids + the committed iris), in the chip above the window. */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__lens-art {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--scale-w);
+  height: var(--scale-num-h);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .scheme-eye {
+  display: block;
+  width: var(--eye-w);
+  height: var(--eye-h);
+  overflow: visible;
+  /* Lifted from its centre while engaged (a paint-only scale: the box, and so every hit
+     measure, stays the eye at rest). */
+  scale: var(--eye-lift);
+}
+
+/* The lids: white, the same white and weight as the globe's lines, so the eye and its
+   iris read as one drawing (Nathan 11-15). No dark outline round them (Nathan 11-16): the
+   badge is what keeps the eye legible on white and over a photo. */
+.swm-corner .fp-scale.swm-corner__pager .scheme-eye__lid {
+  stroke: var(--color-white);
+}
+
+/* The rest iris. Hidden with OPACITY once the column's centre circle has fully taken over: its twin sits on the
+   same pixels (same art, same place, the same lift), so the hand-over neither jumps, doubles nor resizes. It
+   holds, opaque, through the slide and the grow (the centre circle comes up beneath it on the grow's progress)
+   and goes the moment the grow ends (--eye-dl-h: the grow's delay plus its length; SiteScheme writes it, this is
+   the nominal); on the way out it is back at once, over the circle that is shrinking. The lids stay, above the
+   moving circles. */
+.swm-corner .fp-scale.swm-corner__pager .scheme-eye__iris {
+  opacity: 1;
+}
+
+.swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__iris {
+  opacity: 0;
+  transition: opacity 0s linear var(--eye-dl-h, calc(var(--eye-slide) + var(--eye-grow)));
+}
+
+/* — The window and its column: wide enough for the eye at its fullest lift (the engaged eye
+   and its lens circle are --eye-engaged x the eye, and the window clips whatever leaves it:
+   a window only as wide as the resting eye cut the circle's left and right edges), centred on
+   the eye, circles centred on the lens axis. Nothing is mirrored (there is no text column).
+   NO MASK (pass 5): the window's own box still bounds hit-testing (a station outside it is inert),
+   but nothing is painted through a mask any more. The pager's vertical feather and the iris-band
+   mask both cut a circle flat where it crossed them, in transit and in the entrance (Nathan 11-16,
+   the cut top circle). Each station fades itself (below), so the window's edge is never reached by
+   a circle that is still visible. — */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__window {
+  --eye-wide: calc(var(--eye-w) * max(1, var(--eye-engaged)));
+  /* SQ-116: the window also reaches as far as the circles' badges do at the fullest lift. The lens badge runs to the
+     viewport's edge and a lifted padding past the eye each side, and the window (overflow: hidden, the hit-test box)
+     must not clip a ring badge sitting flush against that edge. */
+  --eye-bleed: calc(var(--eye-engaged) * var(--badge-pad));
+  --scale-w: var(--eye-wide);
+  --scale-pad: 0px;
+  /* Pass 10: wide enough on the left for the shift, so the stepped-off circles are neither clipped nor
+     un-hittable; the stations container below takes the same offset back, so at no shift they sit where
+     they always did. */
+  left: calc((var(--eye-w) - var(--eye-wide)) / 2 - var(--eye-shift) - var(--eye-bleed));
+  width: calc(var(--eye-wide) + var(--eye-shift) + 2 * var(--eye-bleed));
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__stations {
+  left: calc(var(--eye-shift) + var(--eye-bleed));
+  width: var(--eye-wide);
+}
+
+/* THE LEFT JOLT (SQ-107 pass 5), root cause. pager-scale.css gives the strip `will-change: transform`,
+   which puts the column's circles on a compositor layer. A layer is rastered at its own pixel
+   offset, up to a pixel off from the same box painted in the page's layer, and the rest iris (the
+   eye, in the page's layer) sits under the column's lens circle on the same box: when the iris
+   handed over to the circle at the end of the entrance, the globe stepped about 1 px left
+   (measured: the two renders' pixel centroids 1.0 px apart at DPR 1 and 2, 0.00 to 0.14 px apart
+   with the hint off). One raster path for the eye and its column: no hint here. /work keeps its own. */
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__scale {
+  will-change: auto;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .fp-scale__station {
+  display: grid;
+  place-items: center;
+  width: var(--scale-w);
+  height: var(--scale-pitch);
+  padding: 0;
+  /* Each circle is scaled by its row (the engine's --sel, from the falloff above) about its
+     own centre, and the scale is held in every state, so the exit never snaps. */
+  transform-origin: 50% 50%;
+  transform: scale(calc(var(--sel) * var(--eye-far)));
+  /* Where this circle is, in stations from the lens (the engine's continuous --scale-qf): above it
+     and below it. */
+  --eye-above: max(0, calc(var(--scale-qf, var(--scale-cur)) - var(--k, 0)));
+  --eye-below: max(0, calc(var(--k, 0) - var(--scale-qf, var(--scale-cur))));
+  /* This circle's own entrance progress (0 to 1): its continuous distance from the lens (--ndr) picks between
+     the groups' progresses and interpolates, so a scrub mid-entrance stays continuous. At the lens it is the
+     grow's (--eye-tg: the lens circle rides the eye's group), at one station out the near ring's (--eye-tn), at
+     two or more the far ring's (--eye-tf). */
+  --eye-p: calc(
+    var(--eye-tg) + (var(--eye-tn) - var(--eye-tg)) * clamp(0, var(--ndr), 1) +
+      (var(--eye-tf) - var(--eye-tn)) * clamp(0, calc(var(--ndr) - 1), 1)
+  );
+  /* The fade above the shown circles: whole through --eye-up-shown stations out (1, every tier since 11-20),
+     gone before the window's edge (the far circle's rim included), so nothing is ever cut by it. */
+  --eye-up: clamp(0, calc(1 - (var(--eye-above) - var(--eye-up-shown)) / var(--eye-up-span)), 1);
+  /* Below the lens --eye-down-shown circles stay whole (1 at 768px and under, where the viewport's edge cuts it; 0
+     above, SQ-121) and the next one fades out within --eye-down-span stations, so a tall viewport never shows them. */
+  --eye-down: clamp(0, calc(1 - (var(--eye-below) - var(--eye-down-shown)) / var(--eye-down-span)), 1);
+  /* THE FAN-OUT (SQ-116, Nathan 11-17: "the upper eye slides upward into position, and the lower eye slides
+     downward from behind the center selected eye, almost like they are revealing and fanning outward"). The
+     entrance and the exit ride --eye-p as a SLIDE and nothing else: at --eye-p 0 the circle, and the badge it
+     carries (.scheme-badge, below), sit on the lens LINE (the centre line of the expanded central badge) at the
+     station's own x (the translate undoes only the station's distance from the lens); at 1 they are at their own
+     station. Straight up or down (Nathan 11-17: "translating directly vertically upward and downward ... anchored to
+     the center of the expanded central badge"; until then the circle also eased in from the centre eye's x, a
+     diagonal). The circle stays at
+     opacity 1 the whole way: the opacity here is the distance fade (--eye-up, --eye-down) times a hard switch that
+     keeps the column invisible at rest (--eye-p exactly 0, never a ramp). It is painted UNDER the lens circle
+     (z-index by the DETENTED distance --ndd, the one the sizes step on) and its badge is clipped off the lens
+     badge's own window, so it is revealed as it leaves the centre eye, never drawn over it. The engine's own
+     cascade (opacity, stagger) is replaced; its transitions are off. */
+  --eye-sx: var(--sw);
+  /* The circle's own clip while it slides (.scheme-swatch, below): the central badge's window in the circle's own
+     coordinates, the same mapping as its badge's (--eye-cyc: the station's distance from the lens at this instant).
+     The band is the window only while a ring circle is on its way (--eye-con: 1 at --ndd 1 or more with --eye-p
+     below 1, else 0), so a settled circle, the lens circle and every circle in a scrub are never cut. */
+  --eye-cr: calc(var(--sel) * var(--eye-far));
+  --eye-con: calc(clamp(0, var(--ndd), 1) * min(1, (1 - var(--eye-p)) * 1000));
+  --eye-cyc: calc((var(--k, 0) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch) * var(--eye-p));
+  --eye-cband: calc(var(--eye-con) * var(--eye-lift) * var(--badge-h) / 2);
+  --eye-cyt: calc(
+    var(--scheme-swatch) * var(--eye-lift) / 2 + (-1 * var(--eye-cband) - var(--eye-cyc)) / var(--eye-cr)
+  );
+  --eye-cyb: calc(var(--scheme-swatch) * var(--eye-lift) / 2 + (var(--eye-cband) - var(--eye-cyc)) / var(--eye-cr));
+  z-index: calc(20 - min(var(--ndd), 19));
+  opacity: calc(var(--eye-up) * var(--eye-down) * min(1, var(--eye-p) * 1000));
+  /* x (pass 10): /work's stagger taper --sw (pager-scale.css, from the continuous distance --ndr and
+     global.css's --scale-slice-reach / --scale-slice-exp: 1 at the lens, 0.444 one station out, 0.111
+     two out) times the engaged shift, to the LEFT, its own the whole way through the slide (--eye-sx, 11-17).
+     y: the slide, from the lens row (the column's own distance --scale-qf - --k undone) to its own. */
+  translate:
+    calc(-1 * var(--eye-sx) * var(--eye-s))
+    calc((var(--scale-qf, var(--scale-cur)) - var(--k, 0)) * var(--scale-pitch) * (1 - var(--eye-p)));
+  transition: none;
+}
+
+/* THE BADGE BEHIND EVERY SHOWN EYE (SQ-116, Nathan 11-17: "add in the background fill color for the other globes that
+   are not in the currently active slot ... the badge should follow the size of the eye proportionately"). One per
+   station (SiteScheme renders it with the circle), carried by the station, so it takes the station's own scale (1,
+   --eye-near, --eye-far of the lens badge's), its shift and its slide. It is the lens badge's build, drawn in the
+   station's own coordinates: the lens badge's width and height (--badge-bw, --badge-bh: the lifted eye plus its padding,
+   the width and the shift to the left of it), its RIGHT EDGE ON THE VIEWPORT'S (--badge-edge: the lens-to-edge
+   distance, lifted padding included, in this station's own px), so at --eye-near its box is 0.8 of the lens badge's
+   each way and at --eye-far 0.5. Its panel is its station's own scheme: the lens badge's three panels, one each
+   (the glass rule held: the veil is the colour's alpha, never opacity).
+   The lens badge (the pager's ::before) stays the one wiping window onto the strip, its motion untouched. This badge
+   is carried, not wiped: the panel travels with its circle, so scrolling the blue eye up slides its blue panel up
+   with it, out of the lens badge's top edge and into the slot above. The part of it that lies inside the lens
+   badge's window is clipped away (yT, yB: that window's edges in this badge's own coordinates, off the station's
+   distance from the lens at this instant), so the lens badge is never painted twice (two glass veils would read as
+   one denser one) and a circle sliding out is revealed as it leaves the centre eye. At --eye-p 0 the whole badge
+   lies inside it: nothing shows. */
+.swm-corner .fp-scale.swm-corner__pager .scheme-badge {
+  --eye-r: calc(var(--sel) * var(--eye-far));
+  --badge-bw: calc(var(--eye-lift) * var(--badge-w) + var(--eye-s));
+  --badge-bh: calc(var(--eye-lift) * var(--badge-h));
+  --badge-edge: calc(
+    (var(--eye-lift) * (var(--eye-w) / 2 + var(--badge-pad)) + var(--eye-sx) * var(--eye-s)) / var(--eye-r)
+  );
+  --badge-yc: calc((var(--k, 0) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch) * var(--eye-p));
+  /* THE FAR RING'S SEAM (Nathan 11-17: "the eye badge farthest away from the currently selected also does not have a
+     gap between it and the one next closest"). The stations sit one pitch apart but the badges shrink with distance,
+     so two stations out a badge's lens-side edge fell short of the next badge in (5.8 px at the defaults: a pitch of
+     34.3 against half of 35.0 + 21.9). A badge at --ndd 2 or more now ends exactly on the outer edge of the badge one
+     station closer, the way the near ring's ends on the central badge: its box grows toward the lens by any gap
+     (--badge-xt below the lens, --badge-xb above it), and the clip band reaches out to that neighbour's outer edge
+     (--badge-bt, --badge-bb), so an overlap is cut instead of painted twice. The neighbour's place and size are the
+     engine's own: its centre off its own entrance progress (--badge-pn, the --eye-p cascade one station in), its
+     scale off --ndd - 1 through pager-scale.css's falloff (--badge-rn), so the seam holds through the entrance, a
+     scrub and the release. At --ndd 0 and 1 (--badge-g 0) the box and the band are the lens window's, as before.
+     Screen px from the lens centre map into this box's own as --badge-o + (y - --badge-yc) / --eye-r. */
+  --badge-s: calc((var(--k, 0) - var(--scale-cur)) / max(var(--ndd), 1));
+  --badge-g: clamp(0, calc(var(--ndd) - 1), 1);
+  --badge-up: calc(var(--badge-g) * max(0, -1 * var(--badge-s)));
+  --badge-dn: calc(var(--badge-g) * max(0, var(--badge-s)));
+  --badge-pn: calc(
+    var(--eye-tg) + (var(--eye-tn) - var(--eye-tg)) * clamp(0, calc(var(--ndr) - 1), 1) +
+      (var(--eye-tf) - var(--eye-tn)) * clamp(0, calc(var(--ndr) - 2), 1)
+  );
+  --badge-wn: clamp(
+    0,
+    calc(
+      1 - max(calc(var(--ndd) - 1 - var(--scale-falloff-hold)), 0) /
+        max(calc(var(--scale-falloff) - var(--scale-falloff-hold)), 0.001)
+    ),
+    1
+  );
+  --badge-w1n: clamp(0, calc(2 - var(--ndd)), 1);
+  --badge-rn: calc(
+    (
+        1 + (var(--scale-sel) - 1) * pow(var(--badge-wn), var(--scale-falloff-exp)) +
+          (var(--scale-sel) * var(--scale-sel-bump) - var(--scale-sel)) * var(--badge-w1n) * var(--badge-w1n)
+      ) * var(--eye-far)
+  );
+  --badge-yn: calc(
+    (var(--k, 0) - var(--badge-s) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch) * var(--badge-pn)
+  );
+  --badge-nt: calc(var(--badge-yn) - var(--badge-rn) * var(--badge-bh) / 2);
+  --badge-nb: calc(var(--badge-yn) + var(--badge-rn) * var(--badge-bh) / 2);
+  --badge-xb: calc(
+    var(--badge-up) * max(0px, calc(var(--badge-nt) - var(--badge-yc) - var(--eye-r) * var(--badge-bh) / 2))
+  );
+  --badge-xt: calc(
+    var(--badge-dn) * max(0px, calc(var(--badge-yc) - var(--eye-r) * var(--badge-bh) / 2 - var(--badge-nb)))
+  );
+  --badge-bt: calc(
+    -1 * var(--badge-bh) / 2 - var(--badge-up) * max(0px, calc(-1 * var(--badge-bh) / 2 - var(--badge-nt)))
+  );
+  --badge-bb: calc(var(--badge-bh) / 2 + var(--badge-dn) * max(0px, calc(var(--badge-nb) - var(--badge-bh) / 2)));
+  --badge-o: calc(var(--badge-bh) / 2 + var(--badge-xt) / var(--eye-r));
+  --badge-yt: calc(var(--badge-o) + (var(--badge-bt) - var(--badge-yc)) / var(--eye-r));
+  --badge-yb: calc(var(--badge-o) + (var(--badge-bb) - var(--badge-yc)) / var(--eye-r));
+  position: absolute;
+  z-index: -1;
+  left: calc(50% + var(--badge-edge) - var(--badge-bw));
+  top: calc(50% - var(--badge-o));
+  width: var(--badge-bw);
+  height: calc(var(--badge-bh) + (var(--badge-xt) + var(--badge-xb)) / var(--eye-r));
+  pointer-events: none;
+  background: var(--badge-glass);
+  -webkit-backdrop-filter: blur(var(--badge-blur));
+  backdrop-filter: blur(var(--badge-blur));
+  clip-path: polygon(
+    -999px -999px,
+    999px -999px,
+    999px var(--badge-yt),
+    -999px var(--badge-yt),
+    -999px var(--badge-yb),
+    999px var(--badge-yb),
+    999px 999px,
+    -999px 999px
+  );
+}
+
+/* The other two panels (the strip's own colours, drawn whole: a band of the strip would bleed its neighbour's colour
+   along a fractional edge). Opaque, so no blur under them. */
+.swm-corner .fp-scale.swm-corner__pager .scheme-badge[data-scheme='black'] {
+  background: var(--badge-black);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.swm-corner .fp-scale.swm-corner__pager .scheme-badge[data-scheme='blue'] {
+  background: linear-gradient(to bottom, var(--color-electric-blue) 0 100%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* THE ONE-COLOUR LENS (SQ-132, Nathan 11-20: option A, "Lens shows one colour"; the default, ?lenswipe=1 keeps the
+   strip wipe above to compare). Between two detents the wipe's strip moved one band (48 px) per detent while each
+   carried badge moved one pitch (34 px), so the two agreed only at a whole detent: the in-between frames left a stepped
+   corner, a 1 px line of the leaving colour on the lens's top edge and a sliver of the arriving glass over the black
+   badge below it (402 @3, Phone Checks row 230). Now the lens badge paints only the CURRENT station's panel
+   (--scale-cur, the detented row the size curve and --ndd key off), so it never wipes, and the carried badges make one
+   column that slides through it: the lens badge rides with the current station (the lag between its row and the
+   engine's continuous one, --scale-cur - --scale-qf, one pitch per detent like every carried badge; 0 settled), so it
+   IS that station's badge and the station's own carried copy is not drawn (two glass veils, and its lagging sliver
+   was the grey line); a near-ring badge (--ndd 1), once the ring is out (--eye-con
+   0: a scrub and a settle, never the slide out from behind the lens), is no longer cut by the window but trimmed by its
+   own settled overlap with the lens badge (--badge-trim, 3.8 px at the phone defaults) on its lens side. The trimmed
+   edge rides with the badge, so the column stays edge to edge at every q (the riding lens badge's edge meets the
+   neighbour's trimmed one: lens half + trim = pitch), and the arriving badge slides into the lens in its own shape.
+   Settled, nothing differs: the trim is exactly the window's cut there, and one panel fills the lens. The far ring
+   (--ndd 2 and more) keeps its seam band. */
+.swm-corner[data-ready]:not([data-lens-wipe]) .fp-scale.swm-corner__pager::before {
+  background-position: 0 calc(-1 * (var(--scale-cur) * var(--badge-strip-h) + var(--badge-strip-pad)));
+  translate: 0 calc((var(--scale-cur) - var(--scale-qf, var(--scale-cur))) * var(--scale-pitch));
+}
+
+.swm-corner:not([data-lens-wipe]) .fp-scale.swm-corner__pager .scheme-badge {
+  opacity: clamp(0, var(--ndd), 1);
+  /* own px: the lens badge's half height less the gap from its edge to this station's centre, over this badge's scale */
+  --badge-trim: max(0px, calc(var(--badge-bh) / 2 + (var(--badge-bh) / 2 - var(--scale-pitch)) / var(--eye-r)));
+  /* 1 = trimmed (the near ring, out), 0 = today's band; --badge-ab 1 above the lens, 0 below */
+  --badge-m: calc(clamp(0, var(--ndd), 1) * (1 - var(--badge-g)) * (1 - var(--eye-con)));
+  --badge-ab: clamp(0, calc(var(--scale-cur) - var(--k, 0)), 1);
+  /* --badge-yt / --badge-yb once each (WebKit substitutes var() chains as text on every style pass, and the two are
+     the longest chains here: written twice, the menu's first frame over the badge ran long; SQ-132) */
+  --badge-ct: calc(
+    (1 - var(--badge-m)) * var(--badge-yt) +
+      var(--badge-m) * (var(--badge-ab) * (var(--badge-bh) - var(--badge-trim)) - (1 - var(--badge-ab)) * 999px)
+  );
+  --badge-cb: calc(
+    (1 - var(--badge-m)) * var(--badge-yb) +
+      var(--badge-m) * (var(--badge-ab) * 999px + (1 - var(--badge-ab)) * var(--badge-trim))
+  );
+  clip-path: polygon(
+    -999px -999px,
+    999px -999px,
+    999px var(--badge-ct),
+    -999px var(--badge-ct),
+    -999px var(--badge-cb),
+    999px var(--badge-cb),
+    999px 999px,
+    -999px 999px
+  );
+}
+
+/* The glass neighbour's inset() cut (the @supports block above), trimmed the same way: its lens-side edge only. */
+.swm-corner:not([data-lens-wipe]) .fp-scale.swm-corner__pager .scheme-badge[data-scheme='project'] {
+  --badge-hh: calc(var(--badge-bh) + (var(--badge-xt) + var(--badge-xb)) / var(--eye-r));
+  clip-path: inset(
+    calc(
+        (1 - var(--badge-m)) *
+          min(clamp(0px, var(--badge-yb), var(--badge-hh)), max(0px, 100000 * (0.01px - var(--badge-yt)))) +
+          var(--badge-m) * (1 - var(--badge-ab)) * var(--badge-trim)
+      )
+      0
+      calc(
+        (1 - var(--badge-m)) *
+          min(max(0px, var(--badge-hh) - var(--badge-yt)), max(0px, 100000 * (var(--badge-yt) - 0.01px))) +
+          var(--badge-m) * var(--badge-ab) * var(--badge-trim)
+      )
+      0
+  );
+}
+
+/* The circle is drawn at the LARGE size (the lens circle, the iris at the lifted size) and its
+   row only ever scales it DOWN (--sel x --eye-far: 1 for the lens, near / far, 1 for the small
+   ones). SQ-107 pass 3, the jitter: an svg root's layout box is snapped to a device pixel before
+   any CSS transform, so drawing the circle small and scaling it up by 1 / far (about 3.3x)
+   multiplied that rounding into a 0.2 to 0.4 px offset, and the globe inside the eye stepped
+   down when the column's lens circle took over from the rest iris. Drawn large, the snap is
+   at most a fraction of a pixel and the row scale shrinks it. */
+.swm-corner .fp-scale.swm-corner__pager .scheme-swatch {
+  display: block;
+  width: calc(var(--scheme-swatch) * var(--eye-lift));
+  height: calc(var(--scheme-swatch) * var(--eye-lift));
+  /* 11-17: a ring circle slides straight up or down at its own x (--eye-sx, the station rule), so on its way out it
+     would cross the central badge beside the lens circle. Like its badge, the part of it inside the central badge's
+     window is not painted while it slides (--eye-cyt, --eye-cyb, the station rule): it is revealed as it leaves the
+     badge's edge. Settled, on the lens and in a scrub the band is empty and nothing is cut. */
+  clip-path: polygon(
+    -999px -999px,
+    999px -999px,
+    999px var(--eye-cyt),
+    -999px var(--eye-cyt),
+    -999px var(--eye-cyb),
+    999px var(--eye-cyb),
+    999px 999px,
+    -999px 999px
+  );
+}
+
+/* The shared defs svg (path + clips, rendered once): present for the references, never seen. */
+.swm-corner .scheme-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Press and hold (SQ-101): the widget is drawn in svg, and a hold that does not slide at once
+   used to raise the OS image / save dialog (and a text-selection handle). None of that belongs
+   here, on iOS or Android: no callout, no selection, no drag on the widget or anything in it
+   (SiteScheme also cancels `contextmenu` and `dragstart` on it, and the svgs carry
+   draggable=false), and no svg is ever the hit target, so the press lands on the pager's own
+   button or root, which the engine handles. */
+.swm-corner,
+.swm-corner * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.swm-corner svg {
+  pointer-events: none;
+}
+
+/* Reduced motion: the eye's lift and the column's entrance and exit are instant, and the background
+   strip snaps: it shows the whole panel of the nearest station, never a seam. */
+@media (prefers-reduced-motion: reduce) {
+  .swm-corner[data-ready] .fp-scale.swm-corner__pager::before {
+    background-position: 0 calc(-1 * (round(var(--scale-qf, var(--scale-cur)), 1) * var(--badge-strip-h) + var(--badge-strip-pad)));
+  }
+
+  .swm-corner .fp-scale.swm-corner__pager.swm-corner__pager,
+  .swm-corner .fp-scale.swm-corner__pager.swm-corner__pager[data-open] {
+    transition: z-index 0s;
+  }
+
+  .swm-corner .fp-scale.swm-corner__pager[data-open] .scheme-eye__iris {
+    transition: none;
+  }
+}
+
+/* Reduced motion (SQ-107 pass 11): the sequence is gone, every group snaps (the four progresses jump to their
+   targets with the state), so the arrow snaps between beyond the edge and its seat, the rest iris hands over
+   with the state, and nothing waits on a delay. */
+
+/* Wheel guard (SiteScheme): while a page scroll that began outside is still going, the
+   widget is transparent to the pointer, so the wheel is hit-tested to the page under
+   it and takes its normal path. Cleared ?schemeguard ms after the last outside wheel. */
+.swm-corner[data-wheel-guard],
+.swm-corner[data-wheel-guard] * {
+  pointer-events: none !important;
+}

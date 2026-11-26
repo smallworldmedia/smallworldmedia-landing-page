@@ -1,0 +1,302 @@
+/**
+ * ClientLogoTicker — the client-logo band that rides the top of the links
+ * footer (09-07, Nathan). Copy line + a vertical odometer word ticker, then a
+ * single full-width row of client logos rolling ONE direction in a seamless
+ * loop (no two-row counter-marquee).
+ *
+ * REVEAL: no scroll listener of its own. SiteFooter renders this as the first
+ * child of its fixed panel, so the band rides the panel's translateY in both
+ * the scroll and the driven (/work) modes; its fade is a window over the
+ * footer's own `--footer-reveal` broadcast (global.css `.logo-ticker`), and
+ * both animations are gated on `html[data-footer-revealed]` so nothing runs
+ * while the footer is parked. One motion, one listener.
+ *
+ * ASSETS: static for now (Nathan 09-07 — Sanity later once the set is final).
+ * `scripts/prep-client-logos.mjs` normalises the intake `Client Logos/` dump
+ * into `src/assets/client-logos/` (white-on-transparent, ≤240px tall) plus a
+ * manifest with intrinsic w/h. The glob below reads that folder — nothing is
+ * hard-coded, a new logo lands by re-running the script. The manifest dims go
+ * on each <img> as width/height so the row's width is deterministic BEFORE
+ * the images load (the UA maps the attrs to aspect-ratio): the marquee's
+ * duration is measured once at mount, never re-based mid-roll.
+ *
+ * MARQUEE (09-08, Nathan): JS-driven on THE shared drag + momentum engine
+ * (src/lib/dragMomentum.js — the home globe's choreography, one place).
+ * The strip (two track copies) rolls at the AMBIENT velocity −`--logo-pxs`
+ * px/s (constant, the fill-ticker doctrine); a pointer drag passes through
+ * 1:1, a flick carries on the globe's inertia curve and settles back to the
+ * roll. Position wraps modulo one track width, so the loop is seamless in
+ * either direction. Runs only while the footer is revealing (or a drag /
+ * flick is live).
+ * ODOMETER: CSS keyframes only — five words + a clone of the first, one
+ * `--logo-word-cycle` per word, hold/move baked into the percentages.
+ *
+ * Dials (?logoh ?logogap ?logomaxw ?logopxs ?logofrom ?logoto ?logowordcycle)
+ * are applied IMPERATIVELY in the first effect — the panel is SSR'd on two
+ * of its three routes and hydration keeps the server's inline style (the
+ * GraticulePager trap, 09-07).
+ */
+import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import manifest from '../assets/client-logos/manifest.json';
+import sized from '../assets/client-logos/sized/manifest.json';
+import DragMomentum, { PX_MAX_SPEED } from '../lib/dragMomentum.js';
+import { PREFERS_REDUCED_MOTION } from './globe/globeConfig.js';
+
+const URLS = import.meta.glob('../assets/client-logos/*.{svg,png}', {
+  eager: true,
+  query: { url: true, 'no-inline': true },
+  import: 'default',
+});
+
+/* SQ-150: a PNG mark is drawn at 12-56 CSS px but ships 240 px tall. sized/ holds it at the
+   pixels it is drawn at x 1, 2 and 3 (DPR is capped at 3; lossless WebP, never past the
+   original's own height), so the browser's density pick fetches only what renders sharp.
+   scripts/prep-client-logo-sizes.mjs writes it; an SVG has no sized form and stays whole. */
+const SIZED_URLS = import.meta.glob('../assets/client-logos/sized/*.webp', {
+  eager: true,
+  query: { url: true, 'no-inline': true },
+  import: 'default',
+});
+
+/** The srcset of one logo file over its densities (a density at the original's own height is the original). */
+const srcSetOf = (file, src) =>
+  sized[file]
+    ?.map((r) => `${r.file ? SIZED_URLS[`../assets/client-logos/sized/${r.file}`] : src} ${r.x}x`)
+    .join(', ');
+
+/** {id, name, src, srcSet, w, h} — the shape a later Sanity loader must return. */
+export const LOGOS = manifest
+  .map((m) => ({
+    id: m.file.replace(/\.(svg|png)$/, ''),
+    name: m.name,
+    src: URLS[`../assets/client-logos/${m.file}`],
+    srcSet: srcSetOf(m.file, URLS[`../assets/client-logos/${m.file}`]),
+    w: m.w,
+    h: m.h,
+  }))
+  .filter((l) => l.src);
+
+export const COPY = 'Utilized by a full spectrum of industry';
+
+/* The two words carrying the half-note spectrum pulse (.logo-ticker__spectrum).
+   Split OUT of COPY at render rather than hard-coded into the markup, so the
+   string stays the single source: a copy edit that drops the phrase degrades
+   to the plain line instead of silently orphaning a styled span. */
+export const SPECTRUM_PHRASE = 'full spectrum';
+export const leadParts = (copy = COPY, phrase = SPECTRUM_PHRASE) => {
+  const i = copy.indexOf(phrase);
+  return i < 0 ? [copy, '', ''] : [copy.slice(0, i), phrase, copy.slice(i + phrase.length)];
+};
+
+/* THE WHITE SWITCH (11-07, Nathan: "a toggle to change the 'full-spectrum'
+   color cycle to just full brightness text white to match the rotating
+   artists, promoters, etc"). true = the phrase takes the odometer word's own
+   white and the colour walk never runs; false = the 127 BPM pulse. Baked
+   true 11-07 (Nathan: "commit the white full spectrum text, keep the color
+   cycle on hand but just turned off"), so the pulse stays wired for
+   ?spectrumwhite=0. The bake is SSR'd as data-spectrum on the band;
+   ?spectrumwhite=1 / =0 overrides it for the page view (global.css
+   .logo-ticker[data-spectrum='white']). */
+export const SPECTRUM_WHITE = true;
+
+export const WORDS = ['artists', 'promoters', 'labels', 'agencies', 'venues'];
+
+// Optical balance (09-08, Nathan): height-fitting every mark makes a square
+// badge read half the size of an 8:1 wordmark. Each mark's height is scaled
+// by (REF ÷ aspect)^k — k = 0.5 equalises AREA, 0 = pure height-fit, 1 =
+// equal width — so squares come UP and wide wordmarks come DOWN toward one
+// perceived size. Clamped so nothing balloons or vanishes. Mirrors the
+// global.css bake (--logo-bal / --logo-ref-ar); ?logobal ?logoref re-run it
+// at mount.
+const BAL_K = 0.5;
+const BAL_REF_AR = 3;
+const BAL_MIN = 0.55;
+const BAL_MAX = 2;
+export const balance = (w, h, k = BAL_K, ref = BAL_REF_AR) =>
+  Math.min(BAL_MAX, Math.max(BAL_MIN, Math.pow(ref / (w / h), k)));
+
+// Live tuning (?key=value) — the FeaturedProjects knobs convention.
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+
+export default function ClientLogoTicker() {
+  const rootRef = useRef(null);
+  const trackRef = useRef(null);
+  const rollRef = useRef(null);
+  const stripRef = useRef(null);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    const track = trackRef.current;
+    const roll = rollRef.current;
+    const strip = stripRef.current;
+    if (!root || !track || !roll || !strip) return undefined;
+
+    // Dials first (they change the widths the measure below reads). Literal
+    // PARAM('key') calls so scripts/tunables-keys.mjs inventories them.
+    const dial = (token, unit, v) => {
+      if (Number.isFinite(v)) root.style.setProperty(token, `${v}${unit}`);
+    };
+    dial('--logo-h', 'px', PARAM('logoh', NaN));
+    dial('--logo-gap', 'px', PARAM('logogap', NaN));
+    dial('--logo-max-w', '', PARAM('logomaxw', NaN));
+    dial('--logo-pxs', '', PARAM('logopxs', NaN));
+    dial('--logo-reveal-from', '', PARAM('logofrom', NaN));
+    dial('--logo-reveal-to', '', PARAM('logoto', NaN));
+    dial('--logo-word-cycle', 'ms', PARAM('logowordcycle', NaN));
+    dial('--logo-rest-op', '', PARAM('logorestop', NaN));
+
+    // Root-scoped tokens: --ink-muted is a site-wide ink role and --swm-bpm a
+    // house tempo, so these land on <html> rather than this component's root.
+    const rootDial = (token, v) => {
+      if (Number.isFinite(v)) document.documentElement.style.setProperty(token, `${v}`);
+    };
+    rootDial('--ink-muted-l', PARAM('inkmuted', NaN));
+    rootDial('--swm-bpm', PARAM('pulsebpm', NaN));
+    // Palette sweeps inside the cycling half note — the colour RATE, held
+    // separate from the tempo above (10-08, Nathan: "much more rapid, but
+    // still have the same pausing intervals").
+    // THE CLAMP IS LOAD-BEARING, not defensive. Both bad values are SILENT:
+    // reps 0 does not invalidate the calc — the UA clamps the walk's duration
+    // to ~1.8e308s and it freezes on red with no console error — and a
+    // fraction lets the gate truncate a sweep mid-palette (at 0.5 only three
+    // of the five colours are ever painted). The ceiling is 5 because at 6 a
+    // colour gets a single 60Hz refresh and reads as noise, not a frame.
+    // NaN falls straight through rootDial's finite check, so an absent param
+    // leaves the CSS default alone.
+    const reps = PARAM('pulsereps', NaN);
+    rootDial('--swm-pulse-reps', Number.isFinite(reps) ? Math.min(5, Math.max(1, Math.round(reps))) : NaN);
+    // The phrase's ink, either way round from the SPECTRUM_WHITE bake:
+    // 1 = plain white, 0 = the colour walk.
+    const white = PARAM('spectrumwhite', NaN);
+    if (Number.isFinite(white)) {
+      if (white) root.dataset.spectrum = 'white';
+      else delete root.dataset.spectrum;
+    }
+    const k = PARAM('logobal', NaN);
+    const ref = PARAM('logoref', NaN);
+    if (Number.isFinite(k) || Number.isFinite(ref)) {
+      root.querySelectorAll('.logo-ticker__item').forEach((li) => {
+        const { w, h } = li.dataset;
+        li.style.setProperty(
+          '--lf',
+          balance(+w, +h, Number.isFinite(k) ? k : BAL_K, Number.isFinite(ref) ? ref : BAL_REF_AR).toFixed(3),
+        );
+      });
+    }
+
+    // The roll: ambient velocity = −px/s (leftward); a drag passes through
+    // 1:1 (sensitivity 1 px/px); the flick cap is the globe's, in px.
+    const pxs = () =>
+      Math.max(0, parseFloat(getComputedStyle(root).getPropertyValue('--logo-pxs')) || 40);
+    const engine = new DragMomentum(roll, {
+      ambient: { x: PREFERS_REDUCED_MOTION ? 0 : -pxs(), y: 0 },
+      sensitivity: 1,
+      maxSpeed: PX_MAX_SPEED,
+      reducedMotion: PREFERS_REDUCED_MOTION,
+    });
+
+    // One track width = the wrap period. Widths are deterministic from the
+    // width/height attrs, so this settles at mount; the observer re-bases
+    // on a real relayout (the 768 re-tier).
+    let period = 0;
+    const measure = () => {
+      period = track.getBoundingClientRect().width;
+      engine.setAmbient(PREFERS_REDUCED_MOTION ? 0 : -pxs(), 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(track);
+
+    // Frame: integrate, wrap into (−period, 0], paint. Idle (parked footer,
+    // no drag/flick) frames cost one attribute read.
+    let x = 0;
+    const html = document.documentElement;
+    const tick = (_t, dtMs) => {
+      const live = engine.dragging || gsap.isTweening(engine.vel) || html.hasAttribute('data-footer-revealed');
+      if (!live || !period) return;
+      const { dx } = engine.update(Math.min(dtMs / 1000, 0.1)); // tab-resume clamp
+      if (!dx) return;
+      x = (((x + dx) % period) + period) % period - period;
+      strip.style.transform = `translate3d(${x.toFixed(2)}px, 0, 0)`;
+    };
+    gsap.ticker.add(tick);
+    return () => {
+      gsap.ticker.remove(tick);
+      ro.disconnect();
+      engine.dispose();
+    };
+  }, []);
+
+  const renderTrack = (hidden) => (
+    <ul
+      className="logo-ticker__track"
+      ref={hidden ? undefined : trackRef}
+      aria-hidden={hidden || undefined}
+    >
+      {LOGOS.map((l) => (
+        <li
+          className="logo-ticker__item"
+          key={l.id}
+          data-w={l.w}
+          data-h={l.h}
+          style={{ '--lf': balance(l.w, l.h).toFixed(3) }}
+        >
+          <img
+            className="logo-ticker__img"
+            src={l.src}
+            srcSet={l.srcSet}
+            alt={hidden ? '' : l.name}
+            width={Math.round(l.w)}
+            height={Math.round(l.h)}
+            loading="eager"
+            decoding="async"
+            draggable="false"
+          />
+        </li>
+      ))}
+    </ul>
+  );
+
+  const [leadBefore, leadPhrase, leadAfter] = leadParts();
+
+  return (
+    <div className="logo-ticker" ref={rootRef} data-spectrum={SPECTRUM_WHITE ? 'white' : undefined}>
+      <p className="logo-ticker__copy">
+        <span className="logo-ticker__lead">
+          {leadBefore}
+          <span className="logo-ticker__spectrum">{leadPhrase}</span>
+          {leadAfter}
+        </span>{' '}
+        <span className="logo-ticker__odo" aria-hidden="true">
+          {/* sizer: every word in one grid cell → the box is as wide as the
+              longest word, so the line never reflows as words swap */}
+          <span className="logo-ticker__odo-sizer">
+            {WORDS.map((w) => (
+              <span key={w}>{w}</span>
+            ))}
+          </span>
+          <span className="logo-ticker__odo-col">
+            {[...WORDS, WORDS[0]].map((w, i) => (
+              <span className="logo-ticker__odo-word" key={`${w}-${i}`}>
+                {w}
+              </span>
+            ))}
+          </span>
+        </span>
+        <span className="sr-only">{WORDS.join(', ')}.</span>
+      </p>
+
+      <div className="logo-ticker__roll" ref={rollRef}>
+        <div className="logo-ticker__strip" ref={stripRef}>
+          {renderTrack(false)}
+          {renderTrack(true)}
+        </div>
+      </div>
+    </div>
+  );
+}

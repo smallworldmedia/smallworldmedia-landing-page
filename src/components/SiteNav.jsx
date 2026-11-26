@@ -1,0 +1,568 @@
+/**
+ * SiteNav — Fixed top navigation bar (shared site-wide).
+ *
+ * Blue bar: the SWM inline lockup (08-24 — the full "Small World Media"
+ * lockup replaced the bare globe mark, inlined from the shared
+ * src/assets/swm-lockup-inline.svg the footer also uses) + info pill on
+ * the left, sitemap links with glyph prefixes on the right. The home
+ * variant — `body.route-home`, set server-side by BaseLayout (no
+ * hydration flash) and swapped off by the ClientRouter on navigation —
+ * is CSS-only: the bar goes transparent, the info pill's blue accents go
+ * black, and the lockup fills go WHITE over the black hero field (08-30 —
+ * the nav carries the brand on home now; the centered hero lockup
+ * retired with the tap-only comp).
+ *
+ * Props (all optional — when omitted, links fall back to navigation):
+ *   onStartProject  — callback for "start_project" click
+ *   onInfoToggle    — callback for info pill click
+ *   isInfoOpen      — controls info pill label ("info" vs "close")
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import gsap from 'gsap';
+import { navigate } from 'astro:transitions/client';
+import { holdEntry } from '../lib/gestureHistory.js';
+import { wipeIn, wipeOut, holdForRoute, NAV_WIPE_OUT_S } from '../lib/overlayWipe.js';
+import { PRIVACY_OPEN_EVENT } from './PrivacyOverlay.jsx';
+import { NAV_BLACK } from '../lib/navAccent.js';
+// The brand lockup, inlined (footer precedent) — one source of truth in
+// src/assets; native blue artwork, no recolor filter.
+import lockupSvg from '../assets/swm-lockup-inline.svg?raw';
+// The tagline lines — the mobile menu carries its own copy (08-30,
+// Nathan): off-home ≤768px the page-level tagline is hidden (it ate
+// bottom real estate), so the takeover is the tagline's site-wide home.
+// 08-30 (3): uncapsuled three-line stack, blurb-size type.
+// The menu renders the SAME tagline the pill does — one source for the words,
+// now the Sanity string rather than a shared word-array (10-08).
+import { keywordLines, renderWordTokens } from '../lib/keywords.jsx';
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
+
+/* ── NAV micro-interaction (08-29, Nathan) ── The merged bracket/fxrule
+   system is RETIRED (brackets forced label gutters between glyph and text;
+   the pinned current-page underline didn't land). Hover/focus now carries
+   the FOOTER NAV's underline idiom (CSS text-decoration in global.css) —
+   one link language across nav + footer. data-current/aria-current are
+   still maintained below (a11y + any future current-page treatment). */
+
+/* Safety net for the home chrome gate — past the default full intro's beat
+   (HeroText's CHROME_SAFETY_MS idiom), so it can never preempt the
+   choreography it backs up; a failed hero can never leave the nav hidden. */
+const CHROME_SAFETY_MS = 6000;
+
+// Lockup → home: how long the page background and the nav take to reach the
+// globe's black (?homefade, ms, read once at load like the other shell knobs;
+// PROPOSAL 400, the FP→detail cover is 600). Reduced motion cuts (0).
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+const HOME_FADE_S = PARAM('homefade', 400) / 1000;
+
+/** Minimal inline glyph icons (Figma uses Simple Design System icons) */
+function HeartIcon() {
+  return (
+    <svg className="site-nav__icon site-nav__icon--sm" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M8 13.5S2.5 10.2 2.5 6.4C2.5 4.5 4 3 5.8 3 7 3 7.7 3.6 8 4.2 8.3 3.6 9 3 10.2 3 12 3 13.5 4.5 13.5 6.4c0 3.8-5.5 7.1-5.5 7.1Z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+    </svg>
+  );
+}
+
+/** The services link's mark: an open hand, drawn like the heart (Nathan 11-18: the
+    page shows what the services are and the past work in each; it was a folder,
+    11-03, as project_directory). Nathan 11-20: redrawn in the pose of the old SWM
+    logo hand (Brand/Logos 2026/Old): upright, five parallel digits, the middle
+    tallest, the thumb set low, a U palm. The footer's services link wears it too (11-20). */
+export function HandIcon() {
+  return (
+    <svg className="site-nav__icon site-nav__icon--sm" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M3.5 11.55V7.7a0.9 0.9 0 0 1 1.8 0V2.8a0.9 0.9 0 0 1 1.8 0V2.15a0.9 0.9 0 0 1 1.8 0V2.65a0.9 0.9 0 0 1 1.8 0V4.8a0.9 0.9 0 0 1 1.8 0V11.55a3.2 3.2 0 0 1 -3.2 3.2H6.7a3.2 3.2 0 0 1 -3.2 -3.2ZM5.3 7.7V10.8M7.1 2.8V8.9M8.9 2.65V8.9M10.7 4.8V8.9"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function EjectIcon() {
+  return (
+    <svg className="site-nav__pill-icon" viewBox="0 0 10 12" fill="currentColor" aria-hidden="true">
+      <path d="M1 6 5 1l4 5H1Z" />
+      <rect x="1" y="8.5" width="8" height="2" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="site-nav__pill-icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+      <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export default function SiteNav({
+  onStartProject,
+  onInfoToggle,
+  isInfoOpen = false,
+  /** `{ footerBlurb, tagline }` — threaded BaseLayout → SiteShell → InfoPanel. */
+  siteCopy,
+}) {
+  const shortLines = useMemo(
+    () => keywordLines(siteCopy?.tagline || SITE_COPY_FALLBACK.tagline),
+    [siteCopy?.tagline]
+  );
+  const pillLabel = isInfoOpen ? 'close' : 'info';
+  const PillIcon = isInfoOpen ? CloseIcon : EjectIcon;
+
+  const navRef = useRef(null); // the visual bar — home chrome gate target
+  const linksRef = useRef(null);
+  const menuRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Portal target for the mobile menu — client-only (island is SSR'd). SiteShell's menu host: a
+  // persisted sibling of .site-shell, one stacking level ABOVE the colour-scheme badge (101), so
+  // the takeover's wipe paints over the badge instead of the badge hiding (SQ-107 pass 8).
+  const [shellEl, setShellEl] = useState(null);
+  useEffect(() => {
+    setShellEl(document.querySelector('.site-menu-host'));
+  }, []);
+
+  // The lockup goes HOME: the page background and the nav leave the page's colour
+  // together and both land on the globe's black (RouteFill: a black cover and the
+  // nav's colour fade on one clock), and only then does the swap run, behind the
+  // solid cover, so neither lands half-way when home mounts (the cover holds
+  // until home releases it). A same-route tap and a new-tab click are plain links.
+  const handleHome = (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    // Only the accent-tinted routes (a project page, /work, the directory) wear a
+    // page colour to leave; home, /process and the legal pages keep their plain swap.
+    if (!document.documentElement.classList.contains('fp-tint')) return;
+    const cut = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const fadeS = cut ? 0 : HOME_FADE_S;
+    if (!(fadeS > 0)) return; // a cut: the plain link, RouteFill cuts nothing to wait for
+    e.preventDefault();
+    window.dispatchEvent(
+      new CustomEvent('swm:envelop', { detail: { duration: fadeS, color: NAV_BLACK, navSync: true } })
+    );
+    const arrive = holdEntry('/'); // pushed in the tap (SQ-141)
+    setTimeout(() => {
+      const opts = arrive();
+      if (opts) navigate('/', opts);
+    }, fadeS * 1000 + 60);
+  };
+
+  const handleStartProject = (e) => {
+    if (onStartProject) {
+      e.preventDefault();
+      setMenuOpen(false);
+      onStartProject();
+    }
+    // Otherwise let the <a href="/"> navigate normally
+  };
+
+  // ── Mobile menu (≤768px full-screen takeover) — fade + item stagger ──
+  useEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return undefined;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // 10-06: a latch for SiteTagline — the blurb abbreviates while the menu is up.
+    document.documentElement.toggleAttribute('data-menu-open', menuOpen);
+
+    // The takeover paints over the badge, whatever its edge: the badge's swatches must not take focus
+    // or a tap while the menu is up. inert from the first frame of the wipe in until the wipe out has
+    // landed (`cancelled`: a reopen mid-wipe keeps it inert).
+    const badge = () => document.querySelector('.swm-corner');
+    let cancelled = false;
+
+    if (menuOpen) {
+      badge()?.setAttribute('inert', '');
+      if (reducedMotion) {
+        gsap.set(menu, { autoAlpha: 1 });
+        gsap.set(menu.querySelectorAll('.mobile-menu__item'), { clearProps: 'all' });
+      } else {
+        // 09-08 (Nathan): the takeover WIPES up from the bottom on the shared
+        // overlay wipe (the inquiry overlay's), items staggering in behind
+        // the front; it wipes back DOWN on close — never a fade.
+        const tl = wipeIn(menu);
+        tl.fromTo(
+          menu.querySelectorAll('.mobile-menu__item'),
+          { y: 26, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.45, stagger: 0.07, ease: 'power3.out' },
+          '-=0.3'
+        );
+      }
+    } else if (reducedMotion) {
+      gsap.set(menu, { autoAlpha: 0 });
+      badge()?.removeAttribute('inert');
+    } else {
+      wipeOut(menu, NAV_WIPE_OUT_S).call(() => {
+        if (!cancelled) badge()?.removeAttribute('inert');
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [menuOpen, shellEl]);
+
+  // Escape closes; a route swap closes (navigation from a menu item), but only
+  // once the destination has drawn its first frame (SQ-108: overlayWipe's
+  // holdForRoute, capped by ?navwipehold), so the wipe never uncovers a page
+  // that is still loading. Any other close (the pill, Escape) is immediate.
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    let cancelHold = null;
+    const onSwap = () => {
+      cancelHold?.(); // a second tap before the first landed: await the newest route
+      cancelHold = holdForRoute(() => setMenuOpen(false));
+    };
+    window.addEventListener('keydown', onKeyDown);
+    document.addEventListener('astro:after-swap', onSwap);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('astro:after-swap', onSwap);
+      cancelHold?.();
+    };
+  }, [menuOpen]);
+
+  const handleInfoClick = (e) => {
+    if (onInfoToggle) {
+      e.preventDefault();
+      onInfoToggle();
+    }
+    // Otherwise let the <a href="/"> navigate normally
+  };
+
+  // ── Route-swap hygiene ──
+  // Route landed: wipe any inline GSAP state off the links row so every
+  // page opens on the CSS steady state (killTweensOf + clearProps strips
+  // inline STYLES only — data-current/aria-current survive).
+  useEffect(() => {
+    const onSwap = () => {
+      const els = [
+        linksRef.current,
+        ...(linksRef.current ? [...linksRef.current.children] : []),
+      ].filter(Boolean);
+      gsap.killTweensOf(els);
+      gsap.set(els, { clearProps: 'all' });
+    };
+    document.addEventListener('astro:after-swap', onSwap);
+    return () => document.removeEventListener('astro:after-swap', onSwap);
+  }, []);
+
+  // ── Current-page state (data-current + aria-current) ──
+  // Derived from window.location on hydrate and on every astro:after-swap
+  // (the island never remounts). Href-keyed by construction: start_project
+  // is an interception (never current) and follow_us is external (never
+  // current) — only featured_projects (/work and its detail pages)
+  // and services (/work/directory) can
+  // match. The attributes survive the route-swap hygiene
+  // wipe (killTweensOf + clearProps strips inline STYLES only, never
+  // attributes). UNCONDITIONAL: aria-current is a strict a11y win and
+  // data-current stays maintained for any future current-page treatment
+  // (the fxrule underline it used to seat is retired, 08-29) — both run
+  // with no URL param. Deps [shellEl]: the portaled mobile items
+  // only exist after the setShellEl effect re-renders, so re-run once the
+  // portal lands and a hard load of /work also marks the menu items (desktop
+  // links refresh twice, harmlessly).
+  useEffect(() => {
+    const refreshCurrent = () => {
+      const path = window.location.pathname.replace(/\/$/, '') || '/';
+      const inDirectory = path === '/work/directory';
+      const isCurrent = (href) =>
+        (href === '/work' && (path === '/work' || (path.startsWith('/work/') && !inDirectory))) ||
+        (href === '/work/directory' && inDirectory);
+      [linksRef.current, menuRef.current].filter(Boolean).forEach((root) => {
+        root.querySelectorAll('a[href="/work"], a[href="/work/directory"]').forEach((el) => {
+          if (isCurrent(el.getAttribute('href'))) {
+            el.setAttribute('data-current', 'true');
+            el.setAttribute('aria-current', 'page');
+          } else {
+            el.removeAttribute('data-current');
+            el.removeAttribute('aria-current');
+          }
+        });
+      });
+    };
+    refreshCurrent();
+    document.addEventListener('astro:after-swap', refreshCurrent);
+    return () => document.removeEventListener('astro:after-swap', refreshCurrent);
+  }, [shellEl]);
+
+  // ── Home chrome gate ──
+  // Fresh HOME load: the bar stays hidden until the hero settles and fires
+  // its chrome beat ('swm:hero-chrome' + the durable .hero[data-chromed="1"]
+  // latch — the HeroText consumer pattern; safety timer covers a failed
+  // hero). 08-30: the nav LOCKUP lives in the bar on home too now (the
+  // centered hero lockup retired with the tap-only comp), so the whole
+  // brand row arrives with the bar's chrome-beat fade — the 08-25 brand
+  // arrival choreography (pill slide + lockup drop on the home→off-home
+  // swap) retired with it: there is no longer an empty lockup slot to fill.
+  //
+  // EVERY after-swap re-asserts bar visibility unconditionally (clearProps).
+  // This is deliberate belt-and-suspenders: a swap during the island
+  // teardown was observed reverting the reveal tween's inline styles (nav
+  // landed on /work at opacity 0 — 08-25 bug), so visibility off-home is
+  // never left to a one-shot listener again.
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return undefined;
+
+    // 08-25: the sitemap links stagger in on page load (Nathan's call —
+    // links live on home again, no /work detour needed). Runs at the beat
+    // on home, immediately on any other fresh load; clearProps on complete
+    // so the CSS hover underline meets a clean row.
+    const staggerLinks = () => {
+      const items = nav.querySelectorAll('.site-nav__links a');
+      if (!items.length) return;
+      gsap.fromTo(
+        items,
+        { y: -10, autoAlpha: 0 },
+        {
+          y: 0,
+          autoAlpha: 1,
+          duration: 0.45,
+          stagger: 0.07,
+          ease: 'power2.out',
+          clearProps: 'all',
+        }
+      );
+    };
+
+    const onSwap = () => {
+      gsap.killTweensOf(nav);
+      gsap.set(nav, { clearProps: 'opacity,visibility' }); // never hidden after a swap
+    };
+    document.addEventListener('astro:after-swap', onSwap);
+
+    // Initial-load gate (home only, beat not yet fired).
+    const isHome = document.body.classList.contains('route-home');
+    let timer = null;
+    let onBeat = null;
+    if (isHome && document.querySelector('.hero')?.dataset.chromed !== '1') {
+      gsap.set(nav, { autoAlpha: 0 });
+      let shown = false;
+      const show = () => {
+        if (shown) return;
+        shown = true;
+        clearTimeout(timer);
+        window.removeEventListener('swm:hero-chrome', onBeat);
+        gsap.to(nav, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+        staggerLinks();
+      };
+      onBeat = show;
+      window.addEventListener('swm:hero-chrome', onBeat);
+      timer = setTimeout(show, CHROME_SAFETY_MS);
+    } else {
+      // Fresh load off-home (or a pre-latched home): stagger the links in
+      // once at hydration. Persisted island — this never re-runs on swaps.
+      staggerLinks();
+    }
+
+    return () => {
+      clearTimeout(timer);
+      if (onBeat) window.removeEventListener('swm:hero-chrome', onBeat);
+      document.removeEventListener('astro:after-swap', onSwap);
+      gsap.killTweensOf(nav);
+      gsap.set(nav, { clearProps: 'opacity,visibility' });
+    };
+  }, []);
+
+  // 10-07 (Nathan): "move 2026 all rights reserved to the mobile menu" — the
+  // ©line left the footer band with the SWM lockup (both display:none at
+  // ≤768px now) and lands in the menu's foot, the takeover being the
+  // tagline's site-wide home on phones already.
+  const year = new Date().getFullYear();
+
+  return (
+    <nav className="site-nav" ref={navRef}>
+      <div className="site-nav__brand">
+        <a href="/" className="site-nav__logo" aria-label="Small World Media home" onClick={handleHome}>
+          <span
+            className="site-nav__lockup"
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: lockupSvg }}
+          />
+        </a>
+        <button
+          className="site-nav__pill"
+          onClick={handleInfoClick}
+          aria-label={isInfoOpen ? 'Close info panel' : 'Open info panel'}
+          aria-expanded={isInfoOpen}
+          type="button"
+        >
+          {pillLabel}
+          <PillIcon />
+        </button>
+      </div>
+
+      <div className="site-nav__right">
+        {/* The .site-nav__label spans wrap each link's text (the CSS hover
+            underline targets them — glyphs stay undecorated). Styling-inert:
+            the span is the same flex-item box as the anonymous text node it
+            wraps, and event bubbling for the start_project interception is
+            unchanged. */}
+        <div className="site-nav__links" ref={linksRef}>
+          <a
+            href="/"
+            className="site-nav__link"
+            onClick={handleStartProject}
+          >
+            <span className="site-nav__glyph">↳</span>
+            <span className="site-nav__label">start_project</span>
+          </a>
+          <a href="/work" className="site-nav__link">
+            <span className="site-nav__glyph">⁕</span>
+            <span className="site-nav__label">featured_projects</span>
+          </a>
+          <a href="/work/directory" className="site-nav__link site-nav__link--directory">
+            <HandIcon />
+            <span className="site-nav__label">services</span>
+          </a>
+          <a
+            href="https://instagram.com/smallworldmedia"
+            className="site-nav__link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <HeartIcon />
+            <span className="site-nav__label">follow_us</span>
+          </a>
+        </div>
+
+        {/* Mobile: links collapse into a full-screen menu (≤768px, CSS-gated) */}
+        <button
+          type="button"
+          className="site-nav__pill site-nav__menu-pill"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? 'close' : 'menu'}
+          {menuOpen ? <CloseIcon /> : <EjectIcon />}
+        </button>
+      </div>
+
+      {/* Mobile menu panel — portaled to the shell (the drawer's translateY
+          would capture a fixed box); brand black takeover, its own top row
+          mirrors the nav geometry so close sits where menu was */}
+      {shellEl &&
+        createPortal(
+          <div
+            className="mobile-menu"
+            ref={menuRef}
+            data-open={menuOpen}
+            aria-hidden={!menuOpen}
+          >
+            <div className="mobile-menu__bar">
+              {/* Real home link (matches the nav-bar logo) — the fullscreen
+                  panel covers the bar's logo, so this one must navigate.
+                  Close on click: same-route "/" navigation never fires
+                  astro:after-swap, so the swap-close listener won't run. */}
+              <a
+                href="/"
+                className="site-nav__logo"
+                aria-label="Small World Media home"
+                onClick={(e) => {
+                  handleHome(e);
+                  // The black-cover passage (handleHome) took the click over, and a tap
+                  // on "/" itself or a new-tab click never swaps: close now. A plain
+                  // swap home waits for the route like every menu item (SQ-108).
+                  if (e.defaultPrevented || window.location.pathname === '/' || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+                    setMenuOpen(false);
+                  }
+                }}
+              >
+                <span
+                  className="site-nav__lockup"
+                  aria-hidden="true"
+                  dangerouslySetInnerHTML={{ __html: lockupSvg }}
+                />
+              </a>
+              <button
+                type="button"
+                className="site-nav__pill mobile-menu__close"
+                onClick={() => setMenuOpen(false)}
+              >
+                close
+                <CloseIcon />
+              </button>
+            </div>
+            <nav className="mobile-menu__items" aria-label="Site menu">
+              <a href="/" className="mobile-menu__item" onClick={handleStartProject}>
+                <span className="site-nav__glyph">↳</span>
+                <span className="site-nav__label">start_project</span>
+              </a>
+              <a href="/work" className="mobile-menu__item">
+                <span className="site-nav__glyph">⁕</span>
+                <span className="site-nav__label">featured_projects</span>
+              </a>
+              <a href="/work/directory" className="mobile-menu__item">
+                <HandIcon />
+                <span className="site-nav__label">services</span>
+              </a>
+              <a
+                href="https://instagram.com/smallworldmedia"
+                className="mobile-menu__item"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuOpen(false)}
+              >
+                <HeartIcon />
+                <span className="site-nav__label">follow_us</span>
+              </a>
+            </nav>
+            {/* Lower-left foot (08-30 (3), Nathan): privacy stacked above
+                the tagline, both left-aligned with the item column — the
+                foot's BOTTOM matches the home page tagline's seat so menu
+                open/close on home reads as one persistent block. The
+                tagline is decorative here (the page copy + footer carry
+                the accessible text); privacy closes explicitly — a
+                same-route /privacy tap never fires astro:after-swap. */}
+            <div className="mobile-menu__foot">
+              <a
+                href="/privacy"
+                className="mobile-menu__privacy"
+                onClick={(e) => {
+                  // 09-08: opens the privacy OVERLAY (the lower-right pill's
+                  // twin takes over as its close); the menu wipes away.
+                  e.preventDefault();
+                  setMenuOpen(false);
+                  window.dispatchEvent(new Event(PRIVACY_OPEN_EVENT));
+                }}
+              >
+                privacy
+              </a>
+              {/* ABOVE the tagline, so the tagline keeps the foot's bottom —
+                  that seat is the home page tagline's own (--menu-pill-seat),
+                  which is what makes menu open/close read as one block. */}
+              <p className="mobile-menu__copy">©{year}. All rights reserved.</p>
+              <p className="mobile-menu__tagline" aria-hidden="true">
+                {shortLines.map((line, li) => (
+                  <span className="site-tagline__line" key={`menu-${li}`}>
+                    {renderWordTokens(line, {
+                      wordClass: 'site-tagline__word',
+                      emClass: 'site-tagline__word--em',
+                      keyPrefix: `menu-${li}`,
+                      separators: false,
+                    })}
+                  </span>
+                ))}
+              </p>
+            </div>
+          </div>,
+          shellEl
+        )}
+    </nav>
+  );
+}

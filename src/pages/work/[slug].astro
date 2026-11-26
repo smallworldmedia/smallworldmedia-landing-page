@@ -1,0 +1,98 @@
+---
+/**
+ * /work/[slug] — Featured Project detail page.
+ *
+ * One page per Featured Project doc (isFeatured == true) — the same
+ * project._ref grouping the /work Worlds use, so one project doc = one
+ * World = one detail page. The page fetches the full collection by
+ * project reference and hydrates the FeaturedProjectDetail island.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/masonry.css';
+import '../../styles/media-slot.css';
+import '../../styles/project-detail.css';
+import { sanityFetch } from '../../lib/sanityClient.js';
+import {
+  FEATURED_PROJECT_PATHS_QUERY,
+  FEATURED_PROJECT_DETAIL_QUERY,
+} from '../../lib/queries.js';
+import { featuredRoutes } from '../../lib/projectSlug.js';
+import { getSpectrumDeal } from '../../lib/spectrumDeal.js';
+import FeaturedProjectDetail from '../../components/work/detail/FeaturedProjectDetail.jsx';
+
+export async function getStaticPaths() {
+  const featured = await sanityFetch(FEATURED_PROJECT_PATHS_QUERY);
+
+  // One path per featured project doc; project._id is the grouping key.
+  // The slug still derives from the first asset's sourceManifest
+  // (toProjectSlug) so existing URLs stay stable; featuredRoutes dedupes
+  // defensively in case two docs ever resolve to the same slug.
+  // Row order == the /work World order (orderRank in the query), so
+  // adjacency defines the next-project chain, wrapping last → first.
+  const rows = featuredRoutes(featured);
+  // US-7: the spectrum scheme's palette key per project (one deal per build, by
+  // position in this same order), for the page's own project and the next one.
+  const deal = await getSpectrumDeal();
+
+  return rows.map((h, i) => {
+    const nextIndex = (i + 1) % rows.length;
+    const n = rows[nextIndex];
+    return {
+      params: { slug: h.slug },
+      props: {
+        projectId: h.projectId,
+        collection: h.collection,
+        clientName: h.clientName,
+        spectrum: deal[h.slug] ?? null,
+        // NextProjectBand card — omitted when this is the only project
+        // (a band pointing at the page it's on would be noise).
+        nextProject:
+          rows.length > 1
+            ? {
+                slug: n.slug,
+                clientName: n.clientName,
+                title: n.title ?? n.collection,
+                services: n.services ?? [],
+                hero: n.hero ?? null,
+                // S2: the next project's accent palette drives the np-band
+                // pinned title/rule, the in-window cover, and the enter fill.
+                color: n.color ?? null,
+                colorSecondary: n.colorSecondary ?? null,
+                spectrum: deal[n.slug] ?? null,
+                index: nextIndex,
+              }
+            : null,
+      },
+    };
+  });
+}
+
+const { projectId, collection, clientName, nextProject, spectrum } = Astro.props;
+
+const { assets, client, project } = await sanityFetch(
+  FEATURED_PROJECT_DETAIL_QUERY,
+  { projectId }
+);
+
+const resolvedTitle = project?.title ?? collection;
+const isSameAsClient = clientName.toLowerCase() === resolvedTitle.toLowerCase();
+const pageTitle = isSameAsClient
+  ? `${resolvedTitle} — Small World Media™`
+  : `${clientName} — ${resolvedTitle} — Small World Media™`;
+const description =
+  project?.description ??
+  (isSameAsClient
+    ? `${resolvedTitle} — a featured project by Small World Media.`
+    : `${resolvedTitle} for ${clientName} — a featured project by Small World Media.`);
+---
+
+<BaseLayout title={pageTitle} description={description}>
+  <FeaturedProjectDetail
+    client:load
+    assets={assets}
+    client={client}
+    project={project ? { ...project, spectrum } : project}
+    collection={collection}
+    nextProject={nextProject}
+  />
+</BaseLayout>

@@ -1,0 +1,1096 @@
+/**
+ * FeaturedProjects — orchestrator for the immersive Featured Projects
+ * experience at /work (CONTEXT.md § "Featured Projects Preview — concepts").
+ *
+ * Paging is CTA-driven: wheel/touch fills a fixed control until it triggers a
+ * World change. Scrolling down fills the bottom NEXT_PROJECT control (→ next;
+ * hidden on the last project); scrolling up fills the top PREVIOUS_PROJECT
+ * control (→ previous; hidden on the first project). The
+ * left pager is a cursor-proximity "dock" — each number scales by how close the
+ * cursor is, independently of its neighbours.
+ *
+ * At the FIRST World, scrolling up mirrors the hero Envelopment in reverse
+ * (FP-3): upward deltas accumulate toward the house trigger while the
+ * persistent RouteFill pre-covers on the hero's f² curve; stalling
+ * rubber-bands the blue back, crossing the threshold commits — `swm:envelop`
+ * over the house glide, then a client-nav home, where Hero's mount releases
+ * the fill. Reduced motion: modest upward intent → plain navigation.
+ *
+ * The WebGL WorldScene (P2) renders the active World behind the card. The World
+ * Turn animation between Worlds lands in P3.
+ *
+ * @param {Object} props
+ * @param {Array<Object>} props.worlds - one entry per featured project
+ */
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import gsap from 'gsap';
+import { navigate } from 'astro:transitions/client';
+import WorldScene from './world/WorldScene.jsx';
+import WorldCard from './WorldCard.jsx';
+import CtaArrows, { CtaName } from './CtaArrows.jsx';
+import { ctaNamesOn, neighbourName } from '../../lib/ctaNames.js';
+import GraticulePager from './pager/GraticulePager.jsx';
+import SiteFooter, { FOOTER_REVEAL_EVENT, FOOTER_CLOSE_EVENT, wipeReveal, createFooterDrive } from '../SiteFooter.jsx';
+// FP-1 house-pulse tuning bench — dev-only, mounts solely under ?fp1tune=1.
+// Only the tiny shared tune STATE is static here; the panel itself (and the
+// Deck Viewer bench below) is import()ed from its mount effect, so neither
+// bench rides the shipped /work payload.
+import { FP1_TUNE_ACTIVE } from './fp1Tune.js';
+// Text-exit choreography (08-26): the card + nav text animates out on the
+// enter_world commit, riding the scene's enter ramp (textExit.js). The tiny
+// runner is static; its ?texttune=1 bench is lazy like the others below.
+import { runTextExit, cancelTextExit } from './textExit.js';
+import { TURN_DURATION, WORLD_TURN_S, PREFERS_REDUCED_MOTION } from './world/worldConfig.js';
+import { formatYearRange } from '../../lib/formatYearRange.js';
+import { projectColorVars } from '../../lib/projectColor.js';
+import { applyNavAccent } from '../../lib/navAccent.js';
+import { gestureHistory } from '../../lib/gestureHistory.js';
+import {
+  SCROLL_TRIGGER_WORK_PX,
+  GLIDE_MS,
+  DRAG_TRACK_S,
+  RELEASE_GLIDE_S,
+  RELEASE_EASE_CSS,
+} from '../../lib/motion.js';
+import { TOUCH_GAIN, RELEASE_MS } from '../../lib/touchTune.js';
+import { wipeIn, wipeOut, signalRouteReady, WIPE_IN_S, WIPE_OUT_S, CLIP_OPEN_UP, CLIP_CLOSED_UP } from '../../lib/overlayWipe.js';
+
+const pad2 = (n) => String(n + 1).padStart(2, '0');
+const falloff = (d, spread) => Math.max(0, 1 - d / spread);
+
+// Live tuning (?key=value) — matches the WorldScene knobs convention.
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+
+// ?pager= A/B arms (08-31 rework) — every skin rides pager/usePagerGesture.js.
+// Static import() literals so each arm is its own lazy chunk. `hasOwn`
+// lookup below, never `in`: a `?pager=constructor` must not resolve.
+// 09-06: the scale arm is SSR'd (static import — it renders server-side
+// off the inline --scale-i seed, client:load parity holds because the
+// client's first render is the same tree); the legacy rail is the lazy
+// side now, swapped in after mount under ?pager=rail only. (The lazy
+// PAGER_VARIANTS map of the A/B days is gone with the tape/tuner arms.)
+const PAGER_BASE_GAIN = 1.6; // active dot scale = 1 + this
+const PAGER_HOVER_GAIN = 1.8; // additive, centred on the cursor
+// Wheel/touch px to fill a CTA and advance — higher = more scroll resistance
+// before a World Turn fires. Tune live with ?scroll=900.
+const SCROLL_TRIGGER = PARAM('scroll', SCROLL_TRIGGER_WORK_PX);
+const CTA_MAX_EXTRA = 0.3; // CTA scale at full fill / hover = 1 + this
+
+/* — Scroll-up-to-home (FP-3): the reverse Envelopment at the first World — */
+const HOME_PRE_COVER = 0.4; // blue opacity at full upward drag (Hero's f² idiom)
+const RM_WHEEL_THRESHOLD = 60; // reduced motion: modest upward intent → plain nav
+
+export default function FeaturedProjects({ worlds = [] }) {
+  const [active, setActive] = useState(0);
+  const [dir, setDir] = useState(1); // last Turn direction: +1 forward, −1 back (drives the card slide)
+  const [hoverIndex, setHoverIndex] = useState(null); // continuous (float) cursor position over the pager
+  const [fill, setFill] = useState(0); // signed: + toward next, − toward previous
+  const [ctaMode, setCtaMode] = useState('drag'); // 'drag' tracks scroll | 'release' rubber-bands back | 'commit' eases back over a Turn
+  const [hoverNext, setHoverNext] = useState(false);
+  const [hoverPrev, setHoverPrev] = useState(false);
+  // Slide-up footer at the LAST World: once atEnd frees the bottom slot
+  // (.fp-next hides), further downward wheel/touch delta accumulates into
+  // this 0..1 and drives <SiteFooter driven> directly; wheeling up retracts
+  // it before any PREVIOUS paging runs. Ref mirrors state for the handlers.
+  const [footerP, setFooterP] = useState(0);
+  const footerPRef = useRef(0);
+  // 09-08 (Nathan): the tagline pill asks for the footer — driven mode
+  // answers with a full reveal; the accumulator's upward delta retracts it.
+  const footerWipeRef = useRef(null); // the pill's wipe — the user's delta kills it
+  useEffect(() => {
+    const on = () => {
+      footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
+    };
+    const off = () => {
+      footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, 0);
+    };
+    window.addEventListener(FOOTER_REVEAL_EVENT, on);
+    window.addEventListener(FOOTER_CLOSE_EVENT, off);
+    return () => {
+      footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
+      window.removeEventListener(FOOTER_REVEAL_EVENT, on);
+      window.removeEventListener(FOOTER_CLOSE_EVENT, off);
+    };
+  }, []);
+  const setFooterReveal = (v) => {
+    if (footerPRef.current === v) return;
+    footerPRef.current = v;
+    setFooterP(v);
+  };
+  // 10-31 (Nathan): the wheel's footer deltas glide and brake into the full
+  // reveal, as on home (createFooterDrive); touch and reduced motion as before.
+  const footerDriveRef = useRef(null);
+  footerDriveRef.current ??= createFooterDrive(setFooterReveal);
+  // FP-1 bench: mount only AFTER hydration. FP1_TUNE_ACTIVE reads
+  // window.location.search (false during SSR, true on the client), so gating
+  // JSX on it directly hydration-mismatches (#418). Start null everywhere,
+  // resolve in an effect — SSR and first client render both emit nothing.
+  // The effect also IS the gate's loader: it import()s the panel chunk, whose
+  // stylesheet rides along, so nothing bench-shaped ships to visitors. State
+  // holds a component, hence the UPDATER form — setFp1TunePanel(Component)
+  // would call the function as a reducer instead of storing it.
+  const [Fp1TunePanel, setFp1TunePanel] = useState(null);
+  useEffect(() => {
+    if (!FP1_TUNE_ACTIVE) return;
+    // `alive` covers a late resolve after a ClientRouter swap unmounts the
+    // island. StrictMode's dev double-invoke re-imports from the module cache
+    // and re-sets, so the panel still lands on the second pass.
+    let alive = true;
+    import('./Fp1TunePanel.jsx')
+      .then((m) => {
+        if (alive) setFp1TunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Deck Viewer debug panel — same hydration-safe gate and same lazy chunk
+  // (SSR/first render emit nothing; ?deckdebug pulls the panel in after mount).
+  const [DeckDebugPanel, setDeckDebugPanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('deckdebug')) return;
+    let alive = true;
+    import('./FeaturedDeckDebugPanel.jsx')
+      .then((m) => {
+        if (alive) setDeckDebugPanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Enter-the-World choreography bench — same hydration-safe gate and lazy
+  // chunk (?entertune pulls the panel in after mount; SSR/first render emit
+  // nothing). The tiny ENTER_TUNABLES store itself is static via the scene.
+  const [EnterTunePanel, setEnterTunePanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('entertune')) return;
+    let alive = true;
+    import('./EnterTunePanel.jsx')
+      .then((m) => {
+        if (alive) setEnterTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // FP pager — the SCALE arm is the arm (09-06): SSR + first paint render
+  // it (no rail flash, no chunk swap). ?pager=rail keeps the legacy rail
+  // (the parked rail-arm proposal's front end): the same hydration-safe
+  // post-mount swap the A/B gate used, inverted. data-pager='scale' is
+  // rendered, not stamped — the scrim/z CSS hooks are live from first
+  // paint. docs/fp-pager-rework-approaches.md is the spec.
+  const [legacyRail, setLegacyRail] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('pager') === 'rail') setLegacyRail(true);
+  }, []);
+  // ?ctanames (SQ-80): the [PREVIOUS] / [NEXT] chips read the neighbouring
+  // client names — ON by default, ?ctanames=0 restores the words (the A/B).
+  // Hydration-safe like the rail gate above: the server renders the default.
+  const [ctaNames, setCtaNames] = useState(true);
+  useEffect(() => {
+    setCtaNames(ctaNamesOn(window.location.search));
+  }, []);
+  // ?cardname ?tagtext ?tagpad ?tagpadx ?taggap — the fp-card MOBILE dial
+  // set (09-04 r8): px overrides for the client-name headline, service-tag
+  // text, pill padding and pill gap, written inline as --fp-* custom props
+  // on .fp (the CSS falls back to the shipped tokens when absent). Blessed
+  // values get baked into featured-projects.css (≤768 tier as needed).
+  // Media density/spacing ride the EXISTING worldConfig knobs (?max
+  // ?platedeg ?fpwin ?fpvis — see the tunables guide).
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return undefined;
+    const dials = [
+      ['cardname', '--fp-card-name-size'],
+      ['tagtext', '--fp-tag-size'],
+      ['tagpad', '--fp-tag-pad-y'],
+      ['tagpadx', '--fp-tag-pad-x'],
+      ['taggap', '--fp-tag-gap'],
+    ];
+    const set = [];
+    dials.forEach(([key, prop]) => {
+      const v = PARAM(key, 0);
+      if (v > 0) {
+        el.style.setProperty(prop, `${v}px`);
+        set.push(prop);
+      }
+    });
+    return () => set.forEach((p) => el.style.removeProperty(p));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Pager-scrim bench (?scrimtune, 09-04 round 7) — same gate/chunk shape.
+  // Dials the ?pager=scale engaged scrim's opacity/blur/grain live through
+  // inline custom props on .fp (no-op fallbacks in featured-projects.css).
+  const [ScrimTunePanel, setScrimTunePanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('scrimtune')) return;
+    let alive = true;
+    import('./ScrimTunePanel.jsx')
+      .then((m) => {
+        if (alive) setScrimTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Text-exit choreography bench (?texttune) — same gate/chunk shape.
+  const [TextTunePanel, setTextTunePanel] = useState(null);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('texttune')) return;
+    let alive = true;
+    import('./TextTunePanel.jsx')
+      .then((m) => {
+        if (alive) setTextTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  // Arm the text-exit: the SAME 'swm:enter-world' dispatch that drives the
+  // scene's zoom/lens ramp plays the DOM text-out (elements queried at fire
+  // time — never cached from this mount; client:only stale-DOM trap).
+  useEffect(() => {
+    const onEnterWorld = (e) => {
+      // A queued pager commit must never fire a Turn mid-enter-dive — the
+      // enter_world path sets neither lockRef nor departingRef.
+      clearTimeout(pagerCommitRef.current);
+      pagerCommitRef.current = null;
+      runTextExit(e?.detail || {});
+    };
+    window.addEventListener('swm:enter-world', onEnterWorld);
+    return () => {
+      window.removeEventListener('swm:enter-world', onEnterWorld);
+      cancelTextExit();
+    };
+  }, []);
+  // Co-present cards during a Turn: the incoming (phase 'enter') + the outgoing
+  // (phase 'exit'), so the card rides in/out with the media. Each is keyed by index.
+  const [cards, setCards] = useState([{ index: 0, dir: 1, phase: 'enter' }]);
+
+  const mainRef = useRef(null);
+  const pagerRef = useRef(null);
+  const markerRef = useRef(null);
+  const accumRef = useRef(0);
+  const lockRef = useRef(0);
+  const idleRef = useRef(null); // pending rubber-band-back timer
+  const cardTimerRef = useRef(null); // removes the exited card after a Turn
+  const departingRef = useRef(false); // reverse Envelopment committed — no Turns, no double-fire
+  const homeFillRef = useRef(0); // last dispatched pre-cover value (upward drag at the first World)
+  const activeRef = useRef(0);
+  activeRef.current = active;
+  // ── FP pager rework shared engine hooks (08-31) ──
+  // Engaged = the pager owns input: the accumulator drops deltas (a second
+  // finger on the stage must not Turn mid-scrub) and the stage dims via a
+  // class toggled IMPERATIVELY — per-gesture setState would re-render the
+  // whole WebGL tree for a className flip.
+  const pagerEngagedRef = useRef(false);
+  const pagerCommitRef = useRef(null); // one trailing deferred commit, latest landing wins
+
+  const lastIndex = worlds.length - 1;
+  const atEnd = active >= lastIndex;
+  const atStart = active <= 0;
+  // The chips' labels: the neighbours' client names (the pager's own names,
+  // never the project title). [PREVIOUS] wipes out at World 0 while still
+  // mounted, so it holds the last real name through the wipe instead of
+  // blanking; [NEXT] drops at once at the last World. At a Turn the label is a
+  // plain swap — the chip's own lanes (charge, colour, scale) carry the beat,
+  // and the pager's name is a position change, not a text one.
+  const keptPrevName = useRef('');
+  const prevName = neighbourName(worlds, active, -1, keptPrevName.current);
+  keptPrevName.current = prevName;
+  const nextName = neighbourName(worlds, active, 1);
+
+  // [PREVIOUS] leaves on a wipe, never a cut (11-03, Nathan): reaching the
+  // first World keeps it mounted (inert) while its bottom edge wipes up to
+  // the top — the house overlay wipe's curve and beat, edge flipped — then
+  // drops it. Leaving the first World wipes it back in, the exit's inverse
+  // (11-05, Nathan: "give [previous] an entrance"): mounted, it unrolls down
+  // from its top edge at WIPE_IN_S; caught mid-wipe either way, it reverses
+  // from its current clip instead of snapping.
+  const prevRef = useRef(null);
+  const prevWipeRef = useRef(null);
+  const prevEnterRef = useRef(false); // the next mount wipes in
+  const [prevMounted, setPrevMounted] = useState(!atStart);
+  const settlePrev = (el) => () => {
+    prevWipeRef.current = null;
+    gsap.set(el, { clearProps: 'clipPath,visibility,opacity' }); // an inset clip would crop the focus ring
+  };
+  useEffect(() => {
+    const midWipe = !!prevWipeRef.current;
+    prevWipeRef.current?.kill();
+    prevWipeRef.current = null;
+    const el = prevRef.current;
+    if (!atStart) {
+      if (!el) {
+        prevEnterRef.current = true;
+        setPrevMounted(true);
+      } else if (midWipe) {
+        prevWipeRef.current = wipeIn(el, undefined, WIPE_IN_S, null, CLIP_OPEN_UP).eventCallback('onComplete', settlePrev(el));
+      } else {
+        gsap.set(el, { clearProps: 'clipPath,visibility,opacity' });
+      }
+      return;
+    }
+    if (!el) {
+      setPrevMounted(false);
+      return;
+    }
+    if (!midWipe) gsap.set(el, { clipPath: CLIP_OPEN_UP }); // mid-entrance, it leaves from where it is
+    prevWipeRef.current = wipeOut(el, WIPE_OUT_S, CLIP_CLOSED_UP).eventCallback('onComplete', () => {
+      prevWipeRef.current = null;
+      setHoverPrev(false); // no pointerleave reaches an unmounted chip
+      setPrevMounted(false);
+    });
+  }, [atStart]);
+  // Before paint, so the fresh mount never shows a frame fully open: the
+  // timeline's own set() waits for the next GSAP tick, so close it here.
+  useLayoutEffect(() => {
+    const el = prevRef.current;
+    if (!prevMounted || !prevEnterRef.current || !el) return;
+    prevEnterRef.current = false;
+    if (!PREFERS_REDUCED_MOTION) gsap.set(el, { clipPath: CLIP_CLOSED_UP });
+    prevWipeRef.current = wipeIn(el, undefined, WIPE_IN_S, CLIP_CLOSED_UP, CLIP_OPEN_UP).eventCallback('onComplete', settlePrev(el));
+  }, [prevMounted]);
+  useEffect(() => () => prevWipeRef.current?.kill(), []);
+
+  // ── Return-position restore ──
+  // Only an explicit return reopens the World you left: the detail
+  // breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
+  // popstate tracker arms it for browser back/forward out of any /work/*
+  // page, the directory's included. Any other entry —
+  // the nav's featured_projects link, a direct load — starts at the first
+  // World. Restore sets `active` (+ the snap below) only: the card-staging
+  // effect boots the restored card (setting cards directly here raced that
+  // effect and left the entrance reverted — the "card never loads" bug).
+  // Since 10-06 the return is a snap like Enter World's, not a Turn.
+  // SQ-100: a browser Back reopens the World of THAT /work entry — its
+  // history state carries `swmWorld` (written below on every change), so
+  // /work → A → band → B, Back twice, lands on A's World, not B's. The
+  // sessionStorage `swm:worldIndex` stays the fallback (and the breadcrumb's
+  // source, a fresh entry with no state).
+  //
+  // Enter World from the home globe (globe-worlds P3) hands over the world
+  // on the globe as `swm:enterWorld` (a slug — Hero) and /work opens INSIDE
+  // it: a SNAP, the page arriving there rather than a Turn from the first
+  // World. snapRef holds that index for exactly the arrival's commit — the
+  // children (WorldScene: an instant build; the pager: a jump, no glide) read
+  // it in their effects, which run before this component's, and the
+  // card-staging effect below clears it once it has booted the card fresh.
+  // SQ-131 (Nathan 11-20: Back "briefly shows the first project begin to
+  // populate (coco)"): a LAYOUT effect, so the snap re-renders before the
+  // hydrated first World is ever painted, and snapRef is set before any
+  // passive effect — WorldScene skips building the first World's media.
+  const snapRef = useRef(null);
+  useLayoutEffect(() => {
+    let armed = false;
+    let saved = NaN;
+    let entered = null;
+    try {
+      entered = sessionStorage.getItem('swm:enterWorld');
+      sessionStorage.removeItem('swm:enterWorld');
+      armed = sessionStorage.getItem('swm:returnToWork') === '1';
+      sessionStorage.removeItem('swm:returnToWork');
+      saved = parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
+    } catch {
+      /* storage unavailable → first World */
+    }
+    const at = entered ? worlds.findIndex((fw) => fw.slug === entered) : -1;
+    if (at >= 0) {
+      if (at !== activeRef.current) {
+        snapRef.current = at;
+        setActive(at);
+      }
+      return;
+    }
+    const kept = window.history.state?.swmWorld;
+    const from = Number.isInteger(kept) ? kept : saved;
+    if (!armed || !Number.isFinite(from)) return;
+    const idx = Math.max(0, Math.min(lastIndex, from));
+    // 10-06 (Nathan): the detail-page return SNAPS too (continuity with Enter
+    // World) — the breadcrumb's cover holds until this World's card is up.
+    if (idx !== activeRef.current) {
+      snapRef.current = idx;
+      setActive(idx);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Scene is mounting — release the Envelopment fill if this arrival came
+  // through it (home → /work under the persistent RouteFill, ADR-0002).
+  // No-op on direct loads: the fill is only ever up mid-passage. An arrival
+  // snap holds it until the entered World's card is up (fillOnCardRef = that
+  // World's index) — the passage lifts onto that World, never the first.
+  const fillOnCardRef = useRef(null);
+  useEffect(() => {
+    if (snapRef.current != null) fillOnCardRef.current = snapRef.current;
+    else {
+      window.dispatchEvent(new CustomEvent('swm:fill-release'));
+      signalRouteReady(); // the nav menu's wipe may uncover once this frame is up (SQ-108)
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('swm:worldIndex', String(active));
+    } catch {
+      /* storage unavailable — nothing to persist */
+    }
+    // The same World on this /work history entry (ClientRouter spreads the
+    // state it keeps: index + scroll), read back by the restore above.
+    window.history.replaceState({ ...window.history.state, swmWorld: active }, '');
+  }, [active]);
+
+  // Drive the /work nav accent live as the active World changes, through the
+  // shared control point (navAccent) so the /work index and the detail page
+  // tint from ONE code path. First application (page arrival) is instant; later
+  // ones ride the cross-fade. No unmount-clear — the RouteFill route controller
+  // owns clearing on non-accent routes, so the colour survives the swap to a
+  // detail page (no blue flash) and persists through the breadcrumb back.
+  const firstNavAccent = useRef(true);
+  useEffect(() => {
+    // An arrival snap is pending: the first World's accent must not flash
+    // under the passage — the snap's own commit applies the entered one.
+    if (snapRef.current != null && snapRef.current !== active) return;
+    const fw = worlds[active];
+    applyNavAccent(fw?.projectColor, fw?.projectColorSecondary, !firstNavAccent.current, {
+      spectrum: fw?.spectrum,
+    });
+    firstNavAccent.current = false;
+  }, [worlds, active]);
+
+  // The Turn as the scene runs it (DRUM-stretched): the lock below waits it out.
+  const TURN_MS = WORLD_TURN_S * 1000;
+  const clearIdle = () => {
+    if (idleRef.current) {
+      clearTimeout(idleRef.current);
+      idleRef.current = null;
+    }
+  };
+
+  // RouteFill pre-cover tracking the upward drag at the first World — the
+  // reverse of Hero's ENV_PRE_COVER: blue rises with the gesture, the scene
+  // underneath stays live (RouteFill's `swm:fill-progress` contract).
+  const setHomeFill = (value, duration) => {
+    homeFillRef.current = value;
+    window.dispatchEvent(
+      new CustomEvent('swm:fill-progress', {
+        detail: duration ? { value, duration } : { value },
+      })
+    );
+  };
+
+  // Drag-follow (11-03, Nathan): a finger or the wheel leans the current
+  // World into its Turn — the card and the drum preview ?dragfollow of it at
+  // full fill — and a release springs them home on the CTA's release lane.
+  // One event, two listeners (WorldCard, useWorldScene); a commit sends
+  // nothing, so the Turn carries on from the leaned pose.
+  const dragRef = useRef(0);
+  const setDragFollow = (value, release = false) => {
+    if (PREFERS_REDUCED_MOTION || value === dragRef.current) return;
+    dragRef.current = value;
+    window.dispatchEvent(new CustomEvent('swm:fp-drag', { detail: { value, release } }));
+  };
+
+  // Let go below the threshold → rubber-band the partly-filled CTA back to
+  // rest (you didn't commit, so it relaxes). Any upward-drag pre-cover and
+  // the lean relax with it on the same release curve. A finger lets go on
+  // lift (11-03, Nathan: "the moment you lift your finger"); a wheel has no
+  // lift, so its let-go is a RELEASE_MS stall.
+  const release = () => {
+    clearIdle();
+    accumRef.current = 0;
+    setCtaMode('release');
+    setFill(0);
+    setDragFollow(0, true);
+    if (homeFillRef.current > 0) setHomeFill(0, 0.4);
+  };
+  const scheduleRelease = () => {
+    clearIdle();
+    idleRef.current = setTimeout(release, RELEASE_MS);
+  };
+
+  // Threshold crossed upward at the first World → commit the reverse
+  // Envelopment: cover with the persistent RouteFill over the house glide
+  // (continuing from wherever the drag's pre-cover left it), then client-nav
+  // home once the blue is solid. Hero's mount releases the fill (ADR-0002).
+  const beginReturnHome = () => {
+    if (departingRef.current) return;
+    departingRef.current = true;
+    clearIdle();
+    clearTimeout(pagerCommitRef.current); // no queued pager Turn fires mid-departure
+    pagerCommitRef.current = null;
+    accumRef.current = 0;
+    lockRef.current = Number.POSITIVE_INFINITY; // no Turns mid-departure
+    // A wheel/drag commit: push only under an honoured activation (SQ-100).
+    if (PREFERS_REDUCED_MOTION) {
+      navigate('/', gestureHistory()); // no theatrics — plain navigation home
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent('swm:envelop', { detail: { duration: GLIDE_MS / 1000 } })
+    );
+    const opts = gestureHistory(); // judged at the gesture, not after the glide
+    setTimeout(() => navigate('/', opts), GLIDE_MS + 60); // cover ms + a settle beat
+  };
+
+  // Threshold crossed → fire the Turn and hold the triggering CTA at full, then
+  // ease it back to rest timed to the World Turn settling. `from` is the CTA's
+  // current signed fill so it eases down from wherever the scroll left it.
+  const commitTurn = (nextActive, direction) => {
+    if (departingRef.current) return; // mid reverse Envelopment — no Turns
+    const clamped = Math.max(0, Math.min(lastIndex, nextActive));
+    if (clamped === activeRef.current) return;
+    clearIdle();
+    accumRef.current = 0;
+    dragRef.current = 0; // the lean is the Turn's now (it starts from the leaned pose)
+    lockRef.current = performance.now() + TURN_MS + 60; // one Turn at a time
+    setDir(direction);
+    setActive(clamped);
+    setCtaMode('commit-pin'); // pin full *instantly* (0s), even from a fast flick
+    setFill(direction); // …toward the trigger edge
+    // Double rAF: let the pinned frame paint before starting the glide, so the
+    // CSS transition animates *from* full (a single rAF gets batched away).
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        setCtaMode('commit'); // long eased return that matches the roll
+        setFill(0); // …glide the CTA back as the World Turn settles
+      })
+    );
+    setTimeout(() => setCtaMode('drag'), TURN_MS + 80);
+  };
+
+  // Pager-dot / button jumps: turn without the scroll-fill choreography.
+  const goTo = (i) => {
+    if (departingRef.current) return; // mid reverse Envelopment — no Turns
+    const clamped = Math.max(0, Math.min(lastIndex, i));
+    if (clamped === activeRef.current) return;
+    clearIdle();
+    lockRef.current = performance.now() + TURN_MS + 60;
+    setDir(Math.sign(clamped - activeRef.current));
+    accumRef.current = 0;
+    dragRef.current = 0; // a live lean rides out with the outgoing World
+    setCtaMode('drag');
+    setFill(0);
+    if (homeFillRef.current > 0) setHomeFill(0, 0.4); // pager jump drops a live upward drag
+    setActive(clamped);
+  };
+
+  // The pager engine's engaged latch (see pagerEngagedRef above).
+  const onPagerEngaged = (v) => {
+    pagerEngagedRef.current = v;
+    if (v) {
+      // Re-engage cancels any deferred commit — the new gesture's landing
+      // supersedes the stale one (the spec's cleared-on-re-engage rule).
+      clearTimeout(pagerCommitRef.current);
+      pagerCommitRef.current = null;
+      // 09-07 (Nathan): the pager's scrim (z-110) and frozen scale (z-120)
+      // paint OVER the footer panel (z-40) — with the logo band the panel is
+      // ~13rem tall, so an engage at full reveal would dim the logo row.
+      // Retract instead; the post-end delta reveals it again on release.
+      footerWipeRef.current?.kill();
+      footerDriveRef.current.stop();
+      if (footerPRef.current > 0) setFooterReveal(0);
+    }
+    mainRef.current?.classList.toggle('is-pager-engaged', v);
+  };
+
+  // The pager's commit path: exactly ONE goTo per release, honoring the
+  // one-Turn-at-a-time lock (goTo's click path never checked it — this is
+  // strictly politer). A release inside a prior Turn's window defers on a
+  // single trailing timer; a non-finite lock means mid-departure — refuse
+  // outright (setTimeout coerces an Infinity delay to 0).
+  const requestGoTo = (i) => {
+    if (departingRef.current) return;
+    clearTimeout(pagerCommitRef.current);
+    pagerCommitRef.current = null;
+    // A landing on the active index only CANCELS the stale deferral (the
+    // engine commits every landing for exactly this reason).
+    if (i === activeRef.current) return;
+    const now = performance.now();
+    if (now >= lockRef.current) {
+      goTo(i);
+      return;
+    }
+    if (!Number.isFinite(lockRef.current)) return;
+    pagerCommitRef.current = setTimeout(() => {
+      pagerCommitRef.current = null;
+      // Re-enter rather than goTo directly: a CTA Turn during the wait
+      // re-arms the lock, and firing blind would overlap Turns.
+      requestGoTo(i);
+    }, lockRef.current - now + 20);
+  };
+
+  // Wheel/touch accumulator → fills a CTA, then advances forward/back.
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el || !worlds.length) return undefined;
+
+    const addDelta = (dy, wheel = false) => {
+      if (departingRef.current) return; // reverse Envelopment committed — input is done here
+      footerWipeRef.current?.kill(); // the user's delta supersedes the pill's wipe
+      if (pagerEngagedRef.current) return; // pager owns input mid-scrub (a second finger must not Turn)
+      if (performance.now() < lockRef.current) return;
+
+      // Footer reveal at the LAST World: the bottom slot belongs to the
+      // slide-up footer. Downward delta drives its 0..1 directly (the house
+      // trigger distance = one natural scroll motion for a full reveal);
+      // upward delta retracts it to 0 BEFORE any PREVIOUS accumulation runs.
+      // No rubber-band: like a scroll position, it parks where the gesture
+      // leaves it — the continuous shell slide keeps any partial state calm.
+      // 09-08: ALSO whenever the footer is up (the tagline pill can raise it
+      // from any World) — an upward delta retracts it before any Turn.
+      // 10-31: a wheel glide is judged by where it is headed (its target).
+      const drive = footerDriveRef.current;
+      if (activeRef.current >= lastIndex || drive.goal(footerPRef.current) > 0) {
+        const p = drive.goal(footerPRef.current);
+        if (dy > 0 || p > 0) {
+          if (PREFERS_REDUCED_MOTION) {
+            // Reveal/retract without animation on the first delta.
+            setFooterReveal(dy > 0 ? 1 : 0);
+          } else if (wheel) {
+            drive.add(dy / SCROLL_TRIGGER, footerPRef.current);
+          } else {
+            drive.stop(); // the finger owns the panel: it tracks, unsmoothed
+            setFooterReveal(Math.min(1, Math.max(0, footerPRef.current + dy / SCROLL_TRIGGER)));
+          }
+          accumRef.current = 0;
+          return; // swallow — no Turn/CTA math while the footer owns the delta
+        }
+      }
+
+      let a = accumRef.current + dy;
+      if (activeRef.current >= lastIndex) a = Math.min(0, a); // no next at the last World (v1: directory disabled)
+
+      // No previous at the first World — upward intent accumulates toward
+      // HOME instead (FP-3): the reverse of the hero Envelopment.
+      if (activeRef.current <= 0 && a < 0) {
+        accumRef.current = a;
+        if (PREFERS_REDUCED_MOTION) {
+          // Modest intent → plain navigation (Hero's RM_WHEEL_THRESHOLD idiom).
+          if (a <= -RM_WHEEL_THRESHOLD) beginReturnHome();
+          return;
+        }
+        if (a <= -SCROLL_TRIGGER) {
+          beginReturnHome();
+        } else {
+          // Building toward home — the blue pre-covers on the hero's gentle
+          // f² curve (no CTA renders at the first World; the fill IS the tell).
+          // Any [NEXT] fill from a flipped downward drag relaxes to rest.
+          const f = -a / SCROLL_TRIGGER;
+          setCtaMode('drag');
+          setFill(0);
+          setDragFollow(0, true);
+          setHomeFill(HOME_PRE_COVER * f * f);
+          if (wheel) scheduleRelease(); // a finger holds it until the lift
+        }
+        return;
+      }
+      // Direction flipped back downward — relax any upward-drag pre-cover.
+      if (homeFillRef.current > 0) setHomeFill(0, 0.4);
+      accumRef.current = a;
+
+      if (a >= SCROLL_TRIGGER) {
+        commitTurn(activeRef.current + 1, 1);
+      } else if (a <= -SCROLL_TRIGGER) {
+        commitTurn(activeRef.current - 1, -1);
+      } else {
+        // Building the fill — track the scroll, and arm a rubber-band-back in
+        // case the user stops short of committing.
+        setCtaMode('drag');
+        setFill(a / SCROLL_TRIGGER);
+        setDragFollow(a / SCROLL_TRIGGER);
+        if (wheel) scheduleRelease(); // a finger holds it until the lift
+      }
+    };
+
+    const onWheel = (e) => {
+      e.preventDefault();
+      addDelta(e.deltaY, true);
+    };
+    let touchY = null;
+    const onTouchStart = (e) => {
+      touchY = e.touches[0].clientY;
+    };
+    const onTouchMove = (e) => {
+      if (touchY === null) return;
+      const y = e.touches[0].clientY;
+      addDelta((touchY - y) * TOUCH_GAIN); // upward swipe = forward
+      touchY = y;
+      e.preventDefault();
+    };
+    // Finger up below the threshold → relax now. Only when something is held:
+    // a commit already zeroed the count, and a lift right after it must not
+    // cut the Turn's own CTA glide short.
+    const onTouchEnd = () => {
+      touchY = null;
+      if (departingRef.current) return;
+      if (accumRef.current !== 0 || dragRef.current !== 0 || homeFillRef.current > 0) release();
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd); // the lift is the only release now
+    return () => {
+      clearIdle();
+      clearTimeout(pagerCommitRef.current); // deferred pager commit dies with the island
+      pagerCommitRef.current = null;
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [worlds.length, lastIndex]);
+
+  // Leaving the last World by any path the accumulator doesn't see (pager
+  // click, PREVIOUS CTA) drops a lingering footer reveal — earlier Worlds
+  // must never show it. The Turn choreography covers the snap.
+  useEffect(() => {
+    if (active < lastIndex) footerDriveRef.current.stop(); // a glide must not carry the footer up an earlier World
+    if (active < lastIndex && footerPRef.current > 0) {
+      footerWipeRef.current?.kill();
+      setFooterReveal(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, lastIndex]);
+
+  // On World change, stage the outgoing card (exit) under the incoming (enter);
+  // drop the exited card once the Turn finishes. The arrival snap has no
+  // outgoing card: the entered World's card boots in fresh, as on any load.
+  useEffect(() => {
+    const snap = snapRef.current === active;
+    if (snap) snapRef.current = null; // the arrival's commit is done with it
+    setCards((prev) => {
+      if (snap) return [{ index: active, dir: 1, phase: 'enter' }];
+      const top = prev.find((c) => c.phase === 'enter') || prev[prev.length - 1];
+      if (!top || top.index === active) return prev;
+      const d = Math.sign(active - top.index) || 1;
+      return [
+        { index: top.index, dir: d, phase: 'exit' },
+        { index: active, dir: d, phase: 'enter' },
+      ];
+    });
+    clearTimeout(cardTimerRef.current);
+    cardTimerRef.current = setTimeout(() => {
+      setCards((prev) => prev.filter((c) => c.phase !== 'exit'));
+    }, TURN_MS + 120);
+    return () => clearTimeout(cardTimerRef.current);
+  }, [active]);
+
+  // The arrival snap's card is committed (its entrance set pre-paint) — now
+  // the held passage fill lets go.
+  useEffect(() => {
+    if (fillOnCardRef.current == null || cards[0]?.index !== fillOnCardRef.current) return;
+    fillOnCardRef.current = null;
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    signalRouteReady(); // SQ-108: the snapped World's card is up
+  }, [cards]);
+
+  // Pager marker: one triangle that eases to the active number instead of
+  // teleporting. Two damping modes, because the target moves for two
+  // different reasons: when `active` CHANGES the marker glides dot-to-dot
+  // (the designed hand-off, k≈0.06); once it has arrived it switches to a
+  // tight follow (k≈0.45) so layout shifts — the hover fisheye collapsing,
+  // the viewport-centred rail recentring — carry the marker WITH its number
+  // instead of letting it detach and jut toward a neighbour. Damping runs
+  // in screen space (the rail's own top moves during those shifts); the
+  // nav offset is applied at write time.
+  useEffect(() => {
+    // Variant arm: the legacy rail is unmounting (or gone) — the dep change
+    // runs the cleanup below, tearing the ticker down; without this the
+    // follower runs forever against DETACHED nodes (querySelectorAll still
+    // finds children of a detached nav, so the !dot bail never fires).
+    if (!legacyRail) return undefined; // the scale arm has its own pointer
+    const nav = pagerRef.current;
+    const marker = markerRef.current;
+    if (!nav || !marker || worlds.length < 1) return undefined;
+    // Time constants (s) — dt-based so the feel is refresh-rate-invariant
+    // (the old per-frame k glided twice as slow at 30fps, twice as fast
+    // at 120Hz). 0.27s ≈ the original 60fps glide.
+    const TAU_GLIDE = 0.27;
+    const TAU_TRACK = 0.03;
+    let y = null; // marker centre, screen space
+    let lastIdx = null;
+    let gliding = false;
+    const follow = (_t, dtMs) => {
+      const idx = activeRef.current;
+      const dot = nav.querySelectorAll('.fp-pager__dot')[idx];
+      if (!dot) return;
+      if (idx !== lastIdx) {
+        lastIdx = idx;
+        gliding = true;
+      }
+      const r = dot.getBoundingClientRect();
+      const target = r.top + r.height / 2;
+      if (y === null || PREFERS_REDUCED_MOTION) {
+        y = target;
+      } else {
+        const dt = Math.min(dtMs, 100) / 1000;
+        const tau = gliding ? TAU_GLIDE : TAU_TRACK;
+        y += (target - y) * (1 - Math.exp(-dt / tau));
+        if (gliding && Math.abs(target - y) < 1.5) gliding = false;
+      }
+      marker.style.transform = `translateY(${y - nav.getBoundingClientRect().top}px)`;
+    };
+    gsap.ticker.add(follow);
+    return () => gsap.ticker.remove(follow);
+  }, [worlds.length, legacyRail]);
+
+  const onNext = () => {
+    if (!atEnd) goTo(active + 1);
+  };
+  const onPrev = () => goTo(active - 1);
+
+  // Pager dock: base fisheye on the active number + additive bump that follows
+  // the continuous cursor position, so each number scales independently.
+  const dotScale = (i) =>
+    1 +
+    PAGER_BASE_GAIN * falloff(Math.abs(i - active), 3) +
+    (hoverIndex === null
+      ? 0
+      : PAGER_HOVER_GAIN * falloff(Math.abs(i - hoverIndex), 2.5));
+
+  const nextScale = 1 + CTA_MAX_EXTRA * Math.max(Math.max(0, fill), hoverNext ? 1 : 0);
+  const prevScale = 1 + CTA_MAX_EXTRA * Math.max(Math.max(0, -fill), hoverPrev ? 1 : 0);
+
+  // CTA return choreography: snappy while dragging (tracks the scroll), a quick
+  // spring-back on release, and a long eased glide on commit (lands as the
+  // World Turn settles, sharing its curve).
+  const ctaReturn =
+    ctaMode === 'commit-pin'
+      ? '0s'
+      : ctaMode === 'commit'
+        ? `${TURN_DURATION}s`
+        : ctaMode === 'release'
+          ? `${RELEASE_GLIDE_S}s`
+          : `${DRAG_TRACK_S}s`;
+  const ctaEase =
+    ctaMode === 'commit'
+      ? 'cubic-bezier(0.65, 0, 0.35, 1)' // hold high, then settle to default as the Turn finishes
+      : ctaMode === 'release'
+        ? RELEASE_EASE_CSS // quick spring back
+        : 'ease-out'; // drag / pin
+  const ctaVars = { '--cta-return': ctaReturn, '--cta-ease': ctaEase };
+
+  // Pager ↔ CTA link: when a Turn commits, the left rail glides its active
+  // number into place over the same window (and curve) as the triggering CTA
+  // scaling back to rest, so the two read as one linked motion. Drag/click snap.
+  const committing = ctaMode === 'commit' || ctaMode === 'commit-pin';
+  const pagerVars = {
+    '--pager-dur': committing ? `${TURN_DURATION}s` : '0.16s',
+    '--pager-ease': committing ? 'cubic-bezier(0.65, 0, 0.35, 1)' : 'ease-out',
+  };
+
+  // CTA colour states (08-26, Nathan): default = the focused PROJECT ACCENT
+  // (readable ink; inherited from the .fp root, blank → brand blue) → lerps
+  // to brand white/black as the fill grows OR on hover (the "charged" state)
+  // → pins white/black the instant the threshold is crossed (commit-pin) →
+  // eases back to the DESTINATION project's accent over the Turn.
+  // `committing` is true only for the CTA in the direction that was triggered.
+  // 11-03 (Nathan: [NEXT]/[PREVIOUS] lag the colour change, like the pager
+  // did): the charge is its own registered var (--cta-charge, the one thing
+  // that transitions) and the background takes NO transition, so it rides
+  // the accent fade in lockstep instead of chasing it. Through a Turn the ink
+  // swaps to the snapping --nav-ink (featured-projects.css); the committing
+  // chip keeps its own lane (pin, then the commit glide) via --cta-ink-fade.
+  const ctaColor = (f, committing) => {
+    const pin = committing && ctaMode === 'commit-pin';
+    const pct = pin ? 100 : Math.round(Math.min(1, Math.max(0, f)) * 100);
+    return {
+      '--cta-charge': `${pct}%`,
+      '--cta-bg':
+        'color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-white) var(--cta-charge))',
+      '--cta-fg': `color-mix(in srgb, var(--cta-ink, var(--project-color-fg, var(--color-white))), var(--color-black) ${pct}%)`,
+      ...(committing && (pin || ctaMode === 'commit')
+        ? { '--cta-ink-fade': ctaReturn, '--cta-ink-ease': ctaEase }
+        : null),
+    };
+  };
+  // Hover charges the colour fully (like the scale bump above) — white/black.
+  const nextColor = ctaColor(Math.max(Math.max(0, fill), hoverNext ? 1 : 0), dir > 0);
+  const prevColor = ctaColor(Math.max(Math.max(0, -fill), hoverPrev ? 1 : 0), dir < 0);
+
+  if (!worlds.length) {
+    return (
+      <div className="fp-empty">
+        <h1>Featured projects coming soon</h1>
+      </div>
+    );
+  }
+
+  const w = worlds[active];
+
+  return (
+    <main
+      className="fp"
+      aria-label="Featured projects"
+      ref={mainRef}
+      data-pager={legacyRail ? undefined : 'scale'}
+      // The Turn window (an exit card is staged): the pager chip rides the
+      // accent fade in lockstep instead of chasing it (featured-projects.css).
+      data-turning={cards.some((c) => c.phase === 'exit') || undefined}
+      // S2: the focused (active) project's accent, broadcast at the page root.
+      // The left-pager active chip resolves --project-color from here; per-card
+      // surfaces override it on their own .fp-card-wrap so a Turn keeps each
+      // card's color. Blank → brand-blue fallback. Deferred surfaces
+      // (.fp-canvas gradient, nav bar, WebGL grid) still hardcode blue and are
+      // unaffected by this var.
+      style={projectColorVars(w?.projectColor, w?.projectColorSecondary)}
+      data-spectrum={w?.spectrum || undefined}
+    >
+      {Fp1TunePanel && <Fp1TunePanel />}
+      {DeckDebugPanel && <DeckDebugPanel />}
+      {ScrimTunePanel && <ScrimTunePanel />}
+      {EnterTunePanel && (
+        // getAccent: the dry-run's cover ingests the ACTIVE project's accent
+        // (ref, not state — the panel reads it at ▶ time, no re-render tie).
+        <EnterTunePanel getAccent={() => worlds[activeRef.current]?.projectColor} />
+      )}
+      {TextTunePanel && (
+        <TextTunePanel getAccent={() => worlds[activeRef.current]?.projectColor} />
+      )}
+      <WorldScene world={w} index={active} snapRef={snapRef} />
+
+      {!legacyRail ? (
+        <GraticulePager
+          worlds={worlds}
+          active={active}
+          commit={requestGoTo}
+          onEngaged={onPagerEngaged}
+          snapRef={snapRef}
+        />
+      ) : (
+      <nav
+        className={`fp-pager${hoverIndex !== null ? ' is-hovered' : ''}`}
+        aria-label="Featured project pager"
+        ref={pagerRef}
+        style={pagerVars}
+        onPointerLeave={() => setHoverIndex(null)}
+      >
+        <span className="fp-pager__marker" ref={markerRef} aria-hidden="true" />
+        {worlds.map((world, i) => (
+          <button
+            key={world.slug}
+            type="button"
+            className={`fp-pager__dot${i === active ? ' is-active' : ''}`}
+            aria-current={i === active ? 'true' : undefined}
+            aria-label={`Go to ${world.clientName}`}
+            onClick={() => goTo(i)}
+            onPointerMove={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setHoverIndex(i + (e.clientY - r.top) / r.height - 0.5);
+            }}
+            onPointerDown={() => setHoverIndex(i)} /* touch tap reveals the tokens */
+            onFocus={() => setHoverIndex(i)}
+            style={{ fontSize: `calc(var(--text-mono) * ${dotScale(i).toFixed(3)})` }}
+          >
+            {pad2(i)}
+            {/* Fixed-size mono token — sits right of the scaling number */}
+            <span className="fp-pager__label" aria-hidden="true">
+              {world.clientName}
+            </span>
+          </button>
+        ))}
+      </nav>
+      )}
+
+      {/* Top: previous-project control (wipes away on the first project). */}
+      {prevMounted && (
+        <button
+          type="button"
+          ref={prevRef}
+          inert={atStart || undefined}
+          className="fp-prev fp-cta"
+          data-names={ctaNames && prevName ? '' : undefined}
+          style={{ '--cta-scale': prevScale.toFixed(3), ...ctaVars, ...prevColor }}
+          // Its inline --cta-bg reads var(--project-color), so [style*='--project-color']
+          // matches it: it carries the active World's key like the wrapper above it.
+          data-spectrum={w?.spectrum || undefined}
+          onClick={onPrev}
+          onPointerEnter={() => setHoverPrev(true)}
+          onPointerLeave={() => setHoverPrev(false)}
+          aria-label={ctaNames && prevName ? `Previous project: ${prevName}` : 'Previous project'}
+        >
+          <CtaArrows direction="up" />
+          {ctaNames && prevName ? <CtaName name={prevName} /> : <span className="fp-cta__label">previous</span>}
+        </button>
+      )}
+
+      <div className="fp-stage">
+        {cards.map((c) =>
+          worlds[c.index] ? (
+            <WorldCard
+              key={c.index}
+              world={worlds[c.index]}
+              index={c.index}
+              phase={c.phase}
+              dir={c.dir}
+            />
+          ) : null
+        )}
+      </div>
+
+      {/* Bottom: next-project control — hidden on the last World (v1: directory disabled). */}
+      {!atEnd && (
+        <button
+          type="button"
+          className="fp-next fp-cta"
+          data-names={ctaNames && nextName ? '' : undefined}
+          style={{ '--cta-scale': nextScale.toFixed(3), ...ctaVars, ...nextColor }}
+          data-spectrum={w?.spectrum || undefined}
+          onClick={onNext}
+          onPointerEnter={() => setHoverNext(true)}
+          onPointerLeave={() => setHoverNext(false)}
+          aria-label={ctaNames && nextName ? `Next project: ${nextName}` : 'Next project'}
+        >
+          {ctaNames && nextName ? <CtaName name={nextName} /> : <span className="fp-cta__label">next</span>}
+          <CtaArrows direction="down" />
+        </button>
+      )}
+
+      {/* Slide-up footer — parked fully below the fold (inert) until the last
+          World, where post-end wheel/touch delta drives its reveal. Driven
+          mode: no spacer (this page has no document scroll), transform fed
+          the accumulator's 0..1 directly. */}
+      <SiteFooter driven progress={footerP} />
+
+      {/* Crawlable fallback — every featured project + link to its detail page. */}
+      <ul className="sr-only">
+        {worlds.map((world) => (
+          <li key={world.slug}>
+            <a href={`/work/${world.slug}`}>
+              {world.clientName} —{' '}
+              {[world.title, formatYearRange(world.yearStart, world.yearEnd, world.isOngoing)].filter(Boolean).join(', ')}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}

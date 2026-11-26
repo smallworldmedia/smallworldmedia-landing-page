@@ -1,0 +1,603 @@
+# Patterns & Doctrine
+
+*Last Updated: 2026-11-25*
+
+## GSAP + ClientRouter
+- Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
+  Components use `useGSAP({scope, dependencies})`; only `Hero.jsx` and `work/WorldCard.jsx` touch
+  `gsap.context` directly.
+- Scene loops ride `gsap.ticker` with internal FPS gates. Never call `gsap.ticker.fps()`: the ticker
+  is shared with the persistent shell.
+- Soft navs wipe every `<html>` attribute. Persistent islands re-assert on `astro:after-swap`
+  (`SiteShell` scrollbar width, `RouteFill` nav accent, `SiteNav` current link, `SiteTagline` cuts,
+  `PrivacyOverlay` close). Route-scoped setup uses `astro:page-load`.
+- Navigate across a swap with `setTimeout` + `navigate()`, never `gsap.delayedCall`; the island's
+  gsap context dies with the swap and would take the call with it. Cross-island dispatches into
+  persistent islands are rAF-deferred so their tweens are not adopted and reverted at unmount.
+- A page turn committed by a gesture (wheel, drag, swipe) navigates with `gestureHistory()`
+  (`src/lib/gestureHistory.js`, SQ-100), taken at the gesture: a push without an honoured user
+  activation makes Chromium skip the whole visit on Back. A click that plays a cover or a dive before
+  the swap pushes its entry in the tap with `holdEntry(href)` (SQ-141: WebKit carries a tap's gesture
+  through a timer for about 1 s only, so a push from the passage's end let iPhone Back skip the page),
+  and the passage's end navigates with its `arrive()` options: a replace, or nothing after a Back
+  mid-passage. Plain links keep ClientRouter's own push.
+  Per-entry state goes in `history.state` spread over ClientRouter's (`{ ...history.state, … }`);
+  a null state breaks its Back.
+- `client:only` islands: element refs captured in mount effects go stale under dev hydration churn;
+  query the DOM lazily at animation-fire time.
+- An SSR'd image in a `client:load` island that finishes before hydration never fires React's
+  `onLoad`: Astro hydrates inside a transition, and React attaches the handler only at its commit. A
+  load-gated image flags itself in a ref callback (`img.complete && img.naturalWidth > 0`), as
+  `MediaSlot`'s `flagIfLoaded` does (`4499fc3`).
+- Timeline traps (each fixed in `process/useProcessScene.js`, commented at the site):
+  `killTweensOf(target)` inside a timeline's own `.call()` kills that timeline's later tweens of the
+  target, so kill at build time; a live tween on `tl.timeScale` re-attaches a killed timeline, so
+  `killTweensOf(tl)` before `tl.kill()`; a repeating timeline's wrap rewinds every child `.to` to its
+  first-play start, so pass `repeatRefresh: true`.
+
+## The commit-curve idiom
+One linear master proxy (`raw.p` 0→1, `ease:'none'`), each channel remapped through its own clamped
+window (`seg()` + `powInOut()`). Used by `Hero.beginEnvelopment`, `work/world/enterTune.js` and the
+FP→detail passage, so home→/work and /work→detail share one vocabulary (`moveStart/moveEnd/pow`,
+and since SQ-34 the lens channel too: `enterLens()` on `lensStart/lensEnd/pow`).
+Motion taste: no overshoot, steep launch carrying scroll momentum, smooth decel into rest.
+
+## Gesture model
+The house accumulator quantizer (px threshold, `TOUCH_GAIN` touch gain (5 since 11-03), rubber band
+after `RELEASE_MS` (240) of stall, one commitment per gesture) appears in the Hero commit, the /work World Turn (`FeaturedProjects.jsx`), and
+`process/useProcessScrollDriver.js`. Pager input is `work/pager/usePagerGesture.js`; skins render
+only, and only `requestGoTo` fires a Turn. Every landing commits unconditionally so stale deferrals
+are cancelled. A gesture's live feedback rides two lanes in `motion.js`: `DRAG_TRACK_S` while the
+finger moves, `RELEASE_GLIDE_S` on `RELEASE_EASE` for the spring home (the CTA fill and the 11-03
+lean, `swm:fp-drag`, share them). On `/work` a finger's let-go is its lift, so a held finger keeps its
+fill; a wheel has no lift, so its let-go is the stall.
+
+`src/lib/rubberBand.js` (11-07, SQ-26) is the accumulator plus both lanes as ONE step:
+`createRubberBand({ trigger, signed, apply, onCommit, onRelease, onRest })` returns `push(dy,
+{ stall })`, `lift()`, `release()`, `reset()` and `accum`; `stepAccum` is its pure arithmetic. The
+detail page runs it twice: `NextProjectBand.jsx` (one-sided, at the document's end) and the phone
+blurb hold, `src/lib/blurbHold.js` (`signed`, both directions; only under `?blurbexit=1` since SQ-68, where a seat is a stop and leaving it is native scroll). A third surface that needs a rubber
+band uses it rather than copying the lanes.
+
+## One-place motion
+`src/lib/dragMomentum.js` (drag + inertia), `src/lib/overlayWipe.js` (overlay wipe, never a fade),
+`src/lib/scramble.js` / `charCut.js` (text arrival). New surfaces consume these; forked numbers are
+bugs. Footer exits are masked via `--footer-peak`, never faded — anything that fades on the way IN
+rides the peak's rest-normalized twin `--footer-rise-peak`, so a retreat slides the mask back over
+it instead of fading it out on screen (`communication.md`). `lib/dragMomentum.js` takes
+`drag: false` for an ambient-only engine (no pointer listeners at all), which is how the home
+globe hands the gesture back to the page (phones since 10-07, every screen since 10-27).
+
+Hard-hold motion is its own family: `steps(1, end)`, where every keyframe segment HOLDS its start
+value and jumps at the end, so nothing interpolates. It runs the FP pager scrim grain
+(`work/scrimNoise.js`), the odometer, and the footer band's "full spectrum" pulse (`.logo-ticker__spectrum`; off by default since 11-07, `SPECTRUM_WHITE`, `?spectrumwhite=0` runs it). Musical timing is a token,
+not a magic duration: `calc(240s / var(--swm-bpm, 127))` is two half notes at 127 BPM (1.88976 s),
+the first stepping five `--swm-cycle-*` frames at 10% each, the second holding `--ink-muted`. A
+CSS-keyframed ink pulse animates the ELEMENT'S OWN `color`, which is what keeps it clear of the
+`@property` paint trap below.
+
+An always-on CSS animation on persistent chrome must be gated, not merely off-screen: ship it
+`animation-play-state: paused` and join an existing release group rather than inventing a latch —
+the spectrum pulse joins the odometer's `html[data-footer-revealed] { animation-play-state: running }`
+rule, so a 5 Hz text repaint cannot run beside the `/work` WebGL world or while the footer panel is
+parked. `prefers-reduced-motion` resolves to `animation: none` plus the flat resting ink.
+
+The GSAP house pulse (`housePulseLoop`) is phase-locked to the wall clock when it is built. A
+`pause()` then `play()` resumes from wherever it stopped, so the beat drifts off the clock. An
+endless pulse that only fades opacity can leave GSAP: `housePulseKeyframes(ease, from, to)` samples
+the house curve into web-animation keyframes and `housePulseStartMs(now, period, hit)` gives the
+next downbeat to start them on, so the beat stays on the metronome with nothing ticking on the main
+thread (SQ-124, 11-18: the /work pager's rest pulse, off by default since 11-20 behind `?scalepulse=1`, and the scheme eye; `joinHousePulse` is gone).
+Skip targets that are not painted: Blink restyles an animated `display:none` element every frame. A pulse
+that must survive a recolour cannot tween a colour FROM the accent, because GSAP records the start
+once; the pager fades a white twin of its number on opacity instead (`.fp-scale__peak`).
+
+A CSS transition runs on wall-clock time from the frame it starts, so a long task right after it
+starts (a phone's World Turn landing) lets it finish unseen: the next painted frame is the end value.
+`playTransitionThroughStalls` (`motion.js`) keeps the CSS (look, duration, easing) and owns only the
+clock: it pauses the element's running transition of one property and advances it each frame by the
+frame's dt, capped at 50 ms, and its `onDone` replaces a timer for whatever follows the transition
+(SQ-142: the pager chip drops `data-show` when its wipe has actually played; a re-engage kills it).
+
+Globe tiles: `globe/tileSwap.js` is the one refcount-safe way to put an asset on a tile (`loadTile`,
+`heldThumbId` ownership). A tile's asset changes only where its screen shows no media (the parked
+pole, a blink to black, a blue surge, a cut), never through a cross-dissolve. A population-mode
+world change defaults to the tide: `MeridianScroll.advance()` surges the scroll one full span, so the
+next world arrives row by row from the top pole. Client-name strips are PLACED, not scrolled: `planNames()`
+picks their tiles once per world change against the live camera, `placeNames()` only reconciles the cover-fit
+uniforms per frame, and the horizontal ticker is gone. The strips leave `panelMaterial.js` alone: its pole
+pinch (`vK = sin(thetaC)`) is compensated CPU-side in `nameTicker.js` (`namePinch` / `nameWindow` / `nameRendered`).
+
+Posing a tile means writing BOTH halves. `buildGlobeGeometry` seeds every panel's `centerDir` at the
+canonical equator and leaves the driver to rewrite it per frame, so a tile's latitude is only true once
+something has posed it — and the shader uniform and `centerDir` are two separate writes. Stamping only
+`uPolarTop` yields a tile that LOOKS right and reads `|y| = 0` to the scheduler's score, the name band
+and the prominence sort. That shipped: `useGlobeScene`'s initial layout stamped the uniform alone, so
+the first world's name strip was placed against an all-equator globe and landed on the pole row at
+`|y|` 0.968 — four-times-condensed type for the whole opening hold, with `?popnameband` inert because
+the filter saw every row as admissible. Hence `poseTile()`: one export, both writes, plus the `parked`
+flag. Any new consumer of row latitude goes through it. The matching probe lesson: a placement-time
+assertion is only as honest as the pose it measured, which is why `globe-probe`'s `namesInBand` passed
+throughout. The band is now also gated on what is INKED — `namesLiveInBand` over frames with
+`nameTiles > 0`, against the same limit with no allowance for the row's poleward travel, since an
+allowance wide enough to cover one world relaxes the limit to `|y|` 0.969 and swallows the defect.
+
+**A window that depends on the pose is written every frame, after the pose** (media spans, P4b
+`d0e430f`). A unit member's crop of the unit picture depends on its live latitude (the pole pinch,
+and for V/Q the geometric mean of both rows' pinch), so it cannot be stamped once at bind time like a
+single's cover-fit. `PopulationDirector.place()` is the one per-frame writer: `useGlobeScene` calls it
+right after `scroller.update`, and it re-derives every member's A window from its own pose, and its B
+(video) window as `cover(V, aTex) ∘ A` so the video registers with the poster. A sequence tile's cut
+(`stepSequences`, right after `place()`) swaps only `texA.value`, every frame cut to one texture spec,
+so the window `place()` wrote holds for whichever frame shows. Two rules keep it
+honest. Every bind-time texA writer (`loadTile`'s bind, `LivePanelScheduler.swapHidden`,
+`useGlobeScene`'s initial load) goes through `tileSwap.windowA`, and `place()` computes the same
+`unitA(m, namePinch(y), θ, aTex)` that windowA's unit branch (`unitWindowOf`) does, so a bind and a
+frame agree; the exception is `--negctl=bind`, which removes only windowA's unit branch. `loadTile`'s
+bind hook also writes a planned member's window on its first bound frame, so nothing renders a frame
+with the single's window. And a member's texB, plus the telemetry that counts
+it (`registerB`, `density`), is written only when its stream was lit for this unit
+(`liveUid === place.uid`, the A7 guard, P6a `8e74419` and P7 `eadf842`): a tile still showing a unit
+record while its copy plays another clip as a single must not be judged as that unit. Under the rows
+look (`?popunitlook=rows`) the whole compensation is CPU-side, like the name strips'. Under the flat
+look, the default since P9 (`310ad84`, 10-31), `place()` still writes every window each frame, and the
+window carries a switch, `spanC`, that has the shader pinch each pixel row about the unit's centre
+(`uSpanA` / `uSpanB`), so a two-row picture neither warps nor kinks at the gap. The probe's kill switch,
+`globalThis.__swmNoUnitWindows` (`communication.md`), is how its negative controls prove the gates
+can see a missing window.
+
+Grain is one recipe: the FP pager scrim's static is `work/scrimNoise.js`, and a second turbulence
+recipe for the same look would be a bug. (The globe's panel grain imported it, sampling
+`panelMaterial`'s compensated `mUv` rather than inventing a second correction, until Nathan had it
+removed on 10-31.)
+
+Colour scheme (US-7, 11-14): `lib/colorScheme.js` is the one authority and `html[data-scheme]` the one
+thing CSS reads. DOM colour is CSS only, so a scheme change never re-renders React; canvases listen
+to `swm:scheme` and ask `schemeAccent` / `schemeInk`. A preview (`?scheme=`, a picker's detent)
+changes what the page shows and is never stored; only a commit that changes the committed scheme
+writes `localStorage`. Three schemes are active (`SCHEMES`: project, black, blue). `spectrum` is
+parked (`PARKED_SCHEMES`, 11-15): `isKnownScheme` lets it apply as a `?scheme=` preview, and neither
+the latch nor `setScheme` stores or commits it. The latch is an inline head script because the attribute must exist before
+first paint and ClientRouter wipes it on every swap. Phones (`PHONE_QUERY`, 11-21, Nathan) get no picker
+and the latch ignores their stored pick, so they stay on `project`: an iPhone holds ~110 MB per page
+recolour and never frees it. `?schemeui=1` restores both for an A/B or a probe at phone width.
+
+How a scheme reaches the DOM (`styles/scheme.css`, SQ-88): black and blue override the whole key set
+that `projectColorVars()` and `navAccent.js` write (`--project-color`, `-2`, `-fg`, `-text`,
+`-on-black`, `--project-globe-filter`, `--nav-ink-l`), with `!important`, on `html[data-scheme=X]` AND
+on `html[data-scheme=X] [style*='--project-color']`, because those keys arrive as inline styles on
+carriers and an inline style beats any selector. Paints that named brand blue directly now read role
+tokens (`--scheme-page`, `--scheme-chip` / `--scheme-chip-ink`, `--scheme-accent-ink`; registered
+`<color>` in `global.css`, defaults = today's blue, faded on `--scheme-fade`). Black's affordance
+rule: a control whose rest fill would equal its container is a transparent fill with white ink, and
+its hover / active / selected state is a white fill with black ink. The spectrum scheme (parked, previewed with
+`?scheme=spectrum`) is the last section of `scheme.css` (SQ-93, reworked keyless in wave 4, SQ-96,
+11-15). Pages are black, and nothing in the section reads a project: no selector names a palette key
+or `data-spectrum`, so an element paints the same colour on every project and every page of its
+kind. `html` and every `[style*='--project-color']` carrier take the blue pair (`:where()` keeps the
+descendants' specificity at the html's, so a wearer that re-points its own carrier values wins). The
+palette arrives inside each component three ways. Ground / ink pairs are tokens (`--sp-blue` /
+`--sp-blue-ink` and so on: blue, red, green, yellow, periwinkle, white, navy). Two cycles go by a
+wearer's own `:nth-child` among its siblings, never a count over the page: a 12-step chip cycle that
+sets `--sp-bg` / `--sp-ink`, and a 4-step ink cycle for text. Lines wear ramp A and ground gradients
+wear ramp B. The ramps are colour-stop lists in `global.css` (`--swm-ramp-a` / `-b` / `-c`, no
+direction baked in) and go on the consuming property, because `--project-color` is a registered
+`<color>` and cannot hold a gradient. A ground behind text with no box of its own is a background
+plus a spread shadow, and `.swm-corner` (the picker) is never recoloured. The build-time deal
+(`lib/spectrumDeal.js` → a `spectrum` field on the page data → `data-spectrum`) is still computed
+and stamped, but no CSS reads it; a rule that ever does selects the five keys by name, never a bare
+`[data-spectrum]` (`ClientLogoTicker` owns `data-spectrum="white"`).
+
+How a scheme reaches a canvas: one `onScheme` subscription per scene. A settled event must recolour;
+a preview may write uniforms only (no texture or slot rebuild, the pager fires one per detent). Under
+black every fill and border is `#000000`; the one exception is /work's shell grid line (and glow), a
+neutral grey at `?schemegrid` (0.16, `#292929`, since 11-17). Under spectrum (wave 4, 11-15) both scenes draw ramp A over the
+flat colour through one shared uniform set, so a scheme change still writes uniforms only, and at mix
+0 a scene paints exactly what it painted before. The home globe's gaps, pole caps, corner fringe and
+surge continue the DOM ring's conic ramp about the ring's centre (`globe/panelMaterial.js`
+`uRampMix` / `uRampCenter`); every /work line (shell grid, FORME lattice, plate and wall borders, the
+glow) takes the ramp left to right across the drawing buffer (`work/world/worldRamp.js`). The stops
+are `lib/spectrumRamp.js` (`SPECTRUM_RAMP_A` = `--swm-ramp-a`, kept gamma-encoded and decoded to
+linear after the blend, the way CSS blends). `window.__swmSchemeDebug` reports what each scene painted, and
+`scripts/scheme-probe.mjs`'s `gl` gate reads it.
+
+Probe caveats (11-14). Headless Chrome refuses some tall full-page screenshots ("Unable to capture
+screenshot": the detail pages and the directory at 1440, the directory at 390), and after a refusal
+it blocks WebGL for the origin ("Web page caused context loss and was blocked"), so every canvas page
+loaded later in that browser throws at renderer creation. `scheme-probe.mjs` saves the viewport
+instead, WARNs, keeps the page's gates and restarts its browser; any probe that takes full-page
+shots and then loads a canvas route has to do the same. The `hover` gate forces `:hover` through
+CDP, so a control whose hover is a JS mix of `--cta-bg` (home's `zoom_in`, /work's [PREVIOUS] /
+[NEXT]) reads as "no painted property changed" unless a scheme adds a CSS `:hover` rule for it, as
+black does; the lower-right privacy pill's hover (ink to white) paints nothing wherever the accent's
+ink on black is already white, which is every page under blue. The `contrast` gate walks a text
+element's ancestors for the first opaque fill, plus one kind of box behind the text: a pseudo the
+dump flags `backdrop` (absolute, negative z-index, not flattened by a scale-0 transform), such as the
+directory filter's wipe box. Before it learned that, the checked filter was white on white under
+black and passed (fixed in `scheme.css`, pinned in `scheme-css.test.mjs` and `scheme-gate.test.mjs`).
+A box laid behind text any other way (a sibling element, a blend mode) is still invisible to it.
+Look at the contact sheet, not only the gate lines. The `shares` gate (spectrum) sums masked captures
+of the pages it is given, and a project's page carries only its own dealt colour, so it runs only
+with `--details=all` (every /work card's page; the default sample of cards 1 and 3 SKIPs it, with the
+reason). The masked page is read in 4000 px tiles, because one capture of a tall page is refused,
+and one INFO line per page prints that page's own shares, which is how a family's share is traced to
+its source. Canvases and media are masked black, so home and /work add nothing to it. On the first
+skin (11-14) every family sat within the gate's 10 points of color-ref.png except yellow, which the
+keyword boxes on every project page push to more than twice its reference share: a look call for
+Nathan, not a defect the gate should hide. The keyless skin (wave 4, 11-15) has its own gates, which
+replace `carriers`, `deal` and `shares` in spectrum's defaults (those stay available by name).
+`uniform`: an element two pages of a kind share paints the same on both (keywords and social chips
+are matched by their own key). `density`: a page shows at least N of the palette's families (5 on
+home, /work, a project page and the directory, 3 on privacy and the 404; `--density` overrides the 5;
+both numbers are proposals). `outline`: the canvas ramp's centre sits on the DOM ring's, within 1.5
+CSS px.
+
+Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
+world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
+A passage changes colour on the page background's clock, never on a timer of its own (SQ-64, 11-12).
+The nav's fade starts from the cover or lift tween's `onStart`, at that tween's duration, curve and
+phase, because a main-thread stall makes a separate timer start late. `scripts/color-sync-probe.mjs`
+measures the offset in frames.
+
+## One grammar, two renderers (marked copy)
+Rich text in this repo is a MARKED PLAIN STRING, never Portable Text — `**bold**`, `[[keyword]]`,
+`[[keyword]](/href)`, `[label](/href)`, parsed by `src/lib/keywords.jsx`. One vocabulary covers
+`project.description`, `/process` copy and (since 10-08) the `siteSettings` fields, so moving copy
+into the CMS needed no schema machinery and no new dependency.
+
+Two renderers sit over that one parser, and which one a surface uses is a real decision:
+- `renderKeywords(text)` → PROSE nodes. For anything set as a paragraph.
+- `keywordLines(text)` → PER-WORD TOKENS, one array per line (a newline IS a line break), drawn by
+  `renderWordTokens(tokens, {wordClass, emClass, separators})`. For surfaces that animate word by
+  word — the footer blurb, the tagline pill, the mobile menu — which need the words BEFORE the
+  markup, not nested inside it. `separators: false` suits a surface that spaces words in CSS rather
+  than with text.
+
+Both share the grammar, the punctuation rule and the `data-kw` reading order, so copy behaves the
+same wherever it is rendered. Separators are reproduced FROM THE SOURCE: a keyword's non-final
+fragments carry their trailing space inside the box (`white-space: pre`) with a zero-width space
+between them as the break opportunity, plain words keep their real space, and `a[[b]]` stays glued.
+
+**Emphasis must be a marker, not a position.** The Medium cut used to be a line index (`EM_LINE`)
+and a word count (`LONG_EM_WORDS`) in `SiteTagline`. That works exactly until someone rewords the
+line, which is the whole point of putting copy in a CMS — so `**bold**` was added and all three
+baked word-arrays were deleted.
+
+Three traps this grammar has already sprung:
+- **Name every capture group, in order.** `stripKeywords`'s replace callback skipped the link-href
+  group when `**bold**` was added, which shifted `bold` onto it; the match fell through to the
+  keyword branch and rendered the literal string `"undefined"` into an aria-label.
+- **`.kw__ink` is an `aria-hidden` DUPLICATE of the word** — the wipe is a MASK, not a colour tween
+  — so raw `textContent` doubles every keyword. Anything asserting on prose must strip the ink
+  layers first.
+- **A marker is only half a feature — the class it emits has to be styled.** `renderKeywords` emits
+  `<b class="kw-em">` for `**bold**`, but `.kw-em` had no rule anywhere, so prose `**bold**` would
+  have set at the browser's default 700 instead of the house `--weight-medium` (found 10-08 while
+  matching the drawer blurb to the footer, before any copy used the marker through this renderer).
+  The footer escaped it only because `renderWordTokens` lets a caller pass its own `emClass`. Fixed
+  in ONE place — `.kw-em` in `global.css` — so the marker means the same weight on every surface.
+
+## A highlight needs a colour AND a driver
+Two separate things, and they fail differently. The COLOUR fails soft: `--kw-bg` / `--kw-ink` are
+per-surface tokens with no inherited value, but `kw`'s own `var()` fallbacks hold the house pair
+(electric blue box, white ink), so an unbound surface still looks right. Binding them is for the
+surfaces that want something else — `project-detail.css` points them at `--project-color` /
+`--project-color-fg`, `process.css` flips the pair per `data-bg` field — or, on the footer blurb, to
+put the house pair in one declared, dialable place rather than leaving it to a fallback.
+
+The DRIVER fails hard. `.kw__box` rests at `scaleX(0)` and `.kw__ink` at a fully-clipped inset, so a
+keyword is INVISIBLE until something wipes it: markers on a surface with no `kwWipe`/`kwSet` render
+as legible text with no highlight, and nothing in the markup looks wrong.
+
+Where the driver is guaranteed (a scroll-triggered entrance that always runs) the resting state is
+fine. The footer blurb is the case where it is NOT: its entrance plays once per session
+(`entranceShown`), skips under reduced motion, and never runs without JS. So `global.css` binds the
+two tokens on `.site-footer__blurb` and rests the box OPEN and the ink unclipped there, making the
+degraded state "the highlight is simply present", and `playFooterEntrance` winds them back with
+`kwSet(blurb, false)` — inline styles outrank the resting rule — before appending `kwWipe` to the
+SAME timeline as the words, so a reverse retracts it in kind. Reduced motion takes
+`kwSet(blurb, true)`.
+
+All of this is dormant since 11-07 except on the detail page's blurbs: `KW_HIGHLIGHT = false` in `keywords.jsx`
+(SQ-25, Nathan) makes both renderers emit plain words, `kwWipe` return 0 and `kwSet` no-op, while the markers stay in the
+copy and the CSS above stays whole. Every caller already handles "0 keywords appended", so no
+entrance timing changed. `?kwhighlight=1` brings the highlights back for one page view. The detail blurbs
+pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so they still wipe.
+
+## Tunables and tune panels
+- Idiom: module-level `PARAMS = new URLSearchParams(location.search)` (null on server) with
+  `num(key, fallback)` / `str()` helpers seeding a **mutable `TUNING` object read at use time**, so
+  sliders move the live scene. Panels emit `copy_url` with only non-default values; dialed values are
+  then baked into `*_DEFAULTS`.
+- Benches are URL-gated and lazily `import()`ed in an effect so SSR and first client render stay
+  byte-identical: `?lenistune`, `?footertune`, `?herotune`, `?committune`, `?entertune`, `?texttune`,
+  `?scrimtune`, `?fp1tune`, `?poptune`, `?debug` (process), `?fpgrid=1|2|3`, `?pager=rail`. Phone-sized
+  benches start collapsed to a one-line chip (`?debug` process, `?deckdebug`, `?poptune`).
+- A knob is only half-landed until it has a bench row.
+- A tier-split default reads as ONE knob: `GLOBE_STROKE_FRAC` resolves `IS_MOBILE ? 5 : 6`, and a single
+  `?globestroke` overrides BOTH tiers (the `?grainsize` convention) rather than exposing two params.
+- Inventory: `docs/tunables-guide.md` (420 keys, as `node scripts/tunables-keys.mjs --check` printed on
+  11-03 after the directory's `?dir*` knobs; read the count from that command, never by hand). After adding/renaming/baking a param run
+  `node scripts/tunables-keys.mjs --check` and update the doc. The extractor reads a fixed set of
+  idioms, popConfig's `stateKey: ['param', reader]` tuple maps among them. A new reading style needs a
+  regex there, or `--check` passes blind: P2's move from a `PARAM_KEYS` map to tuple maps hid 15 of
+  the 16 pop keys until the tuple regex landed.
+  Same-key collisions across routes and `?lenistune=1` silently reverting the Lenis bake are known traps.
+  A seeder's `n > 0` guard also swallows a legal dialed `0`: `footerTune.js` carries a per-key `ZERO_OK` set rather
+  than relaxing the guard for every key, because `?footerlift=0` is the one way to ask whether a parallax is
+  carrying anything.
+- `footerTune.js` also splits its knobs by who reads them: `CSS_KNOBS` are mirrored to `<html>` custom
+  properties, while a knob the JS reads at play time (`introS`, `slideRem`, `slideLeadS`, and the
+  wheel's weight, `lerp` and `brake`, read per wheel event) stays out of that map and is exposed
+  through a getter instead. Adding a play-time knob to `CSS_KNOBS` publishes a
+  var nothing consumes.
+- **A shipped default lives twice, so something must hold the copies equal.** Usually the twin is a CSS
+  `var()` fallback (what the phone gets) against `FOOTER_TUNE_DEFAULTS` (what the bench and a copied URL
+  get); `scripts/test/footer-reveal.test.mjs` asserts all 8 `CSS_KNOBS` pairs, and for
+  `--ticker-foot-clearance` it asserts the derived `calc()` CHAIN rather than a number, so a token moving
+  underneath the bake fails. The fork is not always CSS: `?footerrest` is read in JS at module load and
+  only latches `[data-footer-rest]`, so the cascade never sees it — yet the number still lives twice,
+  because `globe-probe --footer` has to know the floor to gate that the panel parks on it
+  (`Hero.jsx FOOTER_REST_MOBILE` ↔ the probe's `FOOTER_REST_EXPECT`). That pair is guarded too, by
+  PARSING both literals out of source, since Hero is an island and the probe opens a browser on import.
+  Without it a re-bake that moved one copy would not fail a test — it would fail the probe later, reading
+  as a footer regression rather than a stale gate (10-08, after `?footerrest` 0.62 → 0.59). Desktop's
+  own default, `FOOTER_REST_DESKTOP` 0.40 (Nathan's 10-31 sliver, `f2916d1`; 0.62 from bake A
+  `ba7cf2c`), has NO probe twin — `--footer` is phone-only (`MOBILE = FOOTER || …`) — so
+  `footer-reveal.test.mjs`'s "the desktop footer rest is its own bake" holds it to its own clipping
+  floor instead, and asserts the `IS_MOBILE ?` routing with a swapped-ternary control. A twin can
+  also be another module's bake: `?footerlerp`'s 0.165 is Lenis's `LENIS_TUNING.lerp`, and the test
+  parses that literal out of `motion.js`.
+- A measured number written into a comment is a claim about one baked state. When the measured thing
+  moves, grep the OLD number across `src/ docs/ scripts/ .claude/.codebase-info/` — it is routinely in
+  all four, and a figure that is really `(1 − rest) × panel-h` (`?footerlift`'s 106.86/53.39) moves with a
+  bake nobody connected to it. Prefer a ratio or a derived chain, and date a history claim's premise
+  ("at the then-0.62 floor") so a dead diagnosis is not read as the live value.
+
+## Rendering traps (learned)
+- Element `opacity < 1` composites a `backdrop-filter` over the sharp original: fade the background
+  alpha, hold opacity 1.
+- Animating an inherited `@property` custom property does not repaint text/SVG consumers: snap the
+  var and transition color/fill element-locally.
+- An unregistered custom property computes to its `var()`-substituted TOKENS, so a chain whose links
+  name each other several times grows at every link, and WebKit re-substitutes and re-parses all of it
+  at every style recalc. The scheme eye's chains reached 1.34M characters across the widget's 155
+  elements (`--badge-yt` 3272 on each badge), and a held preview restyles the widget for the whole ink
+  fade: WebKit's page process stepped ~250 MiB at 402 x 874 @3 (SQ-133, 11-20). Registering each link with `@property`
+  (`inherits: true`, `<number>` or `<length>`, no transition) makes it compute to ONE value at its own
+  element; the look is the same and the step fell to +85..+103 MiB. The 17 links sit in
+  `site-scheme.css` beside the sequence's `--eye-ts/tg/tn/tf`; the /work engine's `--sel`, `--sdx` and
+  `--fs` (`pager-scale.css`, locked) stay unregistered. Measure with `memory-probe.mjs --run=eye`
+  (`stepGate`).
+- An element-local transition on a property that already follows the inherited 1.7 s
+  `--project-color` fade CHASES it: the transition restarts every frame and lands about its own
+  duration late (the /work pager chip, 11-03). For the fade window, give the background no
+  transition and swap the ink to the snapping `--nav-ink` (`.fp[data-turning]`, the nav pill's fix).
+  When the background also mixes in a local input, register that input and transition IT instead:
+  the [NEXT]/[PREVIOUS] chips' white charge is `@property --cta-charge` (FeaturedProjects `ctaColor`,
+  `featured-projects.css`), and their background has no transition lane at all.
+- A surface whose `transform` string is rewritten imperatively every frame cannot also be tweened on
+  `transform`: use the individual `translate` / `rotate` / `scale` properties, which pre-multiply, so
+  the two compose. `SiteFooter.jsx`'s `paint()` owns the panel's whole transform in both modes, so the
+  resting panel's first-load slide rides `translate: 0 var(--footer-slide)` (the same reason
+  `--hero-lift` uses it). Layout-box reads (`offsetHeight`, `ResizeObserver`) ignore `translate`, so
+  `--footer-panel-h` is unaffected.
+- When a surface sits under a derived `opacity`, the veil outranks the ink. `.logo-ticker` is
+  `opacity: var(--lt-p)`, clamped from `--footer-peak` against `--logo-reveal-from/-to`, which was
+  0.633 at the resting footer (`footerrest/0.98` at the desktop's then-0.62 floor, bake A `ba7cf2c`, 0.40 since 10-31; 0.602 at the phone's 0.59): relighting the copy's ink alone moved composited contrast only
+  1.43:1 → 2.80:1, while lifting the veil got the shipped 4.61:1. Measure the
+  composite, not the token — and a 2D-canvas pixel sample, because `getComputedStyle().color` on a
+  `color-mix()` reports `oklab(...)` and a naive RGB parse of it reads as black. Under
+  `[data-footer-rest]` that veil is now a RAMP, not a constant: `--logo-rest-op` (0.4) is its floor
+  and `--footer-rise-peak` carries it to 1, so the band is dim until the visitor first scrolls it up
+  (10-08). Contrast is therefore a function of pose — at the 0.4 floor the lead-in reads 1.61:1 and
+  pure white tops out at 3.66:1, which is the cost of the dim rest.
+- **A CSS keyframe animation is only immune to main-thread jank if Chrome COMPOSITES it**, and an
+  ancestor whose `opacity` changes every frame prevents that. `.logo-ticker` is `opacity: var(--lt-p)`,
+  recomputed from `--footer-band-p`'s rAF, so the odometer column repaints on the main thread despite
+  its own `will-change: transform` — and the on-load entrance is the busiest window the page has
+  (globe boot, the entrance timeline, and `--footer-slide` written to `<html>` every frame). Measured
+  at 1440×900: one 1555 ms frame in which `animation.currentTime` advanced 583 ms and the painted
+  transform did not move, then a frame that took 1272 ms of clock at once and stepped `translateY`
+  0 → -31.78px — a whole word, in one frame. That is a reported "gets caught and then snaps into
+  place". It was also INVISIBLE for most of that window, because `[data-footer-in]` hides
+  `.logo-ticker__copy`, so it was spending main-thread budget unseen and arriving mid-step when the
+  copy faded in. **For a word-indexed roll the house answer is to HOLD it through the busy window,
+  not to phase-lock it.** The repo's three other CSS tickers DO phase-lock against wall clock with a
+  negative `animation-delay` (`project-detail.css:256`, `ProjectOverlay.jsx:152`,
+  `GraticulePager.jsx:690`) because they are continuous marquees where phase is noise; a five-word
+  odometer is meant to start on word 0, so `SiteFooter` pauses it on `[data-footer-settling]`
+  instead (`communication.md`). Pausing also restates no value, so nothing can drift from the
+  keyframes — and the sibling `.logo-ticker__spectrum` is left running on purpose, since a hard-hold
+  `steps(1, end)` flip degrades to one long hold rather than a jump.
+- A second animation can GATE a first one without restating its values. `.logo-ticker__spectrum`
+  runs `swm-spectrum-walk` (the 5-hue sweep) and `swm-spectrum-gate` (the half-note hold on
+  `--ink-muted`) on the same `color`. The gate is declared LAST and **has no `0%` keyframe on
+  purpose**: an implicit 0% resolves to the *underlying value* — the walk — so under `steps(1, end)`
+  the walk shows through for the first half note and the gate takes over at 50%. Adding a `0%` to
+  the gate would silently kill the walk for the whole cycle. Verified in Blink 151 and WebKit 26.5.
+  The rejected alternative, gating with `-webkit-text-fill-color: currentColor`, works in Blink and
+  collapses to a flat muted phrase in WebKit — i.e. invisible on every iPhone.
+- **The brand sans is NOT preloaded; its fallback IS.** `BaseLayout.astro:107-108` preloads
+  `PPNeueMontreal-Book/Medium`, but `ABC Areal` — first in both `--font-headline` and `--font-body`
+  (`global.css:178,184`), 181 KB, `font-display: swap` — is discovered only from the stylesheet, so a
+  cold first paint can land on the preloaded fallback and then reflow. This is why `SiteFooter`'s
+  `--footer-blurb-em` gates on the blurb's own computed first family via `document.fonts.check`/`load`
+  rather than on `document.fonts.ready` alone. NOT acted on (10-08) — flagged to Nathan, since
+  swapping the preloads is a bandwidth call, not a correctness one. It was ruled OUT as the cause of
+  the odometer stall above: the face was ready at 174–660 ms, the stall at ~3490 ms.
+- A `button.class` reset with `font: inherit` outranks `.class` size rules: keep resets at class
+  specificity.
+- Resize: `lib/settleResize.js` `settleDebounce` — cheap per-event work, expensive re-solves after settle.
+- Depth in a scene is a colour mix, never opacity: `globe/panelMaterial.js` `uFogAmount` pulls fill
+  and stroke toward the field (off by default; /process drives it). Transparency on overlapping
+  sphere meshes is the draw-order bug the material exists to avoid.
+
+## Video delivery (learned, the video diet 10-09)
+- **hls.js `maxBufferLength` is a floor, not a cap: bound a muted loop at the source.** hls.js aims its
+  forward buffer at `8 × maxBufferSize ÷ bitrate` seconds (up to `maxMaxBufferLength`), which at these
+  bitrates runs past the end of most assets, so without a clip a muted loop downloads its whole asset. Every autoplay
+  surface asks for a Mux clip instead, through `work/imageConfig.js`'s `muxStream` (`asset_end_time`);
+  Mux ends a clip on the first segment boundary at or after it, so players also wrap at the window
+  (`timeupdate`, `wrapAt`) for a clip that ends later. The Project Directory's tiles take the 5 s preview
+  clip, not the detail cap (MediaSlot `clip`), and `globe-probe --directory` gates it.
+- **`maxMaxBufferLength` is the cap, and a tile's face is its poster, never its player** (11-12,
+  measured on /work/andhera-records-andhera-branding). The clip bounds a stream's total, not its
+  pace: with only the floor set, every detail slot entering the band fetched its whole 15 s clip at
+  once (73 to 91 MB in one scroll), which starved the posters, the images and the hero, and a tile
+  stayed empty until its stream reached `canplay` because the poster sat on a `<video>` held at
+  opacity 0. `DETAIL_HLS_CONFIG` (`work/detail/GatedVideo.jsx`, shared by the detail slots, the
+  directory and the walls) now sets `maxBufferLength` and `maxMaxBufferLength` to 4, just under one
+  5 s segment: a slot fetches one segment to start and the next as it plays into them. Every video
+  tile shows a poster `<img>` with its `<video>` over it, and a detail slot attaches only after the
+  directory's dwell. `globe-probe --detail --hold=PREFIX` proves a paced stream still plays through
+  and wraps at its window.
+- **A browser never cancels an image whose element left the page** (11-12): after a fast scroll down
+  the directory every tile flown past was still downloading (0 of 282 to 490 image requests
+  cancelled; on an emulated phone link 10 to 17 MB still arriving after the stop), ahead of the
+  tiles on screen. A directory `MediaSlot` that unmounts strips `src` and `srcset` from its
+  unfinished images, which aborts them. Mounting is by chunk (32 to 64 tiles), so the tiles of the
+  chunks still in the window keep loading.
+- **A clip's start rounds DOWN to its segment, so a clipped stream's timeline is offset** (SQ-15,
+  11-05, pixel-checked against Mux thumbnails): with `asset_start_time`, Mux starts the stream on the
+  5 s segment at or before the requested start, so the player's `currentTime` 0 is that boundary
+  (15.574 s → 15 s). A window that must show only its own range seeks and wraps at `start mod 5`
+  (`imageConfig.js` `chunkWindow` / `windowLoop`), never native `loop`, or it replays the range
+  before it.
+- **Mux has no playback modifier that drops audio, so muted surfaces drop it client-side**:
+  `work/hlsVideoOnly.js` rewrites only the master playlist (the `TYPE=AUDIO` group, the `AUDIO="…"`
+  attribute and the audio codec go), installed by `useHls`'s `videoOnly` as the playlist loader; a
+  master it cannot rewrite safely is used as is. The file never names `URLSearchParams`,
+  `location.search` or `searchParams`, comments included, because those are the tunables scanner's
+  opt-in strings.
+- **Hundreds of video tiles share one player gate** (the Project Directory, 11-03). A player and an
+  observer per tile, as the detail page has, would start dozens of streams in one scroll past ~250
+  videos. `work/directory/playerGate.js` holds ONE IntersectionObserver for every video tile and at
+  most `cap` play grants (`?dirplayers`); a tile earns one after `?dirdwell` ms at least half in view
+  (half the tile or half the viewport, whichever comes first), so a fling never asks Mux for a
+  master; grants go first come, first served, and a tile dropping under half hands its grant to the
+  longest-waiting one. Every tile shows its poster meanwhile, and cap 0 (reduced motion) is posters
+  only. On revoke MediaSlot empties the `<video>` (`removeAttribute('src')`, `load()`) before it
+  unmounts, since `useHls`'s native path never detaches.
+- **A clip fetched ahead must ask for the player's exact URL, rung included**: Mux playlists are
+  `no-store`, so the fast handoff (`globe/streamPrefetch.js`) keeps their text in `work/hlsPrimed.js` for
+  `useHls`'s `primed` loader, while the init and segment (max-age 7 days) reach the players through the
+  HTTP cache. `planUrl` builds the URL the way the pool does. A clip that starts at another rung than the
+  forecast's fetches again. Since 10-27 the forecast scores the board planned ahead for the landing pose
+  (`PopulationDirector.planAhead`), so its rung was right for 27 of 30 clips on desktop and 20 of 21 on
+  phone (seed 4242). The ones it misses start just after landing, 0.6 to 1.1 s after the change-start pose
+  their clips were scored at.
+- **A what-if borrows live state and puts all of it back**: `planAhead` poses the tiles where the
+  globe will be (`posePanel`, CPU fields only, never the uniform), shadows the director's grouping, step,
+  rotation and horizon, plans, then restores every pose, birth, swap, cursor and counter in a `finally`.
+  The twin test lays the same world planned late and planned ahead and compares them tile for tile. A
+  negative control leaks one cursor and must be caught.
+
+## Verification
+- Motion/layout changes are verified on screen (Playwright at 1440 and 390), not by build success.
+- Gate CSS timing against a BUILD as well as the dev server: the build's CSS minifier rewrites `160ms` as
+  `.16s`, so a duration read back through `getComputedStyle` (a custom property's resolved value) changes
+  UNIT between the two. Never `parseFloat` one; read its unit (`cssMs()`, `siteSchemeLogic.js`). SQ-107
+  pass 11's `sequence` gate passed on dev and failed on `astro preview` (the grow started with the slide)
+  until `planSequence` read the unit (`413b515`, 11-17).
+- Headless Chromium starves `/work`'s main thread: launch with `--use-angle=swiftshader
+  --enable-unsafe-swiftshader`, wait ~250 ms before reading state, treat `.fp.is-pager-engaged` as
+  truth. Never click top-center to blur ([PREVIOUS] sits there). `scripts/pager-probe.mjs` embodies this;
+  `scripts/globe-probe.mjs` shares its launch doctrine for the home globe.
+- `scripts/process-probe.mjs` is the /process instrument: `--walk` films every beat on the real GPU
+  (contact sheets + `walk.json`: fps, chip keep-out, draw calls per beat), `--walk --break` tracks
+  the break/reform flights (reversals, overshoots), `--buried` measures chip cover on real pixels.
+  Run GPU probes one at a time; pool stochastic metrics (cover, namings) over several runs, since a
+  single run has misled.
+- Probe output paths: derive them with `fileURLToPath(import.meta.url)`. `new URL(import.meta.url).pathname`
+  percent-encodes the Dropbox path's spaces and mkdirs a stray `Small%20World%20Media` tree beside the
+  real one. Both probes derive them that way (d4f471c, on `feature/v1-launch` since the
+  10-31 fold).
+- Pixel reads on the dev server: remove `astro-dev-toolbar` first. It sits bottom-centre over the
+  page (globe-probe's `--paint` does this).
+- Timing a route arrival: polling from Node starves under SwiftShader (3 samples in 3.2 s missed
+  the /work arrival). Record in the page instead, with a MutationObserver + rAF logger on `window`,
+  which survives a ClientRouter soft nav (globe-probe's `--enter` does this).
+- Previews of the production build: serve them on an allowlisted port (localhost:4321, :4322, :3333
+  or :4330). Sanity's image CDN 403s any other origin, so WebGL stills go black (`communication.md`).
+- Never probe a dev server straight after `npm run build` IN THE SAME WORKTREE: the two share that
+  worktree's `node_modules/.vite`, the build rewrites the optimized-deps cache, and the running
+  `astro dev` then answers modules with 504 "Outdated Optimize Dep" — the probe times out on the canvas
+  while the tests and the build itself report green. Probe the built output instead:
+  `npx astro preview --port 3333` with `GLOBE_PROBE_BASE=http://localhost:3333`.
+  The blast radius is one worktree: each has its OWN real `node_modules` (not a symlink), so a build in
+  a second worktree cannot disturb a dev server running in the first. That is the way to gate a revision
+  while a live `--host` session keeps serving a phone.
+- `scripts/globe-probe.mjs` defaults `BASE` to `http://localhost:4322`. Pin `GLOBE_PROBE_BASE`, or it
+  silently measures whatever dev server happens to hold that port instead of the tree under test — and
+  pin `GLOBE_PROBE_OUT` to keep shots out of the tree being gated.
+- `globe-probe --footer` is the only scenario in the repo that GESTURES (a real touch scrub, forced
+  mobile at 390×844). Footer-reveal geometry — the panel's climb against the hero's lift, the marks'
+  crossing of the fold, the hold through a retreat — is measured there rather than argued from
+  arithmetic.
+- Driving the reveal from a desktop probe: park the pointer mid-viewport BEFORE
+  `page.mouse.wheel` — Playwright's pointer starts at (0, 0), where the wheel event never reaches
+  Hero's `addDelta` — and wheel DOWN (`+120`); up leaves the band on its 0.4 floor with
+  `--footer-band-p` at 0, which reads exactly like a broken fade. Since bake A (`ba7cf2c`, 10-09) the
+  desktop rests too, at `FOOTER_REST_DESKTOP` (0.40 since 10-31, 0.62 before), so a desktop run needs
+  no `?footerrest`; pass `?footerrest=0` for the old retract-to-nothing footer. Since 10-31 a wheel
+  delta GLIDES the panel (`createFooterDrive`): read the reveal once it holds still, or pass
+  `&footerlerp=0` for the old jump inside a frame.
+- Screenshot the VIEWPORT, not an element taller than the fold. Playwright stitches unpainted
+  compositor content for the off-screen part, which reads as a solid block of the page's accent — a
+  convincing-looking render bug that is not there. Confirm with `elementFromPoint` before believing a
+  shot.
+- **Assert the invariant, not a number the content decides.** Two fill gates hard-coded the width
+  where the blurb stops wrapping; shortening the copy moved it ~115px and correct behaviour started
+  failing. Derive it from the live measurement (`--footer-blurb-em`, the fill dial) instead. Same
+  rule for prose: compare against a clone with the `aria-hidden` `.kw__ink` layers stripped, since
+  raw `textContent` doubles every keyword.
+- **Probe gates are pure modules, and every gate proves it can see.** `scripts/lib/unitGates.mjs`
+  (the media spans' gates, by `--level`) and `scripts/lib/netReport.mjs` (the video diet's four:
+  `streamClip`, `segmentsPerRendition`, `loops`, `audio`, judging every master by the clip its
+  surface owes, imported from `work/imageConfig.js` rather than restated) take the probe's report and
+  import no Playwright, so `scripts/test/globe-worlds.test.mjs` runs them on fixtures.
+  `scripts/lib/scheme-gate.mjs` (the colour schemes' page gates, 11-14 and 11-15, and the corner widget's twenty-one,
+  SQ-107 through 11-17, SQ-116 adding the ring fan-out gate `fan`, which since `c66c8b6` also holds the far badge's seam (e) and the straight up-and-down slide (f), each with a live `--inject` control, SQ-126 adding `seamEdges` and `lensLayer`, SQ-132 adding `midChange`, the one-colour lens's mid-slide edges, and SQ-135 adding `inFlightWindow`, which runs each `jitter` leg to the end of its own four progresses rather than a mean-progress cut that dropped the release slide's last ~0.4 px) follows the same rule under `scripts/test/scheme-gate.test.mjs` (106 tests at `2fb5fe8`), as do `scripts/lib/navWipeGate.mjs` (the nav-menu wipe's hold:
+  no uncover before the destination draws, none past `NAV_HOLD_MAX_MS`) under `scripts/test/nav-wipe.test.mjs`
+  and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
+  under `scripts/test/legal-scroll.test.mjs`, `scripts/lib/plateauGate.mjs` (memory-probe: a count
+  plateaus or climbs, SQ-129; `stepGate`, the opening step's cap, SQ-133; `roundGate`, the resting footprint over hold rounds, SQ-136) under `scripts/test/plateau-gate.test.mjs`, `scripts/test/step-gate.test.mjs` and `scripts/test/round-gate.test.mjs`, `scripts/lib/restoreFlashGate.mjs`
+  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, `scripts/lib/pushTimingGate.mjs` (history-probe's T*: a click-started push lands within 1000 ms of its input with an active user activation, SQ-141) under `scripts/test/push-timing.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138; the wrapped mode, SQ-140) under `scripts/test/footer-row.test.mjs`. The 11-24 wave added `eyeRideGate.mjs` (`eye-ride.test.mjs`), `dirFilterResetGate.mjs` (`dir-filter-reset.test.mjs`), `fontCoverageGate.mjs` (`font-coverage.test.mjs`) and `imageSharpGate.mjs` (`image-sharp.test.mjs`); SQ-142 added `chipWipeGate.mjs` (pager-probe `--scenario=chipwipe`, the chip's exit wipe sampled every frame, `--browser=webkit`, `--stall=MS` busy-waits as `data-exit` lands) under `chip-wipe.test.mjs`. Every gate
+  records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
+  a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
+  `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named
+  gate failed NON-vacuously (the controls and their flags are in `docs/globe-worlds-plan.md`
+  § Media spans). Home runs read records in `scripts/baselines/globe-units.json` by key
+  (`--baseline=KEY`, default the `--out` folder's name), written only from an all-pass
+  `--record-baseline` run and never by hand; a run with no record under its key exits 2 on
+  `legacyParity` / `texPeak` as vacuous, so a bare `node scripts/globe-probe.mjs` exits 2 — pass the
+  key the run matches (`--units=0 --baseline=off-desktop` for a plain units-off desktop run; spans are on by default since 10-23). The 17 records were re-recorded at the folded defaults on 11-01, so a
+  run passes only its row's flags. `scripts/globe-matrix.mjs` runs the whole matrix against its records
+  (`check`), re-records it (`record`) or runs the controls (`controls`), one browser at a time. Re-record a key when an approved default it measures moves, and in
+  the same pass re-derive any bound that was a forecast of the old default: `texBudget` was popcap
+  13's until then, and his 10-24 tile budget had put every units run over it. A one-off failure gets one rerun
+  on a quiet machine, both runs kept; never lower a floor or weaken a gate.
+- The directory's keyboard gates (`globe-probe --directory`, desktop) read the screen, not computed
+  style. `ringShows` samples each focus ring's pixels, because a positioned child can paint over an
+  inset outline that the computed style still reports (the tiles' ring is drawn on `::after` for that
+  reason). `tabReach` records every focus in the page while Tab walks all the links flat out.
+  `--keyctl=escape|ring` are their negative controls.
+- A merge or a fold that touches the media grids is checked with `scripts/layout-probe.mjs`: record
+  each side's built preview, then `--compare` (exit 2 on any difference). Its negative control is
+  `--query=tileshape=1.25`, which must fail on every page@width. A difference in a band's
+  `text` / `paras` or a page's `blurbs` is Sanity content moving between the two builds, not code.
+  While the Studio's "Project Directory: shuffle the order" is on, record the directory with
+  `--query=tag=&dirorder=project`: a shuffled page draws a new order every load, so without it even
+  a build compared with itself differs on every width (measured 11-12: 0/3 without, 3/3 with).
+- "Does media hang while scrolling?" is measured with `scripts/media-load-probe.mjs`, before and
+  after, on production builds only (a dev build takes about 19 s to hydrate under the 4g throttle).
+  Run each case twice and keep the second, because the image CDNs transform on first hit. A phone
+  run scrolls by touch with `--query=blurbhold=0`. The throttle is Chrome's and does not model a
+  server's stream ordering, so a 4g wait is indicative.
+- Real-device feel (touch gain, scroll triggers) is tuned live via `astro dev --host`, never blind.
+- CMS: `npm run test:cms` before touching `scripts/lib/cms/`.
+
+## Error handling & config
+- Site build has no secrets; CMS CLI reads process env lazily and fails closed on schema drift.
+- Reduced motion: every canvas has an `rm` path (static globe, no video pool, snapped text).

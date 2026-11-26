@@ -1,0 +1,14 @@
+/* ============================================
+   DIRECTORY LOGO TILES — /work/directory (11-05)
+   LogoMark: a baked white mark (pure #fff on
+   transparent) on a black tile, in a logo canvas
+   (.logo-canvas, media-slot.css). Imported by
+   directory-grid.css.
+   ============================================ */
+
+/* Pure black, the logo ticker's ground: a logo tile reads as black whatever
+   the page's near-black behind a photo's letterbox. */
+.dir-tile[data-logo] {
+  background: var(--color-black);
+}
+

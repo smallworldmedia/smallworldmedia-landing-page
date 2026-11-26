@@ -1,0 +1,168 @@
+/**
+ * tileGrid — the flush grid's tile units: the 10px row pitch, the tile shape,
+ * the measured grid metrics and the spans they give. The detail page's grid
+ * (FeaturedProjectDetail) reads them; computeFlushGrid (flushGrid.js) places
+ * the tiles in the rows they produce.
+ */
+import { useEffect, useState } from 'react';
+import { PORTRAIT_CROP, LANDSCAPE_CROP } from './flushGrid.js';
+
+export const GRID_ROW_PX = 10;
+/* Tile shape (10-27, the square-tiles round): a square tile's cell width ÷
+   height, held at every window width. Nathan's bake = 1 — squares stay
+   1:1 because most square media is album art, landscapes ≈ 2:1, portraits
+   ≈ 1:2. Before it the cells were a fixed 24 rows, so every tile's shape
+   followed the window (squares went wide as the window grew). Spans come
+   from the measured column width through the row pitch, so the 10px rows
+   — and every socket band sized in them — stay as they are.
+   ?tileshape=<n> re-dials it live. */
+export const TILE_SHAPE = 1;
+export const readTileShape = () => {
+  const v = parseFloat(new URLSearchParams(window.location.search).get('tileshape'));
+  return Number.isFinite(v) && v > 0 ? v : TILE_SHAPE;
+};
+/* The portrait crop cap (SQ-117, Nathan 11-17): how far a flush stage may
+   stretch a 9:16 or any other tall tile, as a cropLoss (flushGrid.js
+   PORTRAIT_CROP, PROPOSED 0.2: a 9:16 holds its 1 × 2, where it was stretched
+   to 1 × 3 and 1 × 4). Above 1024px only: there the CSS spans give every tile
+   its class's shape, so no stretch is drawn and the cap has nothing to hold.
+   ?portraitcrop=<0-1> re-dials it, 1 = off (the grid as it was before). */
+const cropOr = (raw, fallback) => {
+  const v = raw === null || raw.trim() === '' ? NaN : Number(raw);
+  return Number.isFinite(v) && v >= 0 && v <= 1 ? v : fallback;
+};
+export const readPortraitCrop = (search = window.location.search) =>
+  cropOr(new URLSearchParams(search).get('portraitcrop'), PORTRAIT_CROP);
+/* The same cap for a landscape tile (SQ-119, flushGrid.js LANDSCAPE_CROP,
+   PROPOSED 0.2): a 16:9 holds its 2 × 1 where the hole the portrait cap leaves
+   stretched it to 2 × 2 (0.111 → 0.437). Above 1024px only, as above.
+   ?landscapecrop=<0-1> re-dials it, 1 = off (the grid as the portrait cap drew it). */
+export const readLandscapeCrop = (search = window.location.search) =>
+  cropOr(new URLSearchParams(search).get('landscapecrop'), LANDSCAPE_CROP);
+/* Rows whose span (N tracks + N-1 gaps) is closest to px. */
+export const rowsFor = (px, gap) => Math.max(8, Math.round((px + gap) / (GRID_ROW_PX + gap)));
+
+/* The large-screen tier (SQ-74): from this viewport width up (CSS px) the
+   detail grid takes DETAIL_LARGE_COLS and the directory its large count
+   (?dirlargecols), 6 each. ONE value shared by the grid's JS
+   (gridTierFor, here), the directory's <img sizes> (buildDirectoryTiles.js
+   sizesFor) and the CSS column count, which is NOT a media query: masonry.css
+   reads --grid-cols, which FeaturedProjectDetail writes from the measured
+   tier, so the server render places in the desktop count and the tier lands
+   after mount, and both dials (?gridlarge=<px>, ?detaillargecols=<n>) reach
+   the CSS. Both are read after mount, like ?tileshape. */
+export const GRID_LARGE_PX = 1920;
+export const readGridLargePx = (search = window.location.search) => {
+  const v = parseFloat(new URLSearchParams(search).get('gridlarge'));
+  return Number.isFinite(v) && v > 1024 ? v : GRID_LARGE_PX;
+};
+
+/* The detail grid's columns above 1024px match the Project Directory's
+   (Nathan 11-14: "match the number of columns in the project directory so its
+   consistent. media is getting scaled up too much with the current 4 column
+   count"): 5 on desktop and 6 at the large tier, directoryTune.js SSR_TUNE's
+   `cols` and `largeCols`. large-grid.test.mjs holds the two pairs equal. They
+   were 3 and 4 (SQ-74) until then. ?detaillargecols=<3-6> re-dials the large
+   count. */
+export const DETAIL_LARGE_COLS = 6;
+export const readDetailLargeCols = (search = window.location.search) => {
+  const raw = new URLSearchParams(search).get('detaillargecols');
+  const n = raw === null || raw.trim() === '' ? NaN : Number(raw);
+  return Number.isInteger(n) && n >= 3 && n <= 6 ? n : DETAIL_LARGE_COLS;
+};
+
+/* The grid's tier at a viewport width, by the masonry.css breakpoints
+   (phone ≤ 768 · tablet ≤ 1024 · desktop · large from `largePx` up), and the
+   detail grid's columns in each (1 / 2 / 5 below the tier, `largeCols` at it).
+   Phone and tablet keep their own counts: the directory's 2 and 4 are not
+   taken there. */
+export const GRID_COLS = { phone: 1, tablet: 2, desktop: 5 };
+/* The columns a tablet or phone page PLACES in. At or under 1024px the CSS
+   spans give the shapes (masonry.css), and the placement gives the rest: the
+   tiles' order, which pieces the packer resizes, and where the description
+   bands cut. Those pages were dialed against the 3-column placement the
+   desktop had until 11-14 and keep it. Nathan's column change named the
+   desktop count; placed at 5, a phone page put its second paragraph about two
+   screens further down, merged two paragraphs on one page and re-cropped
+   pieces. So FeaturedProjectDetail places here once the grid measures at or
+   under 1024px, and the server render stays in the desktop count. */
+export const NARROW_PLACE_COLS = 3;
+/* A square's span on a 1440px grid in `cols` columns (TILE_SHAPE, the 2px
+   --space-1 gap): what the placement uses where no measured span applies. */
+export const sqRowsFallbackFor = (cols) => rowsFor((1440 - (cols - 1) * 2) / cols / TILE_SHAPE, 2);
+/* Before the grid is measured (server render, first client frame): the
+   desktop columns, so a laptop's first paint is already final. */
+export const SQ_ROWS_FALLBACK = sqRowsFallbackFor(GRID_COLS.desktop);
+/* At or under 1024px: the narrow placement's square, as it was before 11-14. */
+export const SQ_ROWS_NARROW = sqRowsFallbackFor(NARROW_PLACE_COLS);
+export const gridTierFor = (vw, largePx = GRID_LARGE_PX) =>
+  vw <= 768 ? 'phone' : vw <= 1024 ? 'tablet' : vw >= largePx ? 'large' : 'desktop';
+export const gridColsFor = (vw, largePx = GRID_LARGE_PX, largeCols = DETAIL_LARGE_COLS) => {
+  const tier = gridTierFor(vw, largePx);
+  return tier === 'large' ? largeCols : GRID_COLS[tier];
+};
+
+/* The live tile shape: TILE_SHAPE on the server render, ?tileshape after mount. */
+export function useTileShape() {
+  const [tileShape, setTileShape] = useState(TILE_SHAPE);
+  useEffect(() => setTileShape(readTileShape()), []);
+  return tileShape;
+}
+
+/* The flow's width (the grid is full-bleed inside it), the grid's row gap, its
+   tier and the detail grid's column count in it, and the large tier's width
+   (the dial), re-measured whenever the flow resizes. null until mount. */
+export function useGridMetrics(flowRef, gridSelector = '.masonry-grid--detail') {
+  const [gridMetrics, setGridMetrics] = useState(null);
+  useEffect(() => {
+    const el = flowRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const grid = el.querySelector(gridSelector);
+      const rowGap = grid ? parseFloat(getComputedStyle(grid).rowGap) || 0 : 0;
+      // Column count by the masonry.css breakpoints (5 / 2 ≤ 1024 / 1 ≤ 768)
+      // and the large tier (6 from GRID_LARGE_PX)
+      const largePx = readGridLargePx();
+      const tier = gridTierFor(window.innerWidth, largePx);
+      const cols = tier === 'large' ? readDetailLargeCols() : GRID_COLS[tier];
+      setGridMetrics({ width: el.clientWidth, rowGap, cols, tier, largePx });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [flowRef, gridSelector]);
+  return gridMetrics;
+}
+
+/* Tile spans, through the row PITCH (track + gap): square = one column at the
+   tile shape, portrait = two squares (the tessellation), landscape = two
+   columns × one square — so in a single column it keeps that shape at its
+   own row count. null until the grid is measured. */
+export function tileRowsFor(metrics, shape) {
+  if (!metrics?.width) return null;
+  const { width, rowGap: g, cols } = metrics;
+  const colW = (width - (cols - 1) * g) / cols;
+  const sq = rowsFor(colW / shape, g);
+  return { sq, pt: 2 * sq, ls: cols === 1 ? rowsFor(colW / (2 * shape), g) : sq, cols };
+}
+
+/* The column count (--grid-cols) and, ≤ 1024, the spans reach CSS as custom
+   properties (masonry.css). */
+export const tileRowVars = (tileRows) =>
+  tileRows
+    ? {
+        '--grid-cols': tileRows.cols,
+        '--tile-sq-rows': tileRows.sq,
+        '--tile-pt-rows': tileRows.pt,
+        '--tile-ls-rows': tileRows.ls,
+      }
+    : undefined;
+
+/* A placement's cell (computeFlushGrid's 0-based col / rows → CSS lines). */
+export const placementStyle = (p) => ({
+  gridColumn: `${p.col + 1} / span ${p.colSpan}`,
+  gridRow: `${p.rowStart + 1} / ${p.rowEnd + 1}`,
+  // Forced-fill tiles paint beneath intact neighbors
+  zIndex: p.underlay ? 0 : 1,
+});

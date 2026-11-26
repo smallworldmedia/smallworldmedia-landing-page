@@ -1,0 +1,157 @@
+# CMS Pipeline
+
+*Last Updated: 2026-11-25*
+
+Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
+manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
+
+## `npm run cms` (`scripts/cms.mjs`)
+
+| Subcommand | Flags | Behavior |
+|---|---|---|
+| `plan` | `--manifest PATH` xor `--changes PATH`, `--project-id`, `--dataset`, `--checkout?`, `--state-dir?` | Read-only. Parses scope, resolves client/project/serviceTag refs, hashes + probes every file, computes create/patch/unchanged/delete ops and appended LexoRanks (above the collection's highest; a rank tie never blocks a plan, but `assertFreeRanks` refuses a plan that would write one, 11-25), saves a credential-free `plan.json` (id = sha256) and prints the exact resume command |
+| `apply` | `--plan PATH --confirm PLAN_ID` | Requires exact plan-id + matching checkout/target; per-checkout git mutex + per-run lock; uploads media, journals each op, writes docs, publishes only when no draft exists, runs approved deletes last, writes `sanityId` bindings back into the manifest. Guards (`remoteGuards` in `lib/cms/runner.mjs`): every pinned collection is re-captured before the first write and at verify; each op's own pass re-captures only the collections it touches (`touches`: its id is in the snapshot, or its resulting doc is `inCollection`), and the second pass before the commit runs only after an upload (SQ-128, 11-19: a 99-op × 37-collection plan went from ~17.6k Sanity requests to ~0.9k) |
+| `verify` | `--run PLAN_ID` | Read-only reconciliation of the journal against Sanity/Mux (readiness, aspect, corruption; deleted docs, drafts and Mux assets absent) |
+| `audit` | `--project-id`, `--dataset`, `--checkout?` | Read-only whole-dataset health check (`lib/cms/audit.mjs`): Sanity snapshot + live Mux list (optional) + every `media/**/_manifest.md` + local schema → JSON report of `CHECKS` (error/warning/info) and a draft `suggestedChanges` request (labels, legacy video shapes; never drafted docs). Exit 1 on errors; no run store. Since 11-23 it gates every Netlify deploy build: `scripts/audit-gate.mjs` (the `netlify.toml` build command, before `astro build`) runs it through `main()`, prints the summary and each error's items (≤ 10 per check, never the full report, never a provider message with a URL) and stops the build on any error, so the last good deploy stays live. Needs `SANITY_READ_TOKEN` (Viewer) in the Netlify site env; no Mux credentials there on purpose (Mux statuses come from Sanity) |
+
+## Modules (`scripts/lib/cms/`)
+- `manifest.mjs` — `parseManifest()` (headers client/services/year/project; columns file, mediaType,
+  serviceType, title, isHero, sortOrder, aspectRatio, contentRole, displayGroup, groupType,
+  brandDeckOrder, sanityId; Mode 1 header services vs Mode 2 per-row) and `inspectFile()`
+  (path/symlink guard, sha256, dimensions). `displayGroup` and `groupType` name the Set a new row
+  joins or creates, never fields on the piece (those left the schema 11-25, `39f91bc`): `groupType`
+  must be one of `GROUP_TYPES`; at plan time a groupType with no set to land on (album art aside) is
+  refused, and so is a displayGroup naming no set when the row has no groupType to create it with
+  (`runner.mjs` `linkSet`). On a bound row the audit's `manifest-drift` skips both columns (its group
+  is its Set, edited in Studio). Key convention (the set's key): one ending `-banner(s)` (e.g.
+  `soundcloud-banners`, mediaType static_other) renders in the detail page's BannerViewer; a group
+  ending `-sequence` (e.g. `imperfect-records-wide-logo-sequence`) makes its stills one tile that
+  cuts through them on the site's one clock (`src/lib/mediaSequence.js`)
+  (`docs/_manifest-template.md`).
+- `contract.mjs` — field allowlist, validators, LexoRank helpers, `closestType()`,
+  `SUPPORTED_SCHEMA_HASH` (planner fails closed on schema drift). `CAPS` mirrors the Studio caps on
+  media descriptors (mediaAsset `alt` 150, `description` 300; project blurbs uncapped); a `video`
+  patch must be the canonical weak `mux.video` reference and can never be unset. `globeSettings.picks`
+  is writable as a whole keyed array (newly added picks must be published video mediaAssets).
+  mediaAsset `splitIntoThirds` (11-05) is allowlisted as a boolean, refused on a non-video document;
+  its schema landed alone with the hash `8165cbfe` (`d47079e`).
+  `groupType` (11-10) takes `GROUP_TYPES` (album-art, deck, banner, admat, carousel, and since 11-11
+  merch, visuals, live-footage, mockups, flyer-progression); since 11-25 only a Set has one. It began
+  on mediaAsset, landing alone with the hash `70b35be3`
+  (`1d181ae`); merch/visuals/live-footage with `94b8dbe6` (`b73fd3b`); mockups/flyer-progression with
+  `eb3c783a` (`893361b`), then `fc3c0040` (`54fac5d`, the description's apostrophe had closed its
+  single-quoted string and broken `astro build`: esbuild every schema file before committing).
+  mediaAsset `collaborators` (SQ-76, 11-13) is a keyed array of client references: a duplicate ref is
+  refused, and `references()` types each one as a client, so a ref to any other document type fails;
+  it landed with the hash `b346ff27` (`8e99697`, `2cb87e1`).
+  mediaAsset `hideFromSite` (SQ-83, 11-13) is allowlisted as a boolean; it landed alone with the
+  hash `4df34a46` (`295f4c5`).
+  mediaAsset `hideFromDirectory` (11-17) is allowlisted as a boolean; it landed alone with the
+  hash `8e2eb765` (`ea07e99`).
+  Sets (US-10, 11-16): `mediaSet` is a document type (`title`, `slug` = the key, `project`, `groupType`,
+  `allowAsHero`; required title, slug, groupType) and mediaAsset `set` a reference to one;
+  `references()` types it as a mediaSet. Schema and hash `205ffc6c` landed alone (`6695510`), the tool
+  after (`4b106b8`). `HASHED_SCHEMAS` includes mediaSet. A Set's `project` became optional (retirement
+  step 1, 11-25) with the hash `ba118894` (`a78be23`). The Display Group / Group Type retirement
+  (Nathan 11-24/25) ended with mediaAsset's `displayGroup` and `groupType` leaving the schema and the
+  allowlist, hash `cee42ca9` (`39f91bc`), after intake stopped writing them (`7aa3600`) and eight
+  clearing plans unset them on 723 pieces: a write or an unset of either is now a rejected field, and a
+  deck page or carousel slide needs a `set`.
+  Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
+  preview text, `validMuxId`, `refersTo()`.
+- `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
+  header naming more than one service is refused unless the row sets its own `serviceType`
+  (11-05: the header used to stamp a project's whole tag list onto every asset). A one-service
+  header still stamps, and bound rows are unaffected. A no-upload video rebind
+  (`set.video` → an existing `mux.videoAsset`) is guarded on the target doc; plan, apply and verify
+  each run `readyVideo()` (ready status, public playback id, aspect matching Mux).
+  A changes request's `creates` may hold minimal client, project or serviceTag documents
+  (serviceTag: `name`, `slug`, integer `sortOrder`; 11-10, Release Packs). References count the
+  plan's own creates, so one plan can create a tag and tag media with it.
+  Explicit deletes (`"deletes"` in a changes request; never inferred) run last, in request order: a
+  target must be unreferenced (weak refs, drafts and release versions included) once the plan's own
+  patches and earlier deletes apply — checked at plan time and again just before the write; each
+  Sanity delete is a revision-guarded no-op patch + delete in one transaction; `muxAsset: true` also
+  deletes the Mux asset after rechecking no other doc describes it; `mux.asset` deletes a Mux asset no
+  doc describes. A `client` delete is blocked while a project, a piece (its `client` or
+  `collaborators`) or another client's affiliation still names it; its preview line names the client
+  and its `clientType`. Journal stages make it resumable; nothing is ever restored.
+  A manifest service may name a tag by its current Studio name or by its slug's words (11-13,
+  `419bdb5`: 2D Motion keeps the slug `2d-animation`); both resolve to one reference, and a
+  misspelling is still refused.
+  Sets (US-10): a changes request's `creates` may hold a mediaSet; `requireFreeKey` refuses a key
+  any other set in the dataset or the plan holds (created or renamed), and a piece is never linked
+  to a set of another project: the set's project and the piece's must be equal, none with none
+  (`5cea820`, 11-25), so a project-less piece joins only a project-less set. Intake: a new row with a displayGroup joins that key's set in its
+  project (or `<key>-<project slug>`), album art joins `<project slug>-album-art`; a set the project
+  lacks is created first with the row's groupType and "Can be the hero" off (no groupType: refused at
+  plan time). Only `set` is written (`7aa3600`). A project-less row joins its client's project-less
+  set (`mediaSet-<client slug>-<key>`, created with no `project`); a project-less set named for another
+  client is refused.
+- `adapters.mjs` — Sanity + Mux clients (lazy credentials, streaming uploads, Mux direct upload with
+  passthrough = op id; `preparing` resumes; audit reads `sanity.snapshot()` — paged raw perspective, secrets excluded — and `mux.listAssets()`), sharp/ffprobe probes (rejects non-square SAR). `sanity.findTags(slugs, names)` also
+  matches `lower(name)` (a renamed tag). Delete
+  support: `sanity.findDeleteBlockers()` / `findMuxDocuments()`, `mux.findAsset()` (404 → null) /
+  `deleteAsset()` (404 → absent); `commit` accepts a `{delete}` only right after a revision-guarded
+  patch of the same id.
+- `audit.mjs` — `runAudit()` (sequential reads) → `auditDataset()` (pure; testable): `CHECKS`
+  `{id: [severity, meaning]}`, `expectedType()` (Nathan's label policy R1–R4: within 10% →
+  `closestType()`, past 2.4:1 → `*_other`, a neighbouring label stays, else `closestType()`),
+  `secretDocument()` filter, `loadManifests()`, `loadAccepted()` (`media/_audit-accepted.json`:
+  decided findings hidden while they still match, unmatched ones → `accepted-stale`; malformed
+  stops the audit), `schemaFields()` (unknown-field allowlist; `orderRank` from `orderRankField(`).
+  Ranks collide only within one project/collection. `album-art-tag-off-cover` (warning, 11-10) flags
+  the Album Art serviceTag (by slug `album-art`) on a mediaAsset not typed `album-art`: either a
+  cover to retype or a supporting piece to retag Release Packs / Event / Tour Creative.
+  `hidden-from-site` (info, SQ-83) lists each mediaAsset ticked `hideFromSite` (id, title); its
+  files stay in use, so it never warns.
+  Sets (US-10): `set-project-mismatch` and `set-key-duplicate` (errors), `set-empty` (warning: a Set
+  no published piece points at) and `set-missing` (info: project album art with no set; the site still
+  shows it as album art from its mediaType). `set-drift` was retired with the fields (`39f91bc`): a
+  leftover displayGroup / groupType on a piece is now `unknown-field`. Sets are left out of
+  `slug-collision`.
+- `sets.mjs` — the Set naming both the runner and the migration use: `setId(projectSlug, key)` =
+  `mediaSet-<project slug>-<key>`, `albumArtKey`, `projectKey` (a key another project shares becomes
+  `<key>-<project slug>`), `keyInWords` (the title), `isProjectAlbumArt`, `newSet`, `ref`, `baseId`.
+- `state.mjs` — owner-only 0700/0600 run store outside the Dropbox checkout (default
+  `~/.local/state/swm-cms/<hash>/runs`).
+
+Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE_TOKEN`,
+`MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`. Site build needs none (client hardcodes project/dataset).
+
+## Intake
+`media/<Client>/<Collection>/_manifest.md` is the unit of scope: one per Sanity grouping
+(`sourceFolder` + `sourceManifest`), one row per mediaAsset; unbound rows are pending intake. Scaffold with
+`scripts/generate-manifests.mjs "Client" [--dry-run]` (TBD-filled, with an empty `groupType`
+column after `displayGroup`; never uploads, never overwrites bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
+
+## Sets migration (US-10)
+Done: every legacy group got its Set (11-16 → 11-25) and the legacy fields are gone, so a re-run
+finds nothing to place; the script is kept for its record.
+`node --env-file=.env.local scripts/cms-sets-migration.mjs --project-id ID --dataset NAME --out DIR` reads
+the dataset and writes `--changes` request files (`_cms-request_sets-migration-2026-11-<n>.json`), never
+Sanity: one Set per (project, legacy displayGroup) plus one album-art set per project with album art;
+members get only `set`; decks start with `allowAsHero` true, every other set false. Each file keeps a
+set's create with all its member patches, at most 100 operations, and is never overwritten (`wx`).
+What it cannot place (no project, no type, mixed types, a draft twin) is reported, never guessed. Each
+file then goes through plan, Nathan's yes to that plan id, apply and verify.
+
+Before a file's plan, `node --env-file=.env.local scripts/cms-sets-migration-oracle.mjs media/_sets-migration
+--only N` (read-only) applies that file in memory over a live snapshot (published perspective, drafts
+dropped) and reports (1) a field-level diff of the set-aware projections (`MEDIA_FIELDS`,
+`FEATURED_WORLDS_QUERY`) for every piece and (2) each touched project's `FEATURED_PROJECT_DETAIL_QUERY` +
+`buildContentFlow` result (detail, work, globe). It reads `SANITY_READ_TOKEN` or `SANITY_WRITE_TOKEN` and
+throws without one; snapshots never include `secrets.*` or `mux.apiKey`.
+
+## Tests — `npm run test:cms`
+`scripts/test/cms/{runner,adapters,safety,delete,audit,sets,sets-migration,guard-scope}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
+groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`, `cms-audit-gate.test.mjs` (the deploy gate: clean → 0, an error → 1 with the items capped, no token → 1, a provider URL never echoed). Covers parsing, zero-write previews,
+idempotent reruns, legacy-ID matching, tampered-plan rejection, Mux resume, replacement atomicity,
+lock refusal, schema-drift fail-closed, delete blockers/drift/resume/tamper, audit (clean-set negative control, every check seeded, secrets never reported, read-only CLI), the apply guard scope (exact collection-capture counts via `stats.collections`; drift in the next op's collection or during an upload still stops; drift elsewhere is reported by verify), and that retired scripts
+stay guidance-only.
+
+## Retired / gated scripts
+Hard-retired (guard only): `ingest.mjs`, `ingest-all.mjs`, `ingest-videos.mjs`,
+`backfill-project-refs.mjs`. Maintenance-gated (`--legacy-maintenance --acknowledge-legacy=…`):
+`seed`, `sync-hero-to-rank`, `patch-project-data`, `migrate-year-fields`, `upload-missing-videos`,
+`backfill-order-rank`, `phase2-setup`. Treat all as history; use `npm run cms`.

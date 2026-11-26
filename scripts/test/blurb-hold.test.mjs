@@ -1,0 +1,508 @@
+// The phone blurb hold (SQ-26, reworked SQ-27, 11-07) — the parts checkable
+// without a browser. The BEHAVIOUR (arrival, hold, spring back, commit, both
+// directions, the next-project band still committing) is measured by a real
+// touch probe on a served build; this file pins what that probe cannot see
+// cheaply:
+//
+//   1. the geometry — a section seats with its TOP on the viewport top, what
+//      is too tall to hold, which seat a page meets next;
+//   2. the arrival — the catch condition, and the spring that takes the page
+//      onto the seat: velocity-continuous at the catch, never past the seat,
+//      starting from rest without a velocity step;
+//   3. the exit — momentum that decays at iOS's rate, distance v·τ;
+//   4. the preview dials' parsing;
+//   5. the shared rubber band's arithmetic (rubberBand.js stepAccum), which
+//      the next-project band (one-sided) and the hold (signed) both ride;
+//   6. the SOURCE contract that keeps desktop byte-identical: the section CSS
+//      lives only inside the phone query, and the engine is gated on a finger.
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import {
+  HOLD_MQ,
+  PHONE_MQ,
+  BLURB_PEEK,
+  SEAT_TOL_PX,
+  SNAP_PX,
+  MOMENTUM_DECAY,
+  MIN_V,
+  BLURB_TRIGGER_PX,
+  seatY,
+  holdable,
+  seatWindow,
+  seatAtEnd,
+  clampScroll,
+  shownPx,
+  shownEnough,
+  nextSeat,
+  catchOmega,
+  shouldCatch,
+  catchStartV,
+  springAt,
+  momentumTau,
+  momentumStep,
+  momentumDistance,
+  emaVelocity,
+  readBlurbTune,
+} from '../../src/lib/blurbHoldMath.js'
+import { stepAccum } from '../../src/lib/rubberBand.js'
+import { SCROLL_TRIGGER_WORK_PX, TOUCH_GAIN, LENIS_TUNING } from '../../src/lib/motion.js'
+
+const root = fileURLToPath(new URL('../../', import.meta.url))
+const css = fs.readFileSync(`${root}src/styles/project-detail.css`, 'utf8')
+const blurbHoldSrc = fs.readFileSync(`${root}src/lib/blurbHold.js`, 'utf8')
+const omega = catchOmega(LENIS_TUNING.lerp)
+const FRAME = 1000 / 60
+
+/* — geometry — */
+
+test('a section seats with its top on the viewport top', () => {
+  // a section 900px below the top of the viewport, page at 1000
+  const y = seatY(900, 1000, 5000)
+  assert.equal(y, 1900)
+  // at that scroll the section's top sits exactly on the viewport's
+  assert.equal(900 - (y - 1000), 0)
+})
+
+test('a seat clamps to the page', () => {
+  assert.equal(seatY(-5000, 100, 5000), 0)
+  assert.equal(seatY(9000, 100, 5000), 5000)
+})
+
+test('a seated section leaves the peek of the next media showing below it', () => {
+  const vh = 844
+  const h = (1 - BLURB_PEEK) * vh // the tallest held section
+  assert.equal(BLURB_PEEK, 0.12) // Nathan's 88% (SQ-30)
+  // top at 0, so nothing above it, and the viewport below it is the peek
+  assert.ok(Math.abs(vh - h - BLURB_PEEK * vh) < 1e-9)
+})
+
+test('a section that fits its seat window is held, a taller one is read natively', () => {
+  const g = 1 - BLURB_PEEK
+  assert.equal(holdable(g * 844, 844), true) // a section exactly the window tall
+  assert.equal(holdable(g * 844 + SEAT_TOL_PX, 844), true) // rounding
+  assert.equal(holdable(g * 667 + 1, 667), true)
+  assert.equal(holdable(g * 667 + 40, 667), false) // long copy on a short phone
+  assert.equal(holdable(900, 667), false)
+  assert.equal(holdable(0.6 * 844 + 40, 844, 0.4), false) // the peek dial moves the window
+  assert.equal(holdable(0.6 * 844, 844, 0.4), true)
+})
+
+test('the seat window is what holdable measures against', () => {
+  for (const [vh, peek] of [[844, 0.1], [660, 0.1], [553, 0.1], [844, 0.4]]) {
+    const w = seatWindow(vh, peek)
+    assert.equal(w, (1 - peek) * vh + SEAT_TOL_PX)
+    assert.equal(holdable(w, vh, peek), true)
+    assert.equal(holdable(w + 0.01, vh, peek), false)
+  }
+})
+
+test('the page end and an overscroll', () => {
+  assert.equal(seatAtEnd(5000, 5000), true)
+  assert.equal(seatAtEnd(4998.5, 5000), true) // a section seat the end clamped
+  assert.equal(seatAtEnd(4990, 5000), false)
+  assert.equal(clampScroll(-42, 5000), 0) // the top bounce
+  assert.equal(clampScroll(5060, 5000), 5000) // the bottom bounce
+  assert.equal(clampScroll(1234.5, 5000), 1234.5)
+  // a bounce that settles back never counts as movement: every sample reads 0
+  const samples = [-30, -18, -9, -2, 0].map((y) => clampScroll(y, 5000))
+  assert.deepEqual(samples.map((y, i) => (i ? y - samples[i - 1] : 0)), [0, 0, 0, 0, 0])
+})
+
+test('shownPx counts the part of a section on screen', () => {
+  assert.equal(shownPx(100, 700, 844), 700)
+  assert.equal(shownPx(-300, 700, 844), 400) // top cut off
+  assert.equal(shownPx(600, 700, 844), 244) // bottom cut off
+  assert.equal(shownPx(900, 700, 844), 0)
+  assert.equal(shownPx(-800, 700, 844), 0)
+})
+
+test('an entrance plays once a quarter of the section is on screen', () => {
+  assert.equal(shownEnough(700, 760, 844), false) // 144px of 760
+  assert.equal(shownEnough(600, 760, 844), true) // 244px
+  assert.equal(shownEnough(-100, 1400, 667), true) // a tall one, a quarter of the viewport
+})
+
+test('the seat a page meets next is the nearest one ahead in its direction', () => {
+  const seats = [1000, 2600, 4200]
+  assert.equal(nextSeat(seats, 0, 1), 0)
+  assert.equal(nextSeat(seats, 1500, 1), 1)
+  assert.equal(nextSeat(seats, 5000, 1), -1)
+  assert.equal(nextSeat(seats, 5000, -1), 2) // coming back up
+  assert.equal(nextSeat(seats, 1500, -1), 0)
+  assert.equal(nextSeat(seats, 500, -1), -1)
+})
+
+test('a seat the page has just left is not met again until the direction reverses', () => {
+  const seats = [1000, 2600]
+  // seated at 1000, committed down: the seat is behind, the next one ahead
+  assert.equal(nextSeat(seats, 1000 + 40, 1), 1)
+  // standing on it is not ahead either way
+  assert.equal(nextSeat(seats, 1000, 1), 1)
+  assert.equal(nextSeat(seats, 1000, -1), -1)
+  // turn back down the page and the same seat is ahead again
+  assert.equal(nextSeat(seats, 1000 + 40, -1), 0)
+})
+
+/* — arrival — */
+
+test('the slowdown runs on Lenis’s rate at the house lerp', () => {
+  assert.equal(LENIS_TUNING.lerp, 0.165)
+  assert.ok(Math.abs(omega - (0.165 * 60) / 1000) < 1e-12)
+  assert.equal(catchOmega(2), catchOmega(1)) // lerp is capped at 1 as in footerDamp
+})
+
+test('the page is taken when it is v/ω from the seat, a frame early', () => {
+  const v = 3 // px/ms
+  const edge = v / omega // 303px
+  assert.equal(shouldCatch(edge, v, omega, FRAME), true)
+  assert.equal(shouldCatch(edge + v * FRAME, v, omega, FRAME), true) // the last frame that is still far enough
+  assert.equal(shouldCatch(edge + v * FRAME + 1, v, omega, FRAME), false) // not yet
+  assert.equal(shouldCatch(edge - 100, v, omega, FRAME), true) // late is still caught
+})
+
+test('nothing is caught that is at rest, moving away, or on the seat', () => {
+  assert.equal(shouldCatch(200, 0, omega, FRAME), false)
+  assert.equal(shouldCatch(200, -2, omega, FRAME), false)
+  assert.equal(shouldCatch(SEAT_TOL_PX, 2, omega, FRAME), false)
+  assert.equal(shouldCatch(200, 2, 0, FRAME), false)
+})
+
+test('the slowdown starts at the page’s own speed, capped at what cannot overshoot', () => {
+  assert.equal(catchStartV(300, 1, omega), 1) // far enough: its own speed
+  assert.ok(Math.abs(catchStartV(100, 5, omega) - omega * 100) < 1e-12) // too fast: ω·d
+  assert.equal(catchStartV(300, 0, omega), 0) // from rest
+})
+
+test('the spring begins at the page’s position and velocity', () => {
+  const s = springAt(-300, 1.2, omega, 0)
+  assert.equal(s.e, -300)
+  assert.equal(s.v, 1.2)
+})
+
+// Walk a native momentum (iOS rate, 60Hz) toward a seat the way the engine's
+// scroll handler does, take the page at the first frame shouldCatch says, and
+// play the spring out. Returns what the oracle measures.
+function arrive(v0, seatAhead) {
+  let y = 0
+  let v = v0
+  let prev = y
+  for (let n = 0; n < 5000; n++) {
+    const d = seatAhead - y
+    if (shouldCatch(d, v, omega, FRAME)) {
+      const start = catchStartV(d, v, omega)
+      const e0 = -d
+      let t = 0
+      let maxPast = 0
+      let lastE = e0
+      let monotone = true
+      let steps = 0
+      while (t < 5000) {
+        t += FRAME
+        const s = springAt(e0, start, omega, t)
+        if (s.e > maxPast) maxPast = s.e
+        if (s.e < lastE - 1e-9) monotone = false // moving away from the seat
+        lastE = s.e
+        steps++
+        if (Math.abs(s.e) <= SNAP_PX) break
+      }
+      return { d, v, start, step: v - start, maxPast, monotone, settleMs: t, steps }
+    }
+    const next = momentumStep(v, FRAME)
+    prev = y
+    y += next.dy
+    v = next.v
+    if (y > seatAhead + 1) return { missed: true, prev }
+  }
+  return { missed: true }
+}
+
+test('the catch is velocity-continuous, never past the seat, and settles', () => {
+  for (const v0 of [0.8, 1.5, 3, 5, 8]) {
+    const seatAhead = momentumDistance(v0) * 0.75 // native momentum would carry well past it
+    const r = arrive(v0, seatAhead)
+    assert.ok(!r.missed, `v0 ${v0} was never caught`)
+    assert.ok(r.d >= r.v / omega - 1e-6, `v0 ${v0} was caught late (${r.d} < ${r.v / omega})`)
+    assert.ok(r.step < 1e-9, `v0 ${v0} stepped by ${r.step} px/ms at the catch`)
+    assert.ok(r.maxPast <= 0, `v0 ${v0} overshot by ${r.maxPast}`)
+    assert.ok(r.monotone, `v0 ${v0} backed off the seat`)
+    assert.ok(r.settleMs < 2500, `v0 ${v0} took ${r.settleMs}ms`)
+  }
+})
+
+test('a page that was going to stop short is not caught', () => {
+  const v0 = 2
+  const seatAhead = momentumDistance(v0) * 1.3 // beyond where the momentum dies
+  assert.equal(arrive(v0, seatAhead).missed, true)
+})
+
+test('a spring never passes the seat for any speed the catch can start at', () => {
+  for (const d of [20, 80, 300, 700]) {
+    for (const f of [0, 0.25, 0.5, 1]) {
+      const v0 = f * omega * d // up to the cap
+      let lastE = -d
+      for (let t = 0; t <= 4000; t += 8) {
+        const { e } = springAt(-d, v0, omega, t)
+        assert.ok(e <= 1e-9, `d ${d} f ${f} passed the seat at ${t}ms (${e})`)
+        assert.ok(e >= lastE - 1e-9, `d ${d} f ${f} backed off at ${t}ms`)
+        lastE = e
+      }
+    }
+  }
+})
+
+test('a page eased on from rest starts without a velocity step', () => {
+  const s0 = springAt(-250, 0, omega, 0)
+  assert.equal(s0.v, 0)
+  // the first frame's velocity is small and builds: a damp from rest would open at ω·d
+  const first = springAt(-250, 0, omega, FRAME).v
+  assert.ok(first > 0 && first < 0.25 * omega * 250, `first frame ${first}`)
+  // it still gets there
+  assert.ok(Math.abs(springAt(-250, 0, omega, 1200).e) < 1)
+})
+
+test('at the edge of the catch the spring is the footer’s damp', () => {
+  // ė = ω·d start velocity, e(t) = e0·exp(-ωt): footerDamp's own solution
+  const d = 300
+  const s = springAt(-d, omega * d, omega, 200)
+  assert.ok(Math.abs(s.e - -d * Math.exp(-omega * 200)) < 1e-9)
+})
+
+/* — exit — */
+
+test('the exit momentum decays at the rate iOS scrolls at', () => {
+  assert.equal(MOMENTUM_DECAY, 0.998)
+  assert.ok(Math.abs(momentumTau() - 499.5) < 0.1)
+})
+
+test('momentum covers v·τ in all, whatever the frame rate', () => {
+  for (const v0 of [0.5, 2, 6]) {
+    for (const frame of [FRAME, 8.3, 33]) {
+      let v = v0
+      let dist = 0
+      while (Math.abs(v) >= MIN_V) {
+        const s = momentumStep(v, frame)
+        dist += s.dy
+        v = s.v
+      }
+      const want = momentumDistance(v0) - momentumDistance(MIN_V) // it stops when it is slower than MIN_V
+      assert.ok(Math.abs(dist - want) / want < 0.002, `v0 ${v0} @ ${frame}ms covered ${dist}, wanted ${want}`)
+    }
+  }
+  assert.ok(Math.abs(momentumDistance(2) - 2 * 499.5) < 0.5)
+})
+
+test('per-frame deltas decay geometrically with no end time', () => {
+  let v = 3
+  let prev = momentumStep(v, FRAME)
+  v = prev.v
+  for (let i = 0; i < 40; i++) {
+    const s = momentumStep(v, FRAME)
+    const ratio = s.dy / prev.dy
+    assert.ok(Math.abs(ratio - Math.pow(0.998, FRAME)) < 1e-9)
+    prev = s
+    v = s.v
+  }
+  assert.ok(Math.abs(Math.pow(0.998, FRAME) - 0.967) < 0.001)
+  assert.ok(momentumStep(3, FRAME, 0.99).dy < momentumStep(3, FRAME).dy) // a stronger decay carries less
+})
+
+test('the release velocity is an average that follows the finger', () => {
+  assert.equal(emaVelocity(0, 2), 2)
+  assert.ok(Math.abs(emaVelocity(2, 0, 0.5) - 1) < 1e-12)
+  let v = 0
+  for (const s of [0.2, 0.9, 1.6, 2.4, 3]) v = emaVelocity(v, s)
+  assert.ok(v > 1.5 && v < 3)
+})
+
+/* — the dials — */
+
+test('the dials default to the hold on and the house numbers', () => {
+  assert.deepEqual(readBlurbTune(''), { hold: true, end: true, exit: false, peek: null, air: null, text: null, catchLerp: null, decel: null, trigger: null })
+})
+
+test('?blurbair takes a rem from 0 to 8 and nothing else', () => {
+  assert.equal(readBlurbTune('?blurbair=1.5').air, 1.5)
+  assert.equal(readBlurbTune('?blurbair=0').air, 0) // no extra air is a value, not an unset dial
+  assert.equal(readBlurbTune('?blurbair=8').air, 8)
+  assert.equal(readBlurbTune('?blurbair=8.1').air, null)
+  assert.equal(readBlurbTune('?blurbair=-1').air, null)
+  assert.equal(readBlurbTune('?blurbair=nope').air, null)
+})
+
+test('?blurbtext takes a target above 0 up to 3 and nothing else', () => {
+  assert.equal(readBlurbTune('?blurbtext=1.25').text, 1.25)
+  assert.equal(readBlurbTune('?blurbtext=1').text, 1)
+  assert.equal(readBlurbTune('?blurbtext=3').text, 3)
+  assert.equal(readBlurbTune('?blurbtext=0.8').text, 0.8)
+  assert.equal(readBlurbTune('?blurbtext=0').text, null)
+  assert.equal(readBlurbTune('?blurbtext=-1').text, null)
+  assert.equal(readBlurbTune('?blurbtext=3.01').text, null)
+  assert.equal(readBlurbTune('?blurbtext=nope').text, null)
+})
+
+test('?blurbend=0 turns the page-end slowdown off and nothing else does', () => {
+  assert.equal(readBlurbTune('?blurbend=0').end, false)
+  assert.equal(readBlurbTune('?blurbend=1').end, true)
+  assert.equal(readBlurbTune('?blurbend=junk').end, true)
+  assert.equal(readBlurbTune('?blurbhold=0').end, true)
+})
+
+test('?blurbexit=1 brings back the hold on the way out, and nothing else does (SQ-68)', () => {
+  assert.equal(readBlurbTune('').exit, false) // the default: a seat is a stop
+  assert.equal(readBlurbTune('?blurbexit=0').exit, false)
+  assert.equal(readBlurbTune('?blurbexit=junk').exit, false)
+  assert.equal(readBlurbTune('?blurbexit=1').exit, true)
+  assert.equal(readBlurbTune('?blurbhold=0').exit, false)
+  assert.equal(readBlurbTune('?blurbhold=1&blurbend=0').exit, false)
+})
+
+test('a seat is a stop: the arrival catch stays both ways, the hold and pass on the way out are behind ?blurbexit (SQ-68)', () => {
+  // INTO a blurb, down and up: the next seat in the direction of travel is the one ahead, so both arrivals are caught.
+  const seats = [1000, 2600]
+  assert.equal(nextSeat(seats, 400, 1), 0) // down into the first blurb from the media above it
+  assert.equal(nextSeat(seats, 1800, -1), 0) // up into it from the media below it
+  assert.equal(nextSeat(seats, 2200, -1), 0)
+  assert.ok(shouldCatch(300, 3, catchOmega(0.165), 16.7)) // 3 px/ms is taken 300 px out
+  assert.ok(!shouldCatch(600, 3, catchOmega(0.165), 16.7)) // too far out to take yet
+  // OUT of one, down and up: the section just left is behind in its direction, so it is never caught again on the way out.
+  assert.equal(nextSeat(seats, 1000 + 40, 1), 1)
+  assert.equal(nextSeat(seats, 1000 - 40, -1), -1)
+  // the gesture on a seat is claimed only with the dial: touch-action, the non-passive touchmove
+  assert.match(blurbHoldSrc, /const exitHold = tune\.exit;/)
+  assert.match(blurbHoldSrc, /if \(exitHold\) html\.style\.touchAction = 'pinch-zoom'/)
+  assert.match(blurbHoldSrc, /const want = \(exitHold && Boolean\(seated\)\) \|\| Boolean\(carry\);/)
+  assert.match(blurbHoldSrc, /if \(springHome && exitHold\) band\.release\(\);/) // a stop never pulled the copy anywhere
+  assert.equal((blurbHoldSrc.match(/touchAction = 'pinch-zoom'/g) || []).length, 1) // the only place a seat takes the page's pan
+})
+
+test('?blurbhold=0 turns the hold off and nothing else does', () => {
+  assert.equal(readBlurbTune('?blurbhold=0').hold, false)
+  assert.equal(readBlurbTune('?blurbhold=1').hold, true)
+  assert.equal(readBlurbTune('?blurbhold=junk').hold, true)
+})
+
+test('?blurbpeek takes a fraction between 0 and 1 only', () => {
+  assert.equal(readBlurbTune('?blurbpeek=0.2').peek, 0.2)
+  assert.equal(readBlurbTune('?blurbpeek=0').peek, null)
+  assert.equal(readBlurbTune('?blurbpeek=1').peek, null)
+  assert.equal(readBlurbTune('?blurbpeek=-1').peek, null)
+  assert.equal(readBlurbTune('?blurbpeek=nope').peek, null)
+  assert.equal(readBlurbTune('?blurbsec=0.6').peek, null) // the old dial is gone
+})
+
+test('?blurbcatch is a lerp, ?blurbdecel a per-ms factor, ?blurbscroll px', () => {
+  assert.equal(readBlurbTune('?blurbcatch=0.3').catchLerp, 0.3)
+  assert.equal(readBlurbTune('?blurbcatch=5').catchLerp, 1)
+  assert.equal(readBlurbTune('?blurbcatch=0').catchLerp, null)
+  assert.equal(readBlurbTune('?blurbdecel=0.99').decel, 0.99)
+  assert.equal(readBlurbTune('?blurbdecel=1').decel, null)
+  assert.equal(readBlurbTune('?blurbdecel=0').decel, null)
+  assert.equal(readBlurbTune('?blurbscroll=200').trigger, 200)
+  assert.equal(readBlurbTune('?blurbscroll=nope').trigger, null)
+  assert.equal(readBlurbTune('?blurbscroll=0').trigger, null)
+  // ?scroll is the World Turn's and the next-project band's; it no longer moves the hold
+  assert.equal(readBlurbTune('?scroll=300').trigger, null)
+})
+
+test('a lower lerp takes the page earlier and a higher one later', () => {
+  const v = 3
+  assert.ok(v / catchOmega(0.08) > v / omega)
+  assert.ok(v / catchOmega(0.4) < v / omega)
+})
+
+/* — the shared rubber band — */
+
+test('an unsigned band never goes below zero and commits at the trigger', () => {
+  let s = stepAccum(0, -300, 500)
+  assert.equal(s.accum, 0) // the next-project band only fills onward
+  s = stepAccum(0, 250, 500)
+  assert.deepEqual([s.accum, s.fill, s.commit], [250, 0.5, 0])
+  s = stepAccum(s.accum, 250, 500)
+  assert.deepEqual([s.accum, s.fill, s.commit], [500, 1, 1])
+})
+
+test('a signed band runs both ways, commits with its sign, and crosses zero', () => {
+  let s = stepAccum(0, -250, 500, true)
+  assert.deepEqual([s.accum, s.fill, s.commit], [-250, -0.5, 0])
+  s = stepAccum(s.accum, 100, 500, true) // back toward the seat
+  assert.deepEqual([s.accum, s.fill, s.commit], [-150, -0.3, 0])
+  s = stepAccum(s.accum, -400, 500, true)
+  assert.equal(s.commit, -1)
+  assert.equal(s.fill, -1) // the fill never draws past the trigger
+})
+
+test('the house trigger is 100px of finger at the house gain', () => {
+  assert.equal(SCROLL_TRIGGER_WORK_PX / TOUCH_GAIN, 100)
+  assert.equal(stepAccum(0, 99 * TOUCH_GAIN, SCROLL_TRIGGER_WORK_PX).commit, 0)
+  assert.equal(stepAccum(0, 100 * TOUCH_GAIN, SCROLL_TRIGGER_WORK_PX).commit, 1)
+})
+
+test('a held blurb lets go sooner: 60px of finger, either way (Nathan 11-11)', () => {
+  // The hold's copy travels trigger / gain: its full pull is the finger's.
+  assert.equal(BLURB_TRIGGER_PX / TOUCH_GAIN, 60)
+  assert.ok(BLURB_TRIGGER_PX < SCROLL_TRIGGER_WORK_PX)
+  assert.equal(stepAccum(0, 59 * TOUCH_GAIN, BLURB_TRIGGER_PX, true).commit, 0)
+  assert.equal(stepAccum(0, 60 * TOUCH_GAIN, BLURB_TRIGGER_PX, true).commit, 1)
+  assert.equal(stepAccum(0, -60 * TOUCH_GAIN, BLURB_TRIGGER_PX, true).commit, -1)
+  // the hold reads its own constant, never the house one
+  const src = fs.readFileSync(fileURLToPath(new URL('../../src/lib/blurbHold.js', import.meta.url)), 'utf8')
+  assert.match(src, /tune\.trigger \?\? BLURB_TRIGGER_PX/)
+  assert.doesNotMatch(src, /SCROLL_TRIGGER_WORK_PX/)
+})
+
+/* — the source contract — */
+
+test('the hold needs a finger, the sections do not', () => {
+  assert.match(HOLD_MQ, /pointer: coarse/)
+  assert.ok(HOLD_MQ.startsWith(PHONE_MQ))
+  assert.equal(PHONE_MQ, '(max-width: 768px)')
+  assert.equal(SEAT_TOL_PX, 2) // NextProjectBand's atEnd tolerance
+})
+
+test('the reading section rule lives only inside the phone query', () => {
+  // Outside it the desktop CSS must be byte-identical: strip every
+  // @media (max-width: 768px) block and the section rule must be gone.
+  let depth = 0
+  let outside = ''
+  const lines = css.split('\n')
+  let inPhone = false
+  for (const line of lines) {
+    if (!inPhone && /^@media \(max-width: 768px\)\s*\{/.test(line)) {
+      inPhone = true
+      depth = 1
+      continue
+    }
+    if (inPhone) {
+      depth += (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length
+      if (depth <= 0) inPhone = false
+      continue
+    }
+    outside += line + '\n'
+  }
+  assert.ok(!/--blurb-text|--blurb-clear|--blurb-air/.test(outside), 'the text scale, the air or the nav clearance leaked outside the phone query')
+  // the detail blurbs scale from the shared token, which itself stays untouched, by ONE number on every page: 1.25, Heavy House Society 2026's size (SQ-99)
+  assert.match(css, /font-size: calc\(var\(--text-blurb\) \* var\(--blurb-text, 1\.25\)\)/)
+  // the copy clears the nav and the pinned breadcrumb chip: one custom property, derived, used by both section rules
+  assert.match(css, /--blurb-clear: calc\(var\(--nav-height, 2\.929rem\) \+ 0\.857rem \+ 1\.857rem \+ 0\.571rem\)/)
+  // …and a minimum extra gap (?blurbair) above the copy beyond it
+  assert.match(css, /padding-block: calc\(var\(--blurb-clear\) \+ var\(--blurb-air, 1\.5rem\)\) 0\.857rem/)
+  assert.match(css, /\.hero-band>\.project-blurb \{\s*justify-content: center;\s*padding-top: calc\(var\(--blurb-clear\) \+ var\(--blurb-air, 1\.5rem\)\)/)
+  // the desktop rule's flex-basis 50vw is a HEIGHT in the phone column: a compact intro must size to its copy
+  assert.match(css, /\.hero-band>\.project-blurb \{[^}]*flex: 0 0 auto;/)
+  // a section is its copy plus its padding (SQ-99): the phone section rule carries no min-height, and the per-page fit, the 88% growth and their hooks are gone
+  const section = css.match(/--blurb-clear: calc\([^}]*\}/)?.[0] ?? ''
+  assert.ok(/padding-block:/.test(section), 'found the phone section rule')
+  assert.ok(!/min-height/.test(section), 'the section rule has a floor again')
+  assert.ok(!/data-blurb-(fit|grow)|--blurb-peek|overflow-anchor/.test(css), 'a retired height hook is back in the stylesheet')
+  // the chip really does pin at nav + 0.857rem and stand 1.857rem tall (what --blurb-clear is derived from)
+  assert.match(css, /\.detail-breadcrumb \{\s*position: sticky;\s*top: calc\(2\.929rem \+ 0\.857rem\)/)
+  assert.match(css, /margin: 0\.571rem 0 calc\(-1\.857rem - 0\.571rem\) 0\.571rem/)
+  assert.ok(!/--blurb-sec/.test(css), 'the retired ?blurbsec variable is still styled')
+})
+
+test('the per-page fit and the growth are gone from the engine (SQ-99)', () => {
+  assert.ok(!/attachBlurbFit|fitTextScale|growFrame|initGrow|grownHeight|style\.minHeight|data-blurb-(fit|grow)|blurbgrow|RESET_EVENT/.test(blurbHoldSrc))
+  assert.ok(!/attachBlurbFit/.test(fs.readFileSync(`${root}src/components/work/detail/FeaturedProjectDetail.jsx`, 'utf8')))
+})

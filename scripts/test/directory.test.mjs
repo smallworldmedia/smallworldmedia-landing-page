@@ -1,0 +1,976 @@
+// The Project Directory's data: tiles (grouping, links, order, fit), the
+// filter and its URL state, Client Coverage and the Client Roster, the
+// images' sizes; and the player gate.
+//   node --test scripts/test/directory.test.mjs
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  buildDirectoryTiles,
+  orderTiles,
+  logoFirst,
+  matchesFilter,
+  tagPresence,
+  clientPresence,
+  fitOf,
+  readFilter,
+  filterSearch,
+  sanitizeFilter,
+  defaultFilter,
+  hasFilterParams,
+  sameFilter,
+  sizesFor,
+} from '../../src/components/work/directory/buildDirectoryTiles.js'
+import { PARAM_KEYS, SSR_TUNE, TAB_SHAPE, readTune, tabCap, tabSkirt } from '../../src/components/work/directory/directoryTune.js'
+import { coverageOf, toDrawerRoster } from '../../src/lib/clientCoverage.js'
+import { createPlayerGate } from '../../src/components/work/directory/playerGate.js'
+import { SEQUENCE_MAX_FRAMES } from '../../src/lib/mediaSequence.js'
+import { SERVICE_TAGS } from '../../src/lib/constants.js'
+import { effectiveTags, openGroups, toggleTag, withGroups, withParents } from '../../src/components/work/directory/serviceGroups.js'
+
+const img = (w, h, extra = {}) => ({
+  imageUrl: `https://cdn.example.invalid/${w}x${h}.jpg`,
+  imageDimensions: { width: w, height: h },
+  ...extra,
+})
+const tag = (...slugs) => slugs.map((slug) => ({ name: slug, slug }))
+let rank = 0
+const asset = (id, client, fields = {}) => ({
+  _id: id,
+  title: id,
+  mediaType: 'static_other',
+  clientSlug: client,
+  orderRank: `0|${String(rank++).padStart(6, '0')}:`,
+  services: tag('branding'),
+  ...img(1000, 1000),
+  ...fields,
+})
+const CLIENTS = [
+  { name: 'Bellaire', slug: 'bellaire', umbrellas: null },
+  { name: 'DJ Tennis', slug: 'dj-tennis', umbrellas: null },
+  { name: 'Munchietown', slug: 'munchietown', umbrellas: ['dj-tennis'] },
+  { name: 'Annabel Englund', slug: 'annabel-englund', umbrellas: null },
+  { name: 'COCO', slug: 'coco', umbrellas: null },
+]
+const WORLDS = [
+  { projectId: 'p-munchie', slug: 'munchietown', title: 'Munchietown', collection: 'Munchietown', clientSlug: 'munchietown' },
+  { projectId: 'p-coco', slug: 'coco-branding-2026', title: 'COCO Branding 2026', collection: 'COCO Branding 2026', clientSlug: 'coco' },
+  // no collection: no detail page, so no links
+  { projectId: 'p-orphan', slug: null, title: 'Orphan', collection: null, clientSlug: 'bellaire' },
+]
+
+function fixture() {
+  rank = 0
+  return [
+    // featured, World 2 (COCO) — listed first to prove the World order wins
+    asset('coco-1', 'coco', { projectId: 'p-coco', services: tag('branding', 'album-art') }),
+    asset('coco-deck-2', 'coco', { projectId: 'p-coco', mediaType: 'brand-deck', displayGroup: 'brand-guidelines-deck', brandDeckOrder: 2, services: tag('web-design') }),
+    asset('coco-deck-1', 'coco', { projectId: 'p-coco', mediaType: 'brand-deck', displayGroup: 'brand-guidelines-deck', brandDeckOrder: 1 }),
+    asset('coco-bts', 'coco', { projectId: 'p-coco', contentRole: 'process' }),
+    // featured, World 1 (Munchietown)
+    asset('munchie-1', 'munchietown', { projectId: 'p-munchie' }),
+    asset('munchie-deck-1', 'munchietown', { projectId: 'p-munchie', mediaType: 'brand-deck', displayGroup: 'brand-guidelines-deck', brandDeckOrder: 1 }),
+    asset('munchie-seq-1', 'munchietown', { projectId: 'p-munchie', displayGroup: 'logo-sequence', ...img(2000, 1000) }),
+    asset('munchie-solo-seq', 'munchietown', { projectId: 'p-munchie', displayGroup: 'solo-sequence' }),
+    asset('munchie-seq-2', 'munchietown', { projectId: 'p-munchie', displayGroup: 'logo-sequence', ...img(2000, 1000) }),
+    // not featured
+    asset('bellaire-loose', 'bellaire'),
+    asset('bellaire-orphan', 'bellaire', { projectId: 'p-orphan', projectRank: '0|a:' }),
+    asset('annabel-1', 'annabel-englund', { services: tag('promo-video'), imageUrl: undefined, imageDimensions: undefined, playbackId: 'pb', videoAspectRatio: '16:9' }),
+    asset('empty-shell', 'bellaire', { imageUrl: undefined, imageDimensions: undefined }),
+  ]
+}
+const tiles = () => buildDirectoryTiles({ assets: fixture(), worlds: WORLDS, clients: CLIENTS })
+const ids = (ts) => ts.map((t) => t._id)
+
+test('grouping: a deck per client, a sequence of two, a lone sequence member plain, role and shells out', () => {
+  const ts = tiles()
+  const decks = ts.filter((t) => t.mediaType === 'brand-deck')
+  assert.equal(decks.length, 2, "two clients' brand-guidelines-deck stay two tiles")
+  assert.equal(decks.find((t) => t.client === 'coco')._id, 'coco-deck-1', 'the deck shows its lowest brandDeckOrder page')
+  assert.deepEqual(decks.find((t) => t.client === 'coco').services, ['web-design', 'branding'], "the group's services, unioned")
+  const seq = ts.find((t) => t.frames)
+  assert.equal(seq._id, 'sequence:munchietown:p-munchie:logo-sequence')
+  assert.deepEqual(seq.frames.map((f) => f._id), ['munchie-seq-1', 'munchie-seq-2'])
+  assert.equal(seq.sequenceRatio, 2)
+  const solo = ts.find((t) => t._id === 'munchie-solo-seq')
+  assert.ok(solo && !solo.frames, 'a one-member sequence is a plain tile')
+  assert.ok(!ts.some((t) => t._id === 'coco-bts'), 'the role lane stays out')
+  assert.ok(!ts.some((t) => t._id === 'empty-shell'), 'an asset with no media stays out')
+  assert.ok(!ts.some((t) => 'description' in t || 'releaseInfo' in t || 'orderRank' in t), 'tiles carry the slim face only')
+})
+
+test('links: only tiles of a project with a detail page get href + label', () => {
+  const ts = tiles()
+  assert.equal(ts.find((t) => t._id === 'munchie-1').href, '/work/munchietown')
+  assert.equal(ts.find((t) => t._id === 'coco-1').label, 'COCO Branding 2026')
+  for (const id of ['bellaire-loose', 'bellaire-orphan', 'annabel-1']) {
+    const t = ts.find((x) => x._id === id)
+    assert.ok(!('href' in t) && !('label' in t), `${id} is media only`)
+  }
+})
+
+test("order: 'project' runs World order, then clients by name; 'mix' re-deals across clients", () => {
+  const ts = tiles()
+  assert.deepEqual(ids(ts), [
+    'munchie-1', 'munchie-deck-1', 'sequence:munchietown:p-munchie:logo-sequence', 'munchie-solo-seq',
+    'coco-1', 'coco-deck-1',
+    'annabel-1', 'bellaire-orphan', 'bellaire-loose',
+  ])
+  const mixed = orderTiles(ts, 'mix')
+  assert.deepEqual([...ids(mixed)].sort(), [...ids(ts)].sort(), 'the same tiles')
+  const left = (i) => new Set(mixed.slice(i).map((t) => t.client)).size
+  for (let i = 1; i < mixed.length; i++) {
+    if (left(i - 1) >= 2) assert.notEqual(mixed[i].client, mixed[i - 1].client, `neighbours ${i - 1}/${i}`)
+  }
+  assert.equal(orderTiles(ts, 'project'), ts)
+})
+
+test("order: 'shuffle' is the same tiles in a seeded new order, and leaves its input alone", () => {
+  const ts = tiles()
+  const before = ids(ts)
+  const a = orderTiles(ts, 'shuffle', 1)
+  assert.deepEqual([...ids(a)].sort(), [...before].sort(), 'the same tiles')
+  assert.deepEqual(ids(ts), before, 'the input keeps its order')
+  assert.deepEqual(ids(orderTiles(ts, 'shuffle', 1)), ids(a), 'one seed, one order')
+  const orders = new Set([1, 2, 3, 4, 5, 6].map((seed) => ids(orderTiles(ts, 'shuffle', seed)).join()))
+  assert.ok(orders.size > 1, 'other seeds deal other orders')
+  assert.ok(![...orders].every((o) => o === before.join()), 'not the build order')
+})
+
+test('matchesFilter: the truth table', () => {
+  const t = { client: 'munchietown', services: ['branding', 'album-art'] }
+  const cases = [
+    [new Set(), null, true],
+    [new Set(['branding']), null, true],
+    [new Set(['web-design']), null, false],
+    [new Set(['web-design', 'album-art']), null, true],
+    [new Set(), new Set(['munchietown']), true],
+    [new Set(), new Set(['coco']), false],
+    [new Set(['branding']), new Set(['dj-tennis', 'munchietown']), true],
+    [new Set(['web-design']), new Set(['munchietown']), false],
+    [new Set(['branding']), new Set(['coco']), false],
+    [undefined, undefined, true],
+  ]
+  for (const [tags, coverage, want] of cases) {
+    assert.equal(matchesFilter(t, { tags, coverage }), want, `${[...(tags ?? [])]} / ${coverage && [...coverage]}`)
+  }
+})
+
+test('coverage: one hop down the affiliations', () => {
+  assert.deepEqual([...coverageOf('dj-tennis', CLIENTS)], ['dj-tennis', 'munchietown'])
+  assert.deepEqual([...coverageOf('munchietown', CLIENTS)], ['munchietown'])
+  const chain = [
+    { name: 'A', slug: 'a', umbrellas: ['b'] },
+    { name: 'B', slug: 'b', umbrellas: ['c'] },
+    { name: 'C', slug: 'c', umbrellas: [] },
+  ]
+  assert.deepEqual([...coverageOf('c', chain)], ['c', 'b'], 'C covers B, not A')
+  assert.equal(coverageOf('nobody', CLIENTS), null)
+  assert.equal(coverageOf(null, CLIENTS), null)
+  assert.equal(coverageOf('', CLIENTS), null)
+})
+
+test('tagPresence: hidden where no tile has the tag, dimmed where the client would empty it', () => {
+  const ts = tiles()
+  const all = tagPresence(ts, null)
+  // motion-video is the code-side parent: present because promo-video is
+  assert.deepEqual([...all.any].sort(), ['album-art', 'branding', 'motion-video', 'promo-video', 'web-design'])
+  assert.deepEqual([...all.inClient].sort(), [...all.any].sort())
+  const dj = tagPresence(ts, coverageOf('dj-tennis', CLIENTS))
+  assert.deepEqual([...dj.inClient].sort(), ['branding'])
+  assert.ok(dj.any.has('promo-video') && dj.any.has('motion-video'))
+  assert.ok(!dj.inClient.has('motion-video'), 'the client would empty the parent as it empties its children')
+})
+
+test('clientPresence - lit where the client has a tile under the picked tags, dimmed where they would empty it', () => {
+  const ts = tiles()
+  const lit = (...tags) => [...clientPresence(ts, new Set(tags), CLIENTS)].sort()
+  assert.deepEqual(lit(), ['annabel-englund', 'bellaire', 'coco', 'dj-tennis', 'munchietown'], 'no tag = every tile counts')
+  assert.deepEqual(lit('promo-video'), ['annabel-englund'], 'only Annabel has a promo video')
+  assert.deepEqual(lit('album-art'), ['coco'])
+  assert.deepEqual(lit('album-art', 'promo-video'), ['annabel-englund', 'coco'], 'tags OR together, as matchesFilter does')
+  // DJ Tennis holds nothing of its own: its coverage reaches Munchietown's tiles one hop down
+  assert.ok(lit('branding').includes('dj-tennis'))
+  assert.ok(!lit('promo-video').includes('dj-tennis'))
+  assert.ok(!lit('web-design').includes('munchietown'), 'web-design is only COCO')
+  // a client with no tile at all is never lit
+  const more = [...CLIENTS, { name: 'easier said', slug: 'easier-said', umbrellas: null }]
+  assert.ok(!clientPresence(ts, new Set(), more).has('easier-said'))
+  assert.ok(!clientPresence(ts, null, more).has('easier-said'), 'a missing tag set is every tile too')
+})
+
+test('fit: contain only for transparency, else cover (an _other face fills its tile, 11-12)', () => {
+  const face = (w, h, extra) => ({ mediaType: 'static_other', ...img(w, h, extra) })
+  assert.equal(fitOf(face(4770, 1000)), 'cover', '4.77:1 banner in a 2:1 cell: fills, no letterbox')
+  assert.equal(fitOf(face(4000, 1000)), 'cover', '4:1')
+  assert.equal(fitOf(face(1000, 1000, { imageHasAlpha: true })), 'contain', 'alpha')
+  assert.equal(fitOf(face(900, 1600)), 'cover', '9:16 in a 1:2 cell')
+  assert.equal(fitOf(face(1000, 5000)), 'cover', '1:5 in a 1:2 cell: fills')
+  assert.equal(fitOf({ mediaType: 'motion_16x9', playbackId: 'x' }), 'cover')
+})
+
+test('roster: every client by name, live when its coverage holds a tile', () => {
+  const extra = [...CLIENTS, { name: 'easier said', slug: 'easier-said', umbrellas: null }, { name: '', slug: 'nameless' }]
+  const roster = toDrawerRoster(extra, tiles())
+  assert.deepEqual(roster.map((r) => r.name), ['Annabel Englund', 'Bellaire', 'COCO', 'DJ Tennis', 'easier said', 'Munchietown'])
+  const live = Object.fromEntries(roster.map((r) => [r.slug, r.live]))
+  assert.deepEqual(live, { 'annabel-englund': true, bellaire: true, coco: true, 'dj-tennis': true, 'easier-said': false, munchietown: true })
+})
+
+// ── collaborators (SQ-76): a credited artist's name filters to the pieces they are on ──
+
+test('collaborators: a collaborator-only name is live, filters to exactly its pieces, and the host still shows them', () => {
+  rank = 0
+  const clients = [
+    { name: 'Kamino', slug: 'kamino', umbrellas: null },
+    { name: 'Anabel', slug: 'anabel', umbrellas: null },
+    { name: 'Anabel Label', slug: 'anabel-label', umbrellas: ['anabel'] },
+    { name: 'Idle', slug: 'idle', umbrellas: null },
+  ]
+  const assets = [
+    asset('belong', 'kamino', { collaboratorSlugs: ['anabel'], services: tag('album-art') }),
+    asset('falling', 'kamino', { collaboratorSlugs: ['anabel', null], services: tag('promo-video') }),
+    asset('own', 'kamino', { services: tag('branding') }),
+  ]
+  const ts = buildDirectoryTiles({ assets, worlds: [], clients })
+  assert.deepEqual(ts.map((t) => [t._id, t.collaborators]), [['belong', ['anabel']], ['falling', ['anabel']], ['own', []]], 'missing reads [], a dangling ref drops')
+  const shows = (slug, tags) => ts.filter((t) => matchesFilter(t, { tags, coverage: coverageOf(slug, clients) })).map((t) => t._id)
+  assert.deepEqual(shows('anabel'), ['belong', 'falling'])
+  assert.deepEqual(shows('kamino'), ['belong', 'falling', 'own'])
+  assert.deepEqual(shows('anabel', new Set(['branding'])), [], 'a tag outside her pieces empties her filter')
+  // one hop: Anabel's label covers her pieces, but her coverage never reaches Kamino's other work
+  assert.deepEqual(shows('anabel-label'), [], 'a label under Anabel is not above her')
+  assert.ok(!shows('anabel').includes('own'))
+  // tag presence under the collaborator filter counts only her pieces
+  const p = tagPresence(ts, coverageOf('anabel', clients))
+  assert.deepEqual([...p.inClient].sort(), ['album-art', 'motion-video', 'promo-video'])
+  assert.ok(p.any.has('branding') && !p.inClient.has('branding'))
+  // the roster, the clients tab and the URL filter agree
+  const live = Object.fromEntries(toDrawerRoster(clients, ts).map((r) => [r.slug, r.live]))
+  assert.deepEqual(live, { kamino: true, anabel: true, 'anabel-label': false, idle: false })
+  assert.deepEqual([...clientPresence(ts, new Set(['promo-video']), clients)].sort(), ['anabel', 'kamino'])
+  assert.deepEqual([...clientPresence(ts, new Set(['branding']), clients)], ['kamino'], 'her pieces carry no branding')
+  assert.deepEqual(sanitizeFilter({ tags: tag('album-art', 'promo-video', 'branding'), clients, tiles: ts }, ['album-art', 'branding'], 'anabel'), { tags: ['album-art'], client: 'anabel' })
+  assert.equal(sanitizeFilter({ tags: tag('album-art'), clients, tiles: ts }, [], 'idle').client, null, 'a name with no piece filters nothing')
+})
+
+test('collaborators: a group tile carries the union of its members; assets with no field build the same tiles as before', () => {
+  rank = 0
+  const grouped = buildDirectoryTiles({
+    assets: [
+      asset('d1', 'kamino', { mediaType: 'brand-deck', displayGroup: 'deck', brandDeckOrder: 1, collaboratorSlugs: ['a'] }),
+      asset('d2', 'kamino', { mediaType: 'brand-deck', displayGroup: 'deck', brandDeckOrder: 2, collaboratorSlugs: ['b', 'a'] }),
+    ],
+    worlds: [],
+  })
+  assert.equal(grouped.length, 1)
+  assert.deepEqual(grouped[0].collaborators, ['a', 'b'])
+  const before = tiles()
+  assert.ok(before.every((t) => Array.isArray(t.collaborators) && t.collaborators.length === 0))
+  const bare = before.map(({ collaborators, ...rest }) => rest)
+  assert.deepEqual(toDrawerRoster(CLIENTS, bare), toDrawerRoster(CLIENTS, before), 'a tile without the field reads as one with none')
+  assert.deepEqual([...tagPresence(bare, coverageOf('dj-tennis', CLIENTS)).inClient], [...tagPresence(before, coverageOf('dj-tennis', CLIENTS)).inClient])
+})
+
+// ── playerGate (directory/playerGate.js): who may play ──
+
+class FakeObserver {
+  constructor(cb, opts) {
+    this.cb = cb
+    this.opts = opts
+    this.els = new Set()
+    FakeObserver.last = this
+  }
+  observe(el) { this.els.add(el) }
+  unobserve(el) { this.els.delete(el) }
+  disconnect() { this.els.clear() }
+  /** `share` of a `tileH` tile in a `viewH` viewport */
+  show(el, share, { tileH = 400, viewH = 900 } = {}) {
+    this.cb([{ target: el, isIntersecting: share > 0, intersectionRatio: share, intersectionRect: { height: share * tileH }, rootBounds: { height: viewH } }])
+  }
+}
+
+function harness(t, cap) {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const gate = createPlayerGate({ cap, dwellMs: 300, Observer: FakeObserver })
+  const io = FakeObserver.last
+  const tile = (video = true) => {
+    const el = {}
+    const state = { near: false, play: false, changes: 0 }
+    const unwatch = gate.watch(el, { video }, (s) => Object.assign(state, s, { changes: state.changes + 1 }))
+    return { el, state, unwatch }
+  }
+  return { gate, io, tile }
+}
+
+test('playerGate: a video plays after the dwell; a fling past it never does', (t) => {
+  const { io, tile } = harness(t, 6)
+  const a = tile()
+  const b = tile()
+  assert.deepEqual(FakeObserver.last.opts.threshold, [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5])
+  io.show(a.el, 0.6)
+  t.mock.timers.tick(299)
+  assert.deepEqual([a.state.near, a.state.play], [true, false], 'near at once, no play before the dwell')
+  t.mock.timers.tick(1)
+  assert.equal(a.state.play, true, 'plays at the dwell')
+  io.show(b.el, 0.6)
+  t.mock.timers.tick(150)
+  io.show(b.el, 0)
+  t.mock.timers.tick(1000)
+  assert.equal(b.state.play, false, 'a fling past never plays')
+  io.show(a.el, 0.3)
+  assert.deepEqual([a.state.near, a.state.play], [true, false], 'under half: the grant goes back, the tile stays near')
+})
+
+test('playerGate: the cap, and a released grant goes to the longest-waiting tile', (t) => {
+  const { gate, io, tile } = harness(t, 2)
+  const [a, b, c, d] = [tile(), tile(), tile(), tile()]
+  for (const x of [a, b, c, d]) io.show(x.el, 1)
+  t.mock.timers.tick(300)
+  assert.deepEqual([a, b, c, d].map((x) => x.state.play), [true, true, false, false])
+  assert.equal(gate.held, 2)
+  io.show(a.el, 0)
+  assert.deepEqual([a, b, c, d].map((x) => x.state.play), [false, true, true, false], 'c waited longest')
+  b.unwatch()
+  assert.deepEqual([c, d].map((x) => x.state.play), [true, true], 'an unwatched tile hands its grant on too')
+  io.show(c.el, 0.4)
+  assert.equal(gate.held, 1, 'nobody left waiting')
+})
+
+test('playerGate: stills get near only; cap 0 (reduced motion) never plays; a tall tile plays at half the viewport', (t) => {
+  const { io, tile } = harness(t, 0)
+  const seq = tile(false)
+  const vid = tile()
+  io.show(seq.el, 0.1)
+  io.show(vid.el, 1)
+  t.mock.timers.tick(1000)
+  assert.deepEqual([seq.state.near, seq.state.play], [true, false])
+  assert.deepEqual([vid.state.near, vid.state.play], [true, false], 'cap 0: posters only')
+
+  t.mock.timers.reset()
+  const tall = harness(t, 1)
+  const p = tall.tile()
+  tall.io.show(p.el, 0.3, { tileH: 2000, viewH: 900 }) // 600px of a 2000px tile: under half of it, over half the view
+  t.mock.timers.tick(300)
+  assert.equal(p.state.play, true)
+  // A tile k views tall is over half the view between shares 1/2k and 1/k: a
+  // threshold must fall there, or the observer never reports it half.
+  const th = tall.io.opts.threshold
+  for (let k = 1; k <= 10; k += 0.25) {
+    assert.ok(th.some((s) => s >= 1 / (2 * k) && s <= 1 / k), `a tile ${k} views tall`)
+  }
+})
+
+test('playerGate: unwatching mid-dwell cancels it; destroy clears every timer', (t) => {
+  const { gate, io, tile } = harness(t, 3)
+  const a = tile()
+  io.show(a.el, 1)
+  a.unwatch()
+  t.mock.timers.tick(1000)
+  assert.equal(a.state.play, false)
+  assert.equal(gate.held, 0)
+  const b = tile()
+  io.show(b.el, 1)
+  gate.destroy()
+  t.mock.timers.tick(1000)
+  assert.equal(b.state.play, false)
+  assert.equal(io.els.size, 0)
+})
+
+// ── The filter's URL state and the images' sizes (DirectoryPage, DirectoryGrid) ──
+
+test('readFilter / filterSearch: ?tag=a,b&client=slug both ways, other params kept', () => {
+  assert.deepEqual(readFilter('?tag=branding,album-art&client=dj-tennis'), { tags: ['branding', 'album-art'], client: 'dj-tennis' })
+  assert.deepEqual(readFilter('?tag=&client='), { tags: [], client: null })
+  assert.deepEqual(readFilter('?tag=a,,a, b'), { tags: ['a', 'b'], client: null })
+  assert.equal(filterSearch('?dirtune=1', ['a', 'b'], 'x'), '?dirtune=1&tag=a,b&client=x')
+  assert.equal(filterSearch('?tag=a&client=x&dirorder=mix', [], null), '?tag=&dirorder=mix')
+  assert.equal(filterSearch('?tag=a&client=x', [], 'x'), '?client=x', 'a client alone is explicit enough')
+  assert.equal(filterSearch('?tag=a', [], null), '?tag=', 'nothing picked stays "every work", not the default')
+  assert.equal(filterSearch('?tag=a&client=x&dirorder=mix', ['a'], null, true), '?dirorder=mix', 'the default keeps the URL bare')
+  const round = filterSearch('', ['a', 'b'], 'x')
+  assert.deepEqual(readFilter(round), { tags: ['a', 'b'], client: 'x' }, 'what it writes reads back')
+})
+
+test('the default filter: a bare URL starts on album-art, any filter key in the URL wins', () => {
+  const tags = [{ slug: 'branding' }, { slug: 'album-art' }]
+  const clients = [{ slug: 'munchietown' }, { slug: 'coco' }]
+  const tiles = [
+    { client: 'munchietown', services: ['album-art'] },
+    { client: 'coco', services: ['branding'] },
+  ]
+  const data = { tags, clients, tiles }
+  const base = defaultFilter(data)
+  assert.deepEqual(base, { tags: ['album-art'], client: null })
+  assert.deepEqual(defaultFilter({ ...data, tiles: [tiles[1]] }), { tags: [], client: null }, 'no album-art tiles: every work')
+  assert.equal(hasFilterParams(''), false)
+  assert.equal(hasFilterParams('?dirtune=1&dirorder=mix'), false, 'tunables are not a filter')
+  for (const q of ['?tag=branding', '?client=coco', '?tag=', '?client=']) assert.equal(hasFilterParams(q), true, q)
+  // what the page writes reads back to the same filter
+  for (const next of [base, { tags: [], client: null }, { tags: ['branding'], client: null }, { tags: [], client: 'coco' }]) {
+    const search = filterSearch('', next.tags, next.client, sameFilter(next, base))
+    const back = hasFilterParams(search) ? readFilter(search) : base
+    assert.ok(sameFilter(sanitizeFilter(data, back.tags, back.client), next), `${JSON.stringify(next)} via "${search}"`)
+  }
+  assert.equal(filterSearch('', ['album-art'], null, true), '', 'the default is a bare URL')
+  assert.equal(filterSearch('', [], null, false), '?tag=', 'clear is "every work"')
+})
+
+test('readTune — the order and the columns per band, from the URL over the defaults', () => {
+  assert.deepEqual(
+    { cols: SSR_TUNE.cols, tabletCols: SSR_TUNE.tabletCols, phoneCols: SSR_TUNE.phoneCols, order: SSR_TUNE.order },
+    { cols: 5, tabletCols: 4, phoneCols: 2, order: 'project' },
+    'Nathan: five wide, two on a phone'
+  )
+  assert.equal(readTune('', SSR_TUNE).order, 'project')
+  assert.equal(readTune('?dirorder=shuffle', SSR_TUNE).order, 'shuffle')
+  assert.equal(readTune('?dirorder=nonsense', SSR_TUNE).order, 'project')
+  const shuffled = { ...SSR_TUNE, order: 'shuffle' }
+  assert.equal(readTune('', shuffled).order, 'shuffle', 'the Studio switch sets the default')
+  assert.equal(readTune('?dirorder=project', shuffled).order, 'project', 'the URL overrides it')
+  const t = readTune('?dircols=6&dirtabletcols=3&dirphonecols=1', SSR_TUNE)
+  assert.deepEqual([t.cols, t.tabletCols, t.phoneCols], [6, 3, 1])
+  const bad = readTune('?dircols=0&dirtabletcols=2.5&dirphonecols=3', SSR_TUNE)
+  assert.deepEqual([bad.cols, bad.tabletCols, bad.phoneCols], [5, 4, 2], 'garbage falls back')
+  // the packer (SQ-20): flush until baked; aspect's lookahead
+  assert.equal(readTune('', SSR_TUNE).pack, 'flush')
+  assert.equal(readTune('?dirpack=aspect', SSR_TUNE).pack, 'aspect')
+  assert.equal(readTune('?dirpack=masonry', SSR_TUNE).pack, 'flush')
+  assert.equal(readTune('?dirlook=12', SSR_TUNE).look, 12)
+  assert.equal(readTune('?dirlook=0', SSR_TUNE).look, SSR_TUNE.look, 'a lookahead of 0 falls back')
+})
+
+test('TAB_SHAPE holds the six numbers Nathan baked and the URL no longer moves them', () => {
+  assert.deepEqual(TAB_SHAPE, { angle: 55, tr: 0.161, tl: 0.161, br: 0.11, foot: 0.5, meet: 0.5 })
+  const t = readTune('?dirtabangle=60&dirtabmeet=0.3&dirtabtr=0.2&dirtabtl=0.2&dirtabbr=0.2&dirtabfoot=1', SSR_TUNE)
+  assert.deepEqual(t, readTune('', SSR_TUNE), 'the old tab params change nothing')
+  for (const key of ['tabMeet', 'tabFoot', 'tabAngle', 'tabTR', 'tabTL', 'tabBR'])
+    assert.equal(key in t, false, `${key} is gone from the tune`)
+  for (const key of ['tabMeet', 'tabFoot', 'tabAngle', 'tabTR', 'tabTL', 'tabBR'])
+    assert.equal(key in PARAM_KEYS, false, `${key} is gone from PARAM_KEYS`)
+})
+
+const SKIRT_PATH = /^M-20 0H0A([\d.]+) [\d.]+ 0 0 1 ([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)A([\d.]+) [\d.]+ 0 0 0 ([\d.]+) ([\d.]+)H([\d.]+)$/
+
+test('tabSkirt draws the dialed angle and corner reaches, and the tuck meets the diagonal', () => {
+  const sets = [
+    { angle: 55, tr: 0.161, br: 0.11, foot: 0.5, meet: 0.5 },
+    { angle: 46.4, tr: 0.161, br: 0.161, foot: 0.5, meet: 0.5 },
+    { angle: 70, tr: 0.3, br: 0.05, foot: 0, meet: 0.3 },
+    { angle: 42, tr: 0.02, br: 0.4, foot: 1.5, meet: 1 },
+  ]
+  for (const dial of sets) {
+    const s = tabSkirt(dial)
+    const m = s.stroke.match(SKIRT_PATH)
+    assert.ok(m, s.stroke)
+    // the shoulder arc ends at (ax, ay), the diagonal at (bx, by), the foot arc at (fx, fy)
+    const [rs, ax, ay, bx, by, rf, fx, fy, runTo] = m.slice(1).map(Number)
+    const tan = Math.tan((dial.angle * Math.PI) / 180)
+    // the diagonal's angle is the dial
+    const deg = (Math.atan2(by - ay, bx - ax) * 180) / Math.PI
+    assert.ok(Math.abs(deg - dial.angle) < 0.05, `angle ${deg} for ${dial.angle}`)
+    // each corner's reach (how far its curve runs along the flat edge from the sharp corner) is its dial
+    assert.ok(Math.abs(ax - ay / tan - dial.tr * 1000) < 0.5, 'the shoulder reach is the dial')
+    assert.ok(Math.abs(fx - (bx + (1000 - by) / tan) - dial.br * 1000) < 0.5, 'the foot reach is the dial')
+    assert.ok(rs > 0 && rf > 0 && by >= ay, 'the diagonal never runs backwards')
+    // it lands on the bottom edge and runs `foot` H past the foot
+    assert.equal(fy, 1000, 'the foot finishes on the bottom edge')
+    assert.equal(runTo, s.width)
+    assert.ok(Math.abs(runTo - fx - dial.foot * 1000) < 0.01, 'the bottom run is the dial')
+    // the next tab's left stroke sits `meet` of the way down the straight diagonal
+    const at = (s.width - s.tuck * 1000 - ax) / (bx - ax)
+    assert.ok(Math.abs(at - dial.meet) < 0.001, `meets at ${at} for ${dial.meet}`)
+    // open stroke, closed fill that runs past the bottom stroke so the next tab's line ends under it
+    assert.ok(!s.stroke.includes('Z') && s.fill.endsWith('Z'))
+    assert.ok(s.fill.startsWith(s.stroke + 'V') && Number(s.fill.match(/V([\d.]+)H-20Z$/)[1]) > 1000, 'the fill runs below the bottom stroke')
+  }
+})
+
+test('tabSkirt keeps the diagonal when both corners ask for more than the box', () => {
+  const s = tabSkirt({ angle: 75, tr: 4, br: 4, foot: 0, meet: 0.5 })
+  const [, ax, ay, bx, by] = s.stroke.match(SKIRT_PATH).slice(1).map(Number)
+  assert.ok(by - ay >= -0.01 && bx >= ax, 'a zero-length diagonal at worst')
+})
+
+test('tabCap rounds the top-left corner to its reach and never collapses', () => {
+  const c = tabCap(0.161)
+  assert.equal(c.width, 161)
+  assert.equal(c.stroke, 'M0 1000V161A161 161 0 0 1 161 0', 'a 90deg turn, so the radius is the reach')
+  assert.ok(Math.abs(c.ratio - 0.161) < 1e-9)
+  assert.ok(tabCap(0).width > 0, 'a zero reach is still a drawable box')
+})
+
+test('sanitizeFilter: unknown, empty and plain clients drop; tags keep Studio order and need tiles in the coverage', () => {
+  const tags = [{ slug: 'branding' }, { slug: 'album-art' }, { slug: 'vfx' }]
+  const clients = [{ slug: 'munchietown', umbrellas: ['dj-tennis'] }, { slug: 'dj-tennis' }, { slug: 'coco' }, { slug: 'plain' }]
+  const tiles = [
+    { client: 'munchietown', services: ['album-art'] },
+    { client: 'coco', services: ['branding'] },
+  ]
+  const data = { tags, clients, tiles }
+  assert.deepEqual(sanitizeFilter(data, ['album-art', 'branding'], 'dj-tennis'), { tags: ['album-art'], client: 'dj-tennis' }, 'DJ Tennis covers Munchietown; no branding there')
+  assert.deepEqual(sanitizeFilter(data, ['album-art', 'branding', 'vfx', 'nope'], null), { tags: ['branding', 'album-art'], client: null })
+  assert.deepEqual(sanitizeFilter(data, [], 'nobody'), { tags: [], client: null })
+  assert.deepEqual(sanitizeFilter(data, ['branding'], 'plain'), { tags: ['branding'], client: null }, 'a name with no tiles filters nothing')
+  assert.deepEqual(sanitizeFilter(data, [], ''), { tags: [], client: null })
+})
+
+test('sizesFor — the column share at each breakpoint; a cover crop wider than its cell asks for more', () => {
+  // the default spec is the detail grid's columns: 1 / 2 / 5, 6 at the large tier (11-14)
+  assert.equal(sizesFor('square', 1, 'cover'), '(min-width: 1920px) 17vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 20vw')
+  assert.equal(sizesFor('landscape', 1.78, 'cover'), '(min-width: 1920px) 33vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, 40vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'cover', { phone: 2 }), '(min-width: 1920px) 19vw, (max-width: 768px) 56vw, (max-width: 1024px) 56vw, 23vw')
+  assert.equal(sizesFor('portrait', 0.5625, 'contain'), '(min-width: 1920px) 17vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 20vw')
+  // the directory's bands: five wide, four on a tablet, two on a phone
+  const dir = { phone: 2, tablet: 4, desktop: 5, large: 6 }
+  assert.equal(sizesFor('square', 1, 'cover', dir), '(min-width: 1920px) 17vw, (max-width: 768px) 50vw, (max-width: 1024px) 25vw, 20vw')
+  assert.equal(sizesFor('landscape', 1.78, 'cover', dir), '(min-width: 1920px) 33vw, (max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw')
+  // the large clause comes first (the first matching condition wins) and follows the ?gridlarge dial
+  assert.ok(sizesFor('square', 1, 'cover', dir).startsWith('(min-width: 1920px) '))
+  assert.ok(sizesFor('square', 1, 'cover', { ...dir, largeFrom: 2200 }).startsWith('(min-width: 2200px) 17vw, '))
+  // ?dirpack=aspect: the placement's own span and cell
+  assert.equal(sizesFor('landscape', 4.77, 'cover', dir, { span: 5, cell: 4.77 }), '(min-width: 1920px) 83vw, (max-width: 768px) 100vw, (max-width: 1024px) 100vw, 100vw')
+  assert.equal(sizesFor('square', 1, 'cover', dir, { span: 1, cell: 0.9 }), '(min-width: 1920px) 19vw, (max-width: 768px) 56vw, (max-width: 1024px) 28vw, 22vw')
+})
+
+test('logoFirst: under exactly logo-design the logo tiles lead, each block keeps its order', () => {
+  const ts = [
+    { id: 'a', logo: null }, { id: 'b', logo: {} }, { id: 'c', logo: null },
+    { id: 'd', logo: {} }, { id: 'e', logo: null },
+  ]
+  const out = logoFirst(ts, new Set(['logo-design']))
+  assert.deepEqual(out.map((t) => t.id), ['b', 'd', 'a', 'c', 'e'])
+  assert.deepEqual(ts.map((t) => t.id), ['a', 'b', 'c', 'd', 'e'], 'the input is left alone')
+  for (const tags of [new Set(), new Set(['logo-design', 'motion']), new Set(['motion'])]) {
+    assert.equal(logoFirst(ts, tags), ts, 'every other filter is unchanged')
+  }
+})
+
+// US-3 W2b (11-10, Nathan): every group type opens on the directory; an admat
+// set is ONE cycling tile, built like a sequence.
+const ADMAT_WORLDS = [{ projectId: 'p-jam', slug: 'jamback', title: 'Jamback', collection: 'Jamback', clientSlug: 'jamback' }]
+const JAM = { clientSlug: 'jamback', projectId: 'p-jam' }
+const admatSet = (n, extra = {}) =>
+  Array.from({ length: n }, (_, i) =>
+    asset(`flyer-${String(i).padStart(2, '0')}`, 'jamback', {
+      ...JAM,
+      mediaType: 'brand-deck',
+      displayGroup: 'tour-admats',
+      brandDeckOrder: n - i, // the authored order runs against orderRank
+      services: tag('promo', ...(i === 3 ? ['tour-art'] : [])),
+      ...img(1080, 1350),
+      ...extra,
+    })
+  )
+const jamTiles = (assets) =>
+  buildDirectoryTiles({ assets, worlds: ADMAT_WORLDS, clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }] })
+
+test('admat set - 16 stills are one cycling tile, capped at SEQUENCE_MAX_FRAMES, in brandDeckOrder', () => {
+  rank = 0
+  const flyers = admatSet(16)
+  const ts = jamTiles(flyers)
+  assert.equal(ts.length, 1, 'one tile for the whole set')
+  const [tile] = ts
+  assert.equal(tile._id, 'admat:jamback:p-jam:tour-admats', 'lane:client:project:displayGroup')
+  assert.equal(tile.frames.length, SEQUENCE_MAX_FRAMES, 'the house cap')
+  assert.deepEqual(
+    tile.frames.map((f) => f._id),
+    [...flyers].sort((a, b) => a.brandDeckOrder - b.brandDeckOrder).slice(0, SEQUENCE_MAX_FRAMES).map((f) => f._id),
+    'brandDeckOrder, not orderRank'
+  )
+  assert.equal(tile.imageUrl, tile.frames[0].imageUrl, 'the lead is frame 0, so one-image consumers keep working')
+  assert.equal(tile.sequenceRatio, 1080 / 1350)
+})
+
+test('admat set - filters, tags, client coverage and the link read the set as the deck tile did', () => {
+  rank = 0
+  const ts = jamTiles(admatSet(16))
+  const [tile] = ts
+  assert.equal(tile.client, 'jamback')
+  assert.deepEqual(tile.services, ['promo', 'tour-art'], "the group's services, unioned")
+  assert.equal(tile.href, '/work/jamback')
+  assert.equal(tile.label, 'Jamback')
+  assert.ok(matchesFilter(tile, { tags: new Set(['tour-art']), coverage: null }), 'a tag on one flyer filters the set in')
+  assert.ok(!matchesFilter(tile, { tags: new Set(['branding']), coverage: null }))
+  assert.ok(matchesFilter(tile, { tags: new Set(), coverage: new Set(['jamback']) }))
+  assert.ok(!matchesFilter(tile, { tags: new Set(), coverage: new Set(['coco']) }))
+  assert.deepEqual([...tagPresence(ts, null).any].sort(), ['promo', 'tour-art'])
+  // The deck tile it replaces: same client, services, link (the deck face is a page, the set cycles them).
+  rank = 0
+  const asDeck = jamTiles(admatSet(16, { displayGroup: 'tour-deck' }))[0]
+  assert.equal(asDeck.mediaType, 'brand-deck')
+  assert.equal(asDeck.frames, undefined, 'a deck is still a face, not a cycle')
+  for (const k of ['client', 'services', 'href', 'label']) assert.deepEqual(tile[k], asDeck[k], k)
+})
+
+test('admat set - a pre-11-10 brand-deck with no groupType reads the same as one marked admat', () => {
+  rank = 0
+  const inferred = jamTiles(admatSet(5))[0]
+  rank = 0
+  const marked = jamTiles(admatSet(5, { groupType: 'admat', mediaType: 'static_4x5', displayGroup: 'tour-flyers' }))[0]
+  assert.equal(inferred.frames.length, 5)
+  assert.deepEqual(inferred.frames.map((f) => f._id), marked.frames.map((f) => f._id))
+  assert.equal(marked._id, 'admat:jamback:p-jam:tour-flyers', 'the stored type alone makes the set, whatever the displayGroup')
+})
+
+const motionFlyer = (id, order, extra = {}) =>
+  asset(id, 'jamback', {
+    ...JAM, mediaType: 'brand-deck', displayGroup: 'tour-admats', brandDeckOrder: order,
+    imageUrl: undefined, imageDimensions: undefined, playbackId: `pb-${id}`, videoAspectRatio: '4:5', videoDuration: 20,
+    ...extra,
+  })
+
+test('admat set - an animated flyer is a frame of the set, carrying its clip and length; a set of one is a plain tile', () => {
+  rank = 0
+  const ts = jamTiles([...admatSet(3), motionFlyer('flyer-motion', 99)])
+  assert.equal(ts.length, 1, 'the whole set is one tile, the animated flyer inside it')
+  const [tile] = ts
+  assert.deepEqual(tile.frames.map((f) => f._id), ['flyer-02', 'flyer-01', 'flyer-00', 'flyer-motion'], 'brandDeckOrder')
+  const clipFrame = tile.frames[3]
+  assert.equal(clipFrame.playbackId, 'pb-flyer-motion')
+  assert.equal(clipFrame.videoDuration, 20, "the beats it holds come from the clip's own length")
+  assert.equal(clipFrame.imageUrl, undefined)
+  assert.ok(tile.frames.slice(0, 3).every((f) => f.playbackId === undefined && f.videoDuration === undefined), 'a still carries no length')
+  // A motion flyer leading the set: the tile's own face is frame 0, but the frames own the players.
+  rank = 0
+  const led = jamTiles([...admatSet(2), motionFlyer('lead', -1)])[0]
+  assert.equal(led.frames[0]._id, 'lead')
+  assert.equal(led.frames.length, 3)
+  rank = 0
+  const solo = jamTiles(admatSet(1))
+  assert.deepEqual(ids(solo), ['flyer-00'])
+  assert.ok(!solo[0].frames)
+  rank = 0
+  const soloClip = jamTiles([motionFlyer('only', 1)])
+  assert.ok(!soloClip[0].frames && soloClip[0].playbackId === 'pb-only', 'one animated flyer is a plain video tile')
+})
+
+test('admat set - HHS 2024-2025 (10 stills + 23 animated) is one tile, at most SEQUENCE_MAX_FRAMES frames', () => {
+  rank = 0
+  const stills = admatSet(10)
+  const clips = Array.from({ length: 23 }, (_, i) => motionFlyer(`clip-${String(i).padStart(2, '0')}`, 100 + i))
+  const [tile, ...rest] = jamTiles([...stills, ...clips])
+  assert.equal(rest.length, 0)
+  assert.equal(tile.frames.length, SEQUENCE_MAX_FRAMES)
+  assert.equal(tile.frames.filter((f) => f.playbackId).length, SEQUENCE_MAX_FRAMES - 10, 'the stills lead, the clips fill what is left')
+  assert.ok(tile.frames.every((f) => f.playbackId ? f.videoDuration === 20 : !f.videoDuration))
+})
+
+// US-4 (11-11, Nathan): visuals and live-footage sets are ONE tile each (the
+// face = the first member, as a carousel's); merch stills cycle like a sequence.
+test('US-4 sets - visuals and live-footage are one tile per set, merch stills one cycling tile; a set of one is a plain tile', () => {
+  rank = 0
+  const member = (id, groupType, displayGroup, extra = {}) => asset(id, 'jamback', { ...JAM, groupType, displayGroup, ...img(1600, 900), ...extra })
+  const ts = jamTiles([
+    member('vis-1', 'visuals', 'loops'),
+    member('vis-2', 'visuals', 'loops'),
+    member('vis-3', 'visuals', 'loops'),
+    member('lf-1', 'live-footage', 'show', { ...img(1080, 1350) }),
+    member('lf-2', 'live-footage', 'show'),
+    member('merch-1', 'merch', 'tees', { ...img(1080, 1350) }),
+    member('merch-2', 'merch', 'tees', { ...img(1080, 1350) }),
+    member('merch-3', 'merch', 'tees', { ...img(1080, 1350) }),
+    member('vis-solo', 'visuals', 'solo-loops'),
+    member('lf-solo', 'live-footage', 'solo-show'),
+  ])
+  // a set's tile wears its first member's id (as a carousel's does); a cycler gets lane:client:project:group
+  assert.deepEqual(ids(ts), ['vis-1', 'lf-1', 'sequence:jamback:p-jam:tees', 'vis-solo', 'lf-solo'])
+  const byId = Object.fromEntries(ts.map((t) => [t._id, t]))
+  // the face is the first member: its picture, no cycle
+  assert.equal(byId['vis-1'].imageUrl, 'https://cdn.example.invalid/1600x900.jpg')
+  assert.equal(byId['vis-1'].frames, undefined)
+  assert.equal(byId['lf-1'].frames, undefined)
+  assert.equal(byId['lf-1'].imageUrl, 'https://cdn.example.invalid/1080x1350.jpg')
+  // merch stills cut through their frames in orderRank order
+  assert.deepEqual(byId['sequence:jamback:p-jam:tees'].frames.map((f) => f._id), ['merch-1', 'merch-2', 'merch-3'])
+  // a set of one is a plain tile
+  assert.equal(byId['vis-solo'].frames, undefined)
+  assert.equal(byId['lf-solo'].frames, undefined)
+  // every tile still links to its project page
+  assert.ok(ts.every((t) => t.href === '/work/jamback'))
+  // NC: two sets with the same displayGroup under different clients stay apart
+  rank = 0
+  const split = buildDirectoryTiles({
+    assets: [member('a-1', 'visuals', 'loops'), member('a-2', 'visuals', 'loops'), asset('b-1', 'bellaire', { groupType: 'visuals', displayGroup: 'loops' }), asset('b-2', 'bellaire', { groupType: 'visuals', displayGroup: 'loops' })],
+    worlds: ADMAT_WORLDS,
+    clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }, { name: 'Bellaire', slug: 'bellaire', umbrellas: null }],
+  })
+  assert.deepEqual(ids(split), ['a-1', 'b-1'])
+})
+
+// US-5 (11-11, Nathan): "the directory should flip through the contents of the set" — a
+// mockups set is ONE tile that cycles its members in orderRank (the sequence lane); a set
+// of one is plain. A flyer progression is not (Nathan 11-16: "display all assets as their
+// own"): each flyer is a tile of its own, an animated one playing as a video tile.
+test('US-5 sets - a mockups set is one tile that flips through its members; a flyer progression is one tile per flyer', () => {
+  rank = 0
+  const member = (id, groupType, displayGroup, extra = {}) => asset(id, 'jamback', { ...JAM, groupType, displayGroup, ...img(1080, 1350), ...extra })
+  const ts = jamTiles([
+    member('mk-1', 'mockups', 'billboards'),
+    member('mk-2', 'mockups', 'billboards', { ...img(1600, 900) }),
+    member('mk-3', 'mockups', 'billboards'),
+    member('fp-1', 'flyer-progression', 'rollout'),
+    asset('fp-2', 'jamback', { ...JAM, groupType: 'flyer-progression', displayGroup: 'rollout', imageUrl: undefined, imageDimensions: undefined, playbackId: 'pb-fp-2', videoAspectRatio: '4:5' }),
+    member('fp-3', 'flyer-progression', 'rollout'),
+    member('mk-solo', 'mockups', 'solo-mock'),
+  ])
+  assert.equal(ts.length, 5)
+  const [mk, fp1, fp2, fp3, solo] = ts
+  assert.deepEqual(ids(mk.frames), ['mk-1', 'mk-2', 'mk-3'], 'the mockups set flips in orderRank')
+  assert.deepEqual(ids([fp1, fp2, fp3]), ['fp-1', 'fp-2', 'fp-3'], 'the flyers are tiles in orderRank')
+  for (const t of [fp1, fp2, fp3]) assert.equal(t.frames, undefined, 'a flyer tile is plain, no cycling')
+  assert.equal(fp2.playbackId, 'pb-fp-2', 'the animated flyer is a video tile')
+  assert.equal(mk.sequenceRatio, 0.8, 'mixed aspects: the least-cropping member ratio (two 4:5 beat one 16:9)')
+  assert.equal(mk.imageUrl, 'https://cdn.example.invalid/1080x1350.jpg') // the first frame shows first
+  assert.equal(solo._id, 'mk-solo')
+  assert.equal(solo.frames, undefined, 'a set of one is a plain tile')
+  for (const t of ts) assert.equal(t.href, '/work/jamback')
+  // NC: a mockups set on another client stays its own tile
+  rank = 0
+  const split = buildDirectoryTiles({
+    assets: [member('a-1', 'mockups', 'billboards'), member('a-2', 'mockups', 'billboards'), asset('b-1', 'bellaire', { groupType: 'mockups', displayGroup: 'billboards' }), asset('b-2', 'bellaire', { groupType: 'mockups', displayGroup: 'billboards' })],
+    worlds: ADMAT_WORLDS,
+    clients: [{ name: 'Jamback', slug: 'jamback', umbrellas: null }, { name: 'Bellaire', slug: 'bellaire', umbrellas: null }],
+  })
+  assert.deepEqual(split.map((t) => ids(t.frames)), [['a-1', 'a-2'], ['b-1', 'b-2']])
+})
+
+// SQ-73: a showcase video flagged splitIntoThirds is three tiles, one per third.
+const thirdsVideo = (id, extra = {}) =>
+  asset(id, 'jamback', {
+    ...JAM, mediaType: 'motion_9x16', services: tag('promo', 'motion'),
+    imageUrl: undefined, imageDimensions: undefined, playbackId: `pb-${id}`, videoAspectRatio: '9:16',
+    splitIntoThirds: true, videoDuration: 46.722633,
+    ...extra,
+  })
+
+test('thirds - a flagged showcase video is three tiles whose ranges touch and cover the duration, sharing the whole tile data', () => {
+  rank = 0
+  const ts = jamTiles([asset('before', 'jamback', JAM), thirdsVideo('vid'), asset('after', 'jamback', JAM)])
+  assert.deepEqual(ids(ts), ['before', 'vid~1of3', 'vid~2of3', 'vid~3of3', 'after'], 'adjacent, in the build order')
+  const parts = ts.slice(1, 4)
+  assert.deepEqual(parts.map((t) => t.chunk.index), [0, 1, 2])
+  assert.ok(parts.every((t) => t.chunk.count === 3 && t.chunk.of === 'vid' && t.playbackId === 'pb-vid'))
+  assert.equal(parts[0].chunk.start, 0)
+  assert.equal(parts[2].chunk.end, 46.722633)
+  parts.forEach((t, k) => k && assert.equal(t.chunk.start, parts[k - 1].chunk.end, 'each third starts where the last ends'))
+  for (const k of ['client', 'services', 'href', 'label', 'fit', 'mediaType', 'videoAspectRatio']) {
+    assert.deepEqual(parts[1][k], parts[0][k], k)
+    assert.deepEqual(parts[2][k], parts[0][k], k)
+  }
+  assert.equal(parts[0].href, '/work/jamback')
+  assert.deepEqual(parts[0].services, ['promo', 'motion'])
+  assert.ok(ts.every((t) => !t.frames), 'none of them cycles')
+  assert.equal(new Set(ids(ts)).size, ts.length, 'DirectoryGrid keys tiles by _id: every id is its own')
+  assert.ok(!ts.some((t) => 'videoDuration' in t || 'splitIntoThirds' in t), 'tiles carry the slim face plus chunk only')
+})
+
+// the first orderTiles, which dealt single tiles: the reference a list with no split video must match
+function singleTileOrder(tiles, mode, seed) {
+  if (mode === 'shuffle') {
+    const out = [...tiles]
+    let a = seed >>> 0
+    const rand = () => {
+      a = (a + 0x6d2b79f5) >>> 0
+      let t = a
+      t = Math.imul(t ^ (t >>> 15), t | 1)
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1))
+      ;[out[i], out[j]] = [out[j], out[i]]
+    }
+    return out
+  }
+  const queues = new Map()
+  for (const t of tiles) {
+    if (!queues.has(t.client)) queues.set(t.client, [])
+    queues.get(t.client).push(t)
+  }
+  const out = []
+  for (let k = 0; out.length < tiles.length; k++) {
+    for (const q of queues.values()) if (k < q.length) out.push(q[k])
+  }
+  return out
+}
+
+// two clients, two split videos back to back in one of them (their thirds must not run together)
+const thirdsDeal = () => {
+  rank = 0
+  const mk = (id, client, extra = {}) => asset(id, client, { ...JAM, ...extra })
+  const split = (id, client) =>
+    [0, 1, 2].map((i) => ({ ...mk(`${id}~${i + 1}of3`, client), chunk: { of: id, index: i, count: 3 } }))
+  return [
+    mk('a-1', 'jamback'), ...split('vid-x', 'jamback'), ...split('vid-y', 'jamback'), mk('a-2', 'jamback'),
+    mk('b-1', 'bellaire'), mk('b-2', 'bellaire'), ...split('vid-z', 'bellaire'), mk('b-3', 'bellaire'),
+  ].map((t) => ({ ...t, client: t.clientSlug }))
+}
+
+// every video's thirds sit adjacent and in order (1of3, 2of3, 3of3)
+const keptTogether = (ts) => {
+  const out = ids(ts)
+  return ['vid-x', 'vid-y', 'vid-z'].every((v) => {
+    const at = out.indexOf(`${v}~1of3`)
+    return at >= 0 && out[at + 1] === `${v}~2of3` && out[at + 2] === `${v}~3of3`
+  })
+}
+
+test('thirds - a split video stays together, in order, under shuffle (many seeds) and mix', () => {
+  const ts = thirdsDeal()
+  assert.equal(orderTiles(ts, 'project'), ts, "'project' keeps them side by side")
+  const moved = new Set()
+  for (let seed = 0; seed < 200; seed++) {
+    const out = orderTiles(ts, 'shuffle', seed)
+    assert.deepEqual([...ids(out)].sort(), [...ids(ts)].sort(), `seed ${seed}: the same tiles`)
+    assert.ok(keptTogether(out), `seed ${seed}: thirds adjacent and in order`)
+    moved.add(ids(out).join())
+  }
+  assert.ok(moved.size > 50, 'the units still scatter across seeds')
+  const mixed = orderTiles(ts, 'mix')
+  assert.deepEqual([...ids(mixed)].sort(), [...ids(ts)].sort(), 'mix: the same tiles')
+  assert.ok(keptTogether(mixed), 'mix: thirds adjacent and in order')
+})
+
+test('thirds NC - with no split video, orderTiles gives the old single-tile order for every seed', () => {
+  const ts = tiles()
+  assert.ok(!ts.some((t) => t.chunk))
+  for (let seed = 0; seed < 25; seed++) {
+    assert.deepEqual(ids(orderTiles(ts, 'shuffle', seed)), ids(singleTileOrder(ts, 'shuffle', seed)), `shuffle seed ${seed}`)
+  }
+  assert.deepEqual(ids(orderTiles(ts, 'mix')), ids(singleTileOrder(ts, 'mix')), 'mix')
+})
+
+test('thirds NC - an unflagged video, or a flagged one with no usable duration, is one tile as before', () => {
+  rank = 0
+  for (const extra of [{ splitIntoThirds: undefined }, { splitIntoThirds: false }, { videoDuration: undefined }, { videoDuration: null }, { videoDuration: 0 }]) {
+    const ts = jamTiles([thirdsVideo('vid', extra)])
+    assert.deepEqual(ids(ts), ['vid'], JSON.stringify(extra))
+    assert.equal(ts[0].chunk, undefined)
+    assert.equal(ts[0].playbackId, 'pb-vid')
+  }
+  // a flagged still is not a video: nothing to split
+  assert.deepEqual(ids(jamTiles([asset('still', 'jamback', { ...JAM, splitIntoThirds: true, videoDuration: 30 })])), ['still'])
+})
+
+test('thirds NC - a flagged video inside an admat or sequence set stays a frame of that one tile', () => {
+  rank = 0
+  const admat = jamTiles([...admatSet(3), thirdsVideo('flagged-flyer', { mediaType: 'brand-deck', displayGroup: 'tour-admats', brandDeckOrder: 99 })])
+  assert.equal(admat.length, 1, 'the admat set stays one tile')
+  assert.deepEqual(ids(admat[0].frames).at(-1), 'flagged-flyer')
+  assert.equal(admat[0].chunk, undefined)
+  assert.ok(admat[0].frames.every((f) => !f.chunk))
+  rank = 0
+  const seq = jamTiles([
+    asset('mk-1', 'jamback', { ...JAM, groupType: 'mockups', displayGroup: 'billboards' }),
+    thirdsVideo('mk-vid', { groupType: 'mockups', displayGroup: 'billboards' }),
+  ])
+  assert.equal(seq.length, 1, 'the mockups set stays one tile')
+  assert.deepEqual(ids(seq[0].frames), ['mk-1', 'mk-vid'])
+  assert.equal(seq[0].chunk, undefined)
+  assert.ok(seq[0].frames.every((f) => !f.chunk))
+})
+
+test('album art stays one tile per cover; decks, carousels and banners keep their grouped tile', () => {
+  rank = 0
+  const covers = [0, 1, 2].map((i) => asset(`cover-${i}`, 'jamback', { ...JAM, mediaType: 'album-art' }))
+  const typed = [
+    ...[0, 1].map((i) => asset(`d${i}`, 'jamback', { ...JAM, groupType: 'deck', mediaType: 'brand-deck', displayGroup: 'guide', brandDeckOrder: 2 - i })),
+    ...[0, 1].map((i) => asset(`c${i}`, 'jamback', { ...JAM, groupType: 'carousel', mediaType: 'carousel-slide', displayGroup: 'slides' })),
+    ...[0, 1].map((i) => asset(`b${i}`, 'jamback', { ...JAM, groupType: 'banner', displayGroup: 'banners' })),
+  ]
+  const ts = jamTiles([...covers, ...typed])
+  assert.deepEqual(ids(ts.filter((t) => t._id.startsWith('cover-'))), ['cover-0', 'cover-1', 'cover-2'], 'one tile per cover')
+  assert.ok(ts.every((t) => !t.frames), 'no cycler among them')
+  assert.deepEqual(ids(ts.filter((t) => !t._id.startsWith('cover-'))), ['d1', 'c0', 'b0'], 'a tile per set: deck face = lowest brandDeckOrder, carousel and banner = first member')
+})
+
+// ── motion/video: the code-side parent tag (SQ-67) ──
+
+const LIVE_TAGS = [
+  'branding', 'merch-design', 'live-visuals', 'album-art', 'release-packs', 'event-tour-creative', 'illustration',
+  'character-design', '2d-animation', '3d-animation', 'logo-design', 'web-design', 'audio-reactive-media', 'promo-video', 'vfx', 'generative-media',
+].map((slug) => ({ name: slug, slug }))
+const MOTION = ['2d-animation', '3d-animation', 'live-visuals', 'promo-video']
+const motionTiles = [
+  { client: 'coco', services: ['2d-animation'] },
+  { client: 'coco', services: ['3d-animation', 'branding'] },
+  { client: 'coco', services: ['live-visuals'] },
+  { client: 'coco', services: ['promo-video'] },
+  { client: 'coco', services: ['album-art'] },
+]
+const motionData = { tags: LIVE_TAGS, clients: [{ slug: 'coco' }], tiles: motionTiles }
+const shownUnder = (tags) => motionTiles.filter((t) => matchesFilter(t, { tags: effectiveTags(tags), coverage: null }))
+
+test('motion/video: the parent takes the earliest child slot and the children follow it, abbreviated 2D / 3D', () => {
+  const grouped = withGroups(LIVE_TAGS)
+  const slugs = grouped.map((t) => t.slug)
+  assert.equal(slugs.indexOf('motion-video'), LIVE_TAGS.findIndex((t) => t.slug === 'live-visuals'), 'the parent sits where live-visuals (the earliest child) was')
+  assert.deepEqual(slugs.slice(slugs.indexOf('motion-video') + 1, slugs.indexOf('motion-video') + 5), ['2d-animation', '3d-animation', 'live-visuals', 'promo-video'])
+  assert.equal(slugs.length, LIVE_TAGS.length + 1, 'one parent added, no tag lost or doubled')
+  const byName = Object.fromEntries(grouped.map((t) => [t.slug, t]))
+  assert.equal(byName['motion-video'].name, 'Motion/Video')
+  assert.equal(byName['2d-animation'].name, '2D')
+  assert.equal(byName['3d-animation'].name, '3D')
+  assert.equal(byName['live-visuals'].name, 'live-visuals', 'a child the group does not abbreviate keeps its stored name')
+  assert.ok(MOTION.every((s) => byName[s].child === 'motion-video'), 'every child names its parent')
+  assert.equal(byName['branding'].child, undefined)
+  // a retired or missing child: the rest still group; none at all: no parent
+  assert.ok(!withGroups(LIVE_TAGS.filter((t) => t.slug !== 'promo-video')).some((t) => t.slug === 'promo-video'))
+  assert.deepEqual(withGroups(tag('branding')).map((t) => t.slug), ['branding'])
+})
+
+test('motion/video: the parent alone is the union of its children, a ticked child narrows it', () => {
+  assert.deepEqual(shownUnder(['motion-video']).length, 4, 'the four motion tiles, not the album art')
+  assert.deepEqual([...effectiveTags(['motion-video'])].sort(), [...MOTION].sort())
+  assert.equal(shownUnder(['motion-video', '2d-animation']).length, 1, 'the 2D tile only')
+  assert.deepEqual([...effectiveTags(['motion-video', '2d-animation', '3d-animation'])].sort(), ['2d-animation', '3d-animation'])
+  assert.equal(shownUnder(['album-art', 'motion-video']).length, 5, 'ticks OR together with other tags')
+  assert.equal(shownUnder([]).length, 5, 'nothing ticked is every tile')
+  assert.equal(shownUnder(['promo-video']).length, 1, 'a bare child is its own tag')
+  assert.deepEqual([...clientPresence(motionTiles, new Set(['motion-video']), [{ slug: 'coco', umbrellas: null }])], ['coco'], 'the clients tab reads the parent as its children')
+})
+
+test('motion/video: toggling the parent off takes its children with it', () => {
+  assert.deepEqual(toggleTag(['album-art'], 'motion-video'), ['album-art', 'motion-video'])
+  assert.deepEqual(toggleTag(['album-art', 'motion-video', '2d-animation', 'promo-video'], 'motion-video'), ['album-art'])
+  assert.deepEqual(toggleTag(['motion-video', '2d-animation'], '2d-animation'), ['motion-video'], 'a child off leaves the parent')
+  assert.deepEqual(toggleTag(['motion-video'], '3d-animation'), ['motion-video', '3d-animation'])
+  assert.deepEqual(openGroups(['album-art', 'motion-video']), ['motion-video'])
+  assert.deepEqual(openGroups(['album-art']), [])
+})
+
+test('motion/video: a deep link to a child opens the parent; the URL carries the parent as its own key', () => {
+  assert.deepEqual([...withParents(['promo-video'])].sort(), ['motion-video', 'promo-video'])
+  assert.deepEqual(sanitizeFilter(motionData, ['promo-video'], null), { tags: ['motion-video', 'promo-video'], client: null })
+  assert.deepEqual(sanitizeFilter(motionData, ['motion-video', 'promo-video', '2d-animation'], null), {
+    tags: ['motion-video', '2d-animation', 'promo-video'],
+    client: null,
+  }, 'Studio order: parent, then children in the group order')
+  assert.deepEqual(sanitizeFilter(motionData, ['motion-video'], null), { tags: ['motion-video'], client: null })
+  const next = sanitizeFilter(motionData, ['motion-video', '3d-animation'], null)
+  assert.equal(filterSearch('', next.tags, null), '?tag=motion-video,3d-animation')
+  assert.deepEqual(readFilter('?tag=motion-video,3d-animation').tags, next.tags, 'what it writes reads back')
+  // character-design present (the doc not yet deleted) or absent changes nothing about the group
+  const without = { ...motionData, tags: LIVE_TAGS.filter((t) => t.slug !== 'character-design') }
+  assert.deepEqual(sanitizeFilter(without, ['promo-video'], null), sanitizeFilter(motionData, ['promo-video'], null))
+})
+
+test('motion/video: the parent hides only when every child is empty, and a client that empties them dims it', () => {
+  const some = tagPresence([{ client: 'coco', services: ['3d-animation'] }], null)
+  assert.ok(some.any.has('motion-video') && some.any.has('3d-animation'))
+  assert.ok(!some.any.has('2d-animation'), 'an empty child stays hidden')
+  const none = tagPresence([{ client: 'coco', services: ['branding'] }], null)
+  assert.ok(!none.any.has('motion-video'))
+  assert.deepEqual(sanitizeFilter({ ...motionData, tiles: [{ client: 'coco', services: ['branding'] }] }, ['motion-video'], null), { tags: [], client: null }, 'no motion media at all: the tick drops')
+  const other = tagPresence(motionTiles, new Set(['bellaire']))
+  assert.ok(other.any.has('motion-video') && !other.inClient.has('motion-video'))
+})
+
+test('SERVICE_TAGS (the inquiry form) keeps the full names, has no Character Design and no Motion/Video parent', () => {
+  assert.ok(!SERVICE_TAGS.some((n) => /character design/i.test(n)))
+  assert.ok(!SERVICE_TAGS.some((n) => /motion\s*\/\s*video/i.test(n)))
+  // 2D/3D Motion were 2D/3D Animation until 11-13 (Nathan); their Studio slugs kept the old words.
+  for (const n of ['2D Motion', '3D Motion', 'Live Visuals', 'Promo Video']) assert.ok(SERVICE_TAGS.includes(n), n)
+  assert.ok(!SERVICE_TAGS.some((n) => /animation/i.test(n)))
+})

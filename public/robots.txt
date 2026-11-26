@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /studio
+Disallow: /lab/
+Disallow: /specimen
+Disallow: /process
+
+Sitemap: https://smallworld.media/sitemap-index.xml

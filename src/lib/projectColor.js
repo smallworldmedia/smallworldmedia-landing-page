@@ -1,0 +1,149 @@
+/**
+ * projectColor — per-project accent helpers.
+ *
+ * A project can carry a `projectColor` (and optional `projectColorSecondary`).
+ * Surfaces read it via the CSS custom property `--project-color`, always with
+ * `var(--project-color, var(--color-electric-blue))` so an uncolored project
+ * renders in brand blue exactly as before.
+ *
+ * `projectInk()` derives a readable TEXT colour for content that sits *on* the
+ * project colour: a bright accent (e.g. HHS lime #84F104) needs near-black ink;
+ * a dark accent (e.g. COCO red #AC232F) needs white. Threshold uses the classic
+ * YIQ perceived-brightness formula — cheap, stable, and good enough for a
+ * two-way light/dark ink flip.
+ */
+
+export const INK_DARK = '#0a0a0a'; // --color-near-black
+export const INK_LIGHT = '#ffffff';
+const YIQ_THRESHOLD = 140; // >= → treat accent as "light" → dark ink
+
+function parseHex(hex) {
+  if (typeof hex !== 'string') return null;
+  let h = hex.trim().replace(/^#/, '');
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+/** Perceived brightness (YIQ), 0–255. null for an unparseable colour. */
+export function brightness(hex) {
+  const c = parseHex(hex);
+  if (!c) return null;
+  return (c.r * 299 + c.g * 587 + c.b * 114) / 1000;
+}
+
+/**
+ * Readable ink for text placed ON `hex`. Returns undefined when `hex` is
+ * missing/invalid so callers can leave the CSS var unset (→ inherit / fallback).
+ */
+export function projectInk(hex) {
+  const y = brightness(hex);
+  if (y == null) return undefined;
+  return y >= YIQ_THRESHOLD ? INK_DARK : INK_LIGHT;
+}
+
+/** WCAG relative luminance, 0–1 (sRGB → linear, Rec. 709 weights). null when unparseable. */
+export function relLum(hex) {
+  const c = parseHex(hex);
+  if (!c) return null;
+  const lin = (v) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+}
+
+/**
+ * 10-07 (w3): ink for the /process annotation CHIPS only — the higher
+ * CONTRAST of the two inks on `hex` (WCAG ratio), not the YIQ split. YIQ put
+ * white at 2.83–3.97:1 on four pool colours (#19A8C1 #6688B6 #FE2B09
+ * #FF090A), each of which clears AA in near-black. projectInk stays as it is:
+ * /work's fpDrum reads it (its identical failures are Nathan's call, not this
+ * helper's). 0.053 = L(#0a0a0a) + 0.05. undefined when unparseable.
+ */
+export function chipInk(hex) {
+  const L = relLum(hex);
+  if (L == null) return undefined;
+  return (L + 0.05) / 0.053 >= 1.05 / (L + 0.05) ? INK_DARK : INK_LIGHT;
+}
+
+/** True when the accent is light enough to need dark ink / a dark globe. */
+export function accentIsLight(hex) {
+  const y = brightness(hex);
+  return y != null && y >= YIQ_THRESHOLD;
+}
+
+/**
+ * The accent rendered AS text on a light/white surface (enter_world label,
+ * service-tag pills): a light accent is unreadable there, so fall back to brand
+ * black; a dark-enough accent keeps its hue. undefined when unparseable.
+ */
+export function accentText(hex) {
+  const y = brightness(hex);
+  if (y == null) return undefined;
+  return y >= YIQ_THRESHOLD ? INK_DARK : hex;
+}
+
+/**
+ * The accent rendered AS ink on a BLACK surface (the /work service tags'
+ * persistent brand-black fill, 08-27): a LIGHT accent reads beautifully on
+ * black and keeps its hue; a dark accent would vanish, so fall back to white.
+ * The polar twin of accentText(). undefined when unparseable.
+ */
+export function accentOnBlack(hex) {
+  const y = brightness(hex);
+  if (y == null) return undefined;
+  return y >= YIQ_THRESHOLD ? hex : INK_LIGHT;
+}
+
+/**
+ * The distinct project colours, first-seen order — case-insensitive, with
+ * missing and unparseable values dropped. Two projects for one client share
+ * a colour (COCO 2024/2026), and a pool dealt in modulo order should not
+ * deal the same colour twice per lap. /process chips (10-07).
+ */
+export function colorPool(colors) {
+  const seen = new Set();
+  const pool = [];
+  for (const c of colors ?? []) {
+    if (brightness(c) == null) continue;
+    const hex = c.trim();
+    const key = hex.toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pool.push(hex);
+  }
+  return pool;
+}
+
+/**
+ * Build the inline style vars for a project accent. Any missing input is left
+ * out (value `undefined`) so the CSS fallback chain stays intact.
+ *   --project-color          accent (bg fills, gradient, grid)
+ *   --project-color-2        secondary accent (plumbed; unmapped)
+ *   --project-color-fg       readable ink for text/marks ON the accent
+ *   --project-color-text     the accent used AS text on white (→ black if light)
+ *   --project-color-on-black the accent used AS ink on brand black (→ white if dark)
+ *   --project-globe-filter   flips the white SWM globe dark on a light accent
+ *   --nav-ink-l              ink lightness scalar (1 = white ink, 0 = dark ink)
+ *                            for the nav's perceptual (oklab) cross-fade — see
+ *                            the --nav-ink definition in global.css
+ */
+export function projectColorVars(primary, secondary) {
+  return {
+    '--project-color': primary || undefined,
+    '--project-color-2': secondary || undefined,
+    '--project-color-fg': projectInk(primary),
+    '--project-color-text': accentText(primary),
+    '--project-color-on-black': accentOnBlack(primary),
+    '--project-globe-filter': accentIsLight(primary) ? 'brightness(0)' : undefined,
+    // Scalar twin of --project-color-fg: 1 → white ink (dark accent), 0 → dark
+    // ink (light accent). Interpolated linearly so the nav ink cross-fades
+    // through oklab (perceptually even both ways), not gamma sRGB.
+    '--nav-ink-l': primary ? (accentIsLight(primary) ? 0 : 1) : undefined,
+  };
+}

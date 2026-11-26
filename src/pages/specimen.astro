@@ -13,6 +13,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import '../styles/global.css';
 import '../styles/specimen.css';
 import FontSpecimen from '../components/specimen/FontSpecimen.jsx';
+
+// v1 launch: specimen page disabled — remove this redirect (and the
+// matching forced 302 in netlify.toml) to bring it back.
+return Astro.redirect('/');
 ---
 
 <BaseLayout

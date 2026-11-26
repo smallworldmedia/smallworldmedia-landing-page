@@ -5,7 +5,7 @@
 /* — Font Faces — */
 @font-face {
   font-family: 'PP Neue Montreal';
-  src: url('../assets/fonts/PPNeueMontreal-Book.otf') format('opentype');
+  src: url('../assets/fonts/PPNeueMontreal-Book.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -13,7 +13,7 @@
 
 @font-face {
   font-family: 'PP Neue Montreal';
-  src: url('../assets/fonts/PPNeueMontreal-Medium.otf') format('opentype');
+  src: url('../assets/fonts/PPNeueMontreal-Medium.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -21,7 +21,7 @@
 
 @font-face {
   font-family: 'PP Neue Montreal';
-  src: url('../assets/fonts/PPNeueMontreal-Bold.otf') format('opentype');
+  src: url('../assets/fonts/PPNeueMontreal-Bold.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -29,7 +29,7 @@
 
 @font-face {
   font-family: 'PP Neue Montreal';
-  src: url('../assets/fonts/PPNeueMontreal-Thin.otf') format('opentype');
+  src: url('../assets/fonts/PPNeueMontreal-Thin.woff2') format('woff2');
   font-weight: 100;
   font-style: normal;
   font-display: swap;
@@ -46,13 +46,36 @@
 
 @font-face {
   font-family: 'OT Neue Montreal Squeezed';
+  src: url('../assets/fonts/OTNeueMontreal-SemiBoldSqueezed.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'OT Neue Montreal Squeezed';
   src: url('../assets/fonts/OTNeueMontreal-BoldExtraSqueezed.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
-/* Iosevka Term Medium — monospace UI text, tag pills, form labels */
+/* Iosevka Term Medium — monospace UI text, tag pills, form labels.
+   A SUBSET of the full family: Basic Latin, Latin-1, Latin Extended-A/B and
+   Additional, combining marks, Greek, general punctuation, super/subscripts,
+   currency, letterlike (™), arrows, math operators, misc technical, box and
+   block drawing, geometric shapes, misc symbols and dingbats — plus the
+   `calt` `ccmp` `locl` `mark` `mkmk` `kern` `liga` `clig` `rlig` `rclt`
+   features and the hinting the original carried (the page sets no
+   font-feature-settings; the only variant is tabular-nums, which the
+   monospace face does not need). ~125 KB against the 1.5 MB full file, so the
+   VeryHigh request on every page is cheap. A codepoint outside the subset
+   falls through --font-mono to Geist Mono / ui-monospace, the same path any
+   missing glyph took before. scripts/test/font-coverage.test.mjs holds the
+   required set. Re-subset from the full file at git 1244f4a:
+     pyftsubset IosevkaTermMedium.woff2 --unicodes=<ranges above> --flavor=woff2 \
+       --layout-features=calt,ccmp,locl,mark,mkmk,kern,liga,clig,rlig,rclt \
+       --desubroutinize --notdef-glyph --notdef-outline --name-IDs='*' */
 @font-face {
   font-family: 'Iosevka Term';
   src: url('../assets/fonts/IosevkaTermMedium.woff2') format('woff2');
@@ -61,30 +84,185 @@
   font-display: swap;
 }
 
+/* Inter — the UI-stack fallback behind ABC Areal (--font-ui / --font-body),
+   self-hosted (SIL OFL, Inter-OFL.txt beside the files) so no request leaves
+   the origin and no render-blocking stylesheet waits on Google. The two files
+   are the variable latin and latin-ext subsets Google served for
+   `Inter:wght@400;500`; unicode-range loads latin-ext only when a glyph needs
+   it. One variable file carries both weights, declared as the 400-500 range. */
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/Inter-Variable-latin.woff2') format('woff2');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ABC Areal (Dinamo) — THE MAIN SANS, licensed. One variable file carries
+   the whole range the site asks for: wght 400–700 continuous, so 400/500/600
+   and 700 are all real cuts rather than the synthetic 600 PP Neue Montreal
+   was faking. 181 KB for the variable vs 189 KB for three statics, and one
+   request instead of three. No italic face is declared because nothing in the
+   site sets font-style: italic (the delivery's slnt -12..0 axis is there if
+   that changes). Squeezed display text and the mono stack are NOT Areal:
+   Areal ships no condensed width, and the globe's canvas name strips bake
+   --font-display ("OT Neue Montreal Squeezed", nameTicker.js:45), so that
+   face has to stay. */
+@font-face {
+  font-family: 'ABC Areal';
+  src: url('../assets/fonts/ABCArealVariable.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* — Custom Properties — */
 :root {
   /* Colors */
   --color-electric-blue: rgb(0, 0, 255);
+  /* Scheme role tokens (US-7): the four roles brand blue plays as a PAINT.
+     Registered below as <color>, so a scheme change fades them; the values
+     here are today's. scheme.css overrides them per html[data-scheme]. */
+  --scheme-page: var(--color-electric-blue);
+  --scheme-chip: var(--color-electric-blue);
+  --scheme-chip-ink: #ffffff;
+  --scheme-accent-ink: var(--color-electric-blue);
   --color-cream: rgb(250, 250, 250);
   --color-black: #000000;
   --color-blue-link: #0000EE;
   --color-white: #FFFFFF;
   --color-dark-gray: rgb(18, 18, 18);
+  /* Figma bands use near-black on the pure-black page — root-scoped so
+     site-wide consumers (footer bar, np-band) resolve on every route */
+  --color-near-black: #0a0a0a;
+  /* enter_world pulse floor (08-27, Nathan): the CTA now pulses its FILL
+     toward this gray instead of dipping opacity (the grid must never show
+     through the chip). Sits between dark-gray and the mid tones so the dip
+     stays clearly distinct from the brand-black service tags. */
+  --color-dim-gray: rgb(64, 64, 64);
 
-  /* Typography — font stacks */
-  --font-display: 'OT Neue Montreal Squeezed', 'PP Neue Montreal', 'Inter', sans-serif;
-  --font-headline: 'PP Neue Montreal', sans-serif;
+  /* — SWM extended palette (10-08, Nathan) —
+     The house palette BEYOND the brand blue. Pulled by area from Nathan's
+     reference image rather than eyeballed, so these are the picture's actual
+     main colour instances. --color-electric-blue above stays the brand's
+     primary and is untouched; --swm-blue is a second, softer blue the
+     reference leans on, not a restatement of it.
+     The reference's neutrals already exist here — its near-black #030304 is
+     --color-black/--color-near-black and its near-white #FAFCFB is
+     --color-cream — so no neutral is duplicated.
+     Ordered by hue (red -> blue) so a consumer can walk the set as a
+     spectrum; --swm-navy and --swm-periwinkle are supports, outside that
+     walk, because navy all but vanishes on the brand black. */
+  --swm-red: #fd361a;
+  --swm-orange: #fe7701;
+  --swm-yellow: #fbb702;
+  --swm-green: #03a238;
+  --swm-blue: #1556e5;
+  --swm-navy: #0a2577;
+  --swm-periwinkle: #a6bcda;
+
+  /* The `spectrum` colour scheme's remaining palette (US-7, SQ-93), measured
+     from the same reference image (color-ref.png, ribbons on black). The
+     image's dominant green is #077b3e, a deeper green than --swm-green
+     (which keeps its value for the logo ticker). --swm-violet is a stop of
+     ramp A, the centre ribbon's loop. The three ramps are colour-stop LISTS,
+     no direction baked in: a consumer writes linear-gradient(<angle>, var(--swm-ramp-a)).
+       A  the centre ribbon, a closed loop: red, orange, yellow, blue, then
+          through violet and rose back to red.
+       B  blue falling through navy into black (a surface's own colour takes
+          the head of it; scheme.css).
+       C  periwinkle rising to white (a periwinkle surface's hover). */
+  --swm-green-deep: #077b3e;
+  --swm-violet: #7852a4;
+  --swm-ramp-a: #fe3720, #ff7d01, #ffb803, #1858e2, #5c53ba, var(--swm-violet), #9f4f84, #cd4962, #f44041;
+  --swm-ramp-b: #1556e5, #0c44cc, #0c2c8c, #0a2577, #071249, #000000;
+  --swm-ramp-c: #9dc0e3, #ffffff;
+
+  /* The spectrum walk, in hue order — indirected through these so swapping a
+     frame is one line and the keyframes never name a colour directly.
+     --swm-navy and the brand electric-blue are deliberately absent: at
+     1.54:1 and 2.44:1 on the brand black they read as a dropout, not a
+     colour. --swm-blue is the dimmest member that stays (3.49:1); swap in
+     --swm-periwinkle (10.83:1) if frame 5 reads as a gap. */
+  --swm-cycle-1: var(--swm-red);
+  --swm-cycle-2: var(--swm-orange);
+  --swm-cycle-3: var(--swm-yellow);
+  --swm-cycle-4: var(--swm-green);
+  --swm-cycle-5: var(--swm-blue);
+
+  /* House pulse tempo. Root-scoped so ?pulsebpm on <html> reaches every
+     consumer; a half note is 120/bpm s (0.9449s at 127). */
+  --swm-bpm: 127;
+
+  /* Complete palette sweeps inside the CYCLING half note — the colour RATE,
+     SUBDIVIDED OUT OF the tempo above rather than typed beside it, so
+     ?pulsebpm still moves both and the half-note boundary never drifts.
+     10-08 (Nathan): "dial in the rate of the switching between colors while
+     retaining the same BPM… much more rapid, but still have the same pausing
+     intervals". 1 = the original one-sweep-per-pulse (188.98ms a frame);
+     3 = 62.99ms, 15.9Hz.
+     INTEGER ONLY, AND CLAMPED — ClientLogoTicker rounds and clamps 1..5
+     because both failure modes are silent: a fraction lets the gate truncate
+     a sweep mid-palette (at 0.5 only 3 of the 5 colours are ever painted),
+     and 0 does NOT invalidate the calc — the UA clamps the duration to
+     1.8e308s and the walk freezes on red with no error. At 6 a colour gets a
+     single 60Hz refresh and reads as noise rather than a frame. ?pulsereps */
+  --swm-pulse-reps: 3;
+
+  /* Muted text ink (10-08, Nathan: "not enough contrast"). A ROLE token, not
+     a value token: the grey it replaces (--color-dim-gray) is a FILL — the
+     enter_world CTA's pulse floor and a featured-projects background — so
+     lightening that in place would move Nathan's 08-27 CTA bake. Lightness
+     rides a 0..1 dial through color-mix, the --nav-ink idiom, so ?inkmuted
+     slides it without a second hex. */
+  --ink-muted: color-mix(
+    in oklab,
+    var(--color-black),
+    var(--color-white) calc(var(--ink-muted-l, 0.58) * 100%)
+  );
+
+  /* Faint white ink (11-13, Nathan: the /work pager's roster reads "faint
+     white", not the 0.58 grey). The --ink-muted idiom as its OWN role, so
+     --ink-muted (the ticker lead line) does not move. ?inkfaint */
+  --ink-faint: color-mix(
+    in oklab,
+    var(--color-black),
+    var(--color-white) calc(var(--ink-faint-l, 0.9) * 100%)
+  );
+
+  /* Typography — font stacks.
+     ABC Areal is the main sans; PP Neue Montreal stays one step
+     behind it in every chain, so a face that fails to load degrades to the
+     previous house sans rather than to a system font. --font-display keeps the
+     Squeezed face at the front (Areal has no condensed width, and the globe
+     bakes this token into its canvas strips) and --font-mono is untouched. */
+  --font-display: 'OT Neue Montreal Squeezed', 'ABC Areal', 'PP Neue Montreal', sans-serif;
+  --font-headline: 'ABC Areal', 'PP Neue Montreal', sans-serif;
   /* Regular weight — 26.4px headlines */
-  --font-secondary: 'PP Neue Montreal', sans-serif;
+  --font-secondary: 'ABC Areal', 'PP Neue Montreal', sans-serif;
   /* Book weight — 21.6px sub-headings */
   --font-mono: 'Iosevka Term', 'Geist Mono', ui-monospace, monospace;
-  --font-ui: 'Inter', system-ui, sans-serif;
-  --font-body: 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
+  --font-ui: 'ABC Areal', 'Inter', system-ui, sans-serif;
+  --font-body: 'ABC Areal', 'PP Neue Montreal', 'Inter', system-ui, sans-serif;
+
+  /* Typography — font weights */
+  --weight-semi: 600;
+  --weight-medium: 500;
+  /* PP Neue Montreal Medium — the pill emphasis (VISUAL WORLDS) + chip labels */
 
   /* Typography — sizes (rem, base 14px) */
-  --text-headline: 2rem;
-  /* 26.4px */
-  --lh-headline: 2rem;
   --text-secondary: 1.543rem;
   /* 21.6px */
   --lh-secondary: 1.543rem;
@@ -96,6 +274,38 @@
   /* 16px */
   --lh-ui: 1.4rem;
   /* 19.2px */
+  --lh-body: 1.4;
+  /* unitless — body/meta copy at fluid sizes */
+  --text-pill: 1.286rem;
+  /* 18px — the pill/chip line (nav info pill, site tagline + its copyright) */
+  --lh-pill: 1.571rem;
+  /* 22px */
+  --text-menu-item: clamp(2.286rem, 9vw, 3.429rem);
+  /* 11-13: the mobile menu's item size (32px → 9vw → 48px). One token, so
+     .mobile-menu__item and the /work pager's SELECTED name on phones
+     (featured-projects.css, .fp-scale__name ≤768) read the same number. */
+  --text-link: 1.143rem;
+  /* 16px — the LINK tier: nav links, footer links + copyright, and the
+     corner pills' text line (08-27, Nathan: one type tier across the
+     revealed footer; token sweep 08-29 lifted the literals here). */
+  --lh-link: 1.571rem;
+  /* 22px — same line as --lh-pill by design (the 18px pill tier and the
+     16px link tier share one rhythm); separate token so either can move. */
+  --text-drawer-name: 2.4vw;
+  /* The DRAWER tier (11-03): the info drawer's client names (.clients__item)
+     and the Project Directory's filter tags (.filter-tag), one recipe for
+     two consumers. The tokens are shared, not the classes: .clients__header
+     turns sticky on phones. */
+  --lh-drawer-name: 0.8;
+  --text-drawer-head: 0.95vw;
+  /* the drawer's mono header (.clients__header) and the filter's bar */
+
+  /* Typography — tracking */
+  --tracking-tight: -0.02em;
+  --tracking-body: -0.005em;
+  /* the body/chrome micro-tighten (nav links, footer lines, pills) */
+  --tracking-drawer-head: -0.07em;
+  /* the drawer's mono header and the directory filter's bar */
 
   /* Spacing (rem, base 14px) */
   --space-1: 0.143rem;
@@ -111,16 +321,502 @@
   --space-6: 0.857rem;
   /* 12px */
 
+  /* Chrome inset — the shared horizontal hug for nav / mobile menu / footer.
+     One token so they never drift apart; the right edge everywhere adds
+     var(--space-4) scrollbar clearance on top of this.
+     2026-07-16 (NAV-1, Nathan's pick): tightened 16px → 4px — the chrome
+     hugs the viewport. */
+  --nav-inset: var(--space-2);
+  /* 4px */
+
+  /* Chrome RIGHT-edge inset — the scrollbar-aware twin of --nav-inset,
+     shared by everything seated on the viewport's right edge (nav bar,
+     mobile menu bar, footer bar + inner, privacy pill, /process caption).
+     The shell spans 100vw, so a classic scrollbar overlays this edge on
+     scrollable routes; --scrollbar-w is a DEVICE CONSTANT (SiteShell
+     probe), identical on every route, so right-edge chrome both clears
+     the bar AND lands at the same x on every page — scrollbar or not —
+     with no jump between locked and scrollable routes. ONE token so the
+     pill's resting inset and the footer's inner padding can never drift
+     (they are the same edge by construction). */
+  --chrome-right-inset: calc(var(--nav-inset) + max(var(--space-4), var(--scrollbar-w, 0px)));
+
+  /* Footer bottom inset — ONE token for every element seated on the
+     viewport's bottom edge: the tagline pill, the privacy pill, and the
+     links footer's inner bottom padding (the pills' resting insets ARE that
+     padding by construction — a shared token keeps them from drifting).
+     08-29, Nathan: tightened 1.143rem (16px) → 0.857rem (12px) — the
+     footer elements hug the bottom of the viewport. */
+  --footer-bottom-inset: 0.857rem;
+
+  /* Capsule pill skin — the corner pills (.site-tagline__pill /
+     .site-privacy) share ONE black capsule: this padding, --radius-capsule,
+     --color-black flood, the --text-link line. Footer clearances derive
+     from the same knobs (the nav row lifts by --pill-pad-y; the band
+     min-height counts the pill's box). */
+  --pill-pad-y: var(--space-4);
+  /* 8px */
+  --pill-pad-x: var(--space-6);
+  /* 12px */
+
+  /* Pill INK (10-08, Nathan: "globally across desktop and mobile let's have
+     the privacy ink color linked to project color token"). One token per
+     face, four consumers, instead of four copies of the var() chain:
+     on-black  → .site-privacy, .mobile-menu__privacy (black capsules)
+     on-white  → .site-privacy[aria-expanded], .privacy-overlay__close
+     --project-color-on-black and --project-color-text are projectColor.js's
+     polar twins (accentOnBlack / accentText) and are already computed for
+     every accent — a light accent keeps its hue, a dark one flips to the
+     readable extreme — so there is no new colour maths here.
+     NEITHER of these may become an @property: unregistered is load-bearing
+     twice over. A registered property always resolves to its initial-value,
+     which would kill the var() fallback (that is why every
+     `var(--project-color, …)` fallback in this file is already dead code),
+     and registering makes it interpolable, which re-opens the paint trap
+     documented at --nav-ink. The fade belongs on the element, not here. */
+  --pill-ink-on-black: var(--project-color-on-black, var(--scheme-accent-ink));
+  --pill-ink-on-white: var(--project-color-text, var(--color-electric-blue));
+
+  /* The corner widget's badge WIDTH (SQ-107): the eye (18px x 53.28/26 at the default lid scale, the
+     --scheme-swatch of site-scheme.css) plus the default padding (4px) each side; its right edge is
+     the viewport's. These are the defaults: SiteScheme rewrites this token on <html> from the badge's
+     own resolved size, padding and lid scale when ?schemesize, ?schemepad or ?schemelids is given, so
+     everything that keeps clear of the badge follows the dials. At 768px and below the home footer
+     blurb's right inset is this (.site-footer__inner, below). Above 768px nothing reserves it any more
+     (Nathan 11-20): the badge seats above the footer panel there, so the privacy pill is back in the
+     corner. */
+  --badge-reserve: calc(18px * 53.28 / 26 + 2 * 4px);
+
+  /* Nav-lockup left seat (08-25, Nathan): the lockup ARTWORK's optical left
+     edge lands on the same left line as the detail-page client name (the
+     --space-4 page padding of .client-panel / .project-blurb) — one global
+     spacing, every route. The inline SVG carries built-in canvas whitespace
+     (artwork min-x 36.302 of the 228.999-unit viewBox height, measured
+     08-25), so consumers subtract --lockup-bleed = height × 0.1585 from
+     their seat; the bleed token rides the nav's 7rem svg height. */
+  --lockup-left: var(--space-4);
+  /* 8px — the client-name left line */
+  --lockup-svg-h: 7rem;
+  /* the shared inline-SVG canvas height (nav lockup + tagline lockup art) */
+  --lockup-bleed: calc(var(--lockup-svg-h) * 0.1585);
+  --lockup-art-h: calc(var(--lockup-svg-h) * 0.28);
+  /* the artwork's optical height inside that canvas (~28%, measured 08-27)
+     — the tagline lockup art centres in it. */
+  /* The revealed footer's ONE row (11-05, Nathan: the lockup takes the VISUAL
+     WORLDS pill's seat beside the copyright): the taller of the lockup art and
+     the pill's box (its --lh-link line + 2 × --pill-pad-y). The lockup wrapper
+     is this tall, and the footer band's min-height counts it once. */
+  --tagline-row-h: max(var(--lockup-art-h), calc(var(--lh-link) + 2 * var(--pill-pad-y)));
+
+  /* Nav bar height — the sticky-reveal footer slides the page + nav up by
+     exactly this so the bar clears the top of the viewport (F1). Mirrors the
+     41px .site-nav / .mobile-menu__bar height; those keep their local
+     literals (other lanes own those files) — this token is the shared
+     slide-distance handle for the footer reveal. */
+  --nav-height: 2.929rem;
+  /* 41px */
+
+  /* Stepper-chip edge inset (08-31, Nathan): how far the fixed
+     previous/next steppers sit IN from the viewport's top/bottom edges —
+     shared by /process (the origin component) and /work (which adopted
+     the stepper as the primary prev/next set). Stepped 1.143rem → 2.857rem
+     per Nathan's "inward, away from the edges". */
+  --stepnav-edge-inset: 2.857rem;
+  /* 40px */
+  /* Stepper chip floor width (08-31, Nathan): previous/next read as EQUALS
+     — the shorter word inherits the longer chip's box. = the "previous"
+     chip's rendered width (probe-measured 73.4px). min-width, not width:
+     the back_to_top swap-in runs longer and must still fit. */
+  --stepnav-min-w: 5.25rem;
+
+  /* FP pager rework (08-31, docs/fp-pager-rework-approaches.md). The
+     ?pager=tape / ?pager=tuner token sets were deleted 09-05 with those
+     arms; the scale arm's tokens follow below. */
+  --pager-stage-dim: 0.35;
+  /* stage opacity while the pager owns the gesture (scene-not-turning tell) */
+  --pager-scrim: 1;
+  /* 09-02 (Nathan, scale arm): engaged FULL-VIEWPORT scrim depth — over
+     everything but the pager (nav lockup included), replacing the stage
+     dim for ?pager=scale (.fp[data-pager='scale']::before). Since the
+     09-04 blur fix this is the scrim's background-color ALPHA (element
+     opacity holds 1 engaged); 0.65 → 0.4 in Nathan's 09-04 scrimtune bake,
+     then 0.4 → 1 (plain opaque black, like .mobile-menu) on every tier
+     11-13 (Nathan: the black pager on desktop too). The scrim is plain
+     black — no tint, blur or grain by default; the ?scrimtune bench dials
+     those back (featured-projects.css scrim rule). */
+  --pager-scrim-ms: 240ms;
+  /* scrim fade; also the delay before the engaged pager drops back under
+     the site chrome (z-index snap rides this so the chip never dims
+     mid-fade) */
+  /* ?pager=scale — the graticule (approach B): a flush margin-tab chip (a
+     stacked fraction, two mono rows over a 1px rule) is the fixed LENS; the
+     scale of ticks + numbers slides under it. The pitch is the station
+     spacing AND the finger's px-per-detent (1:1) — px on purpose, and it
+     must match motion.js SCALE_PITCH_PX per tier. */
+  --scale-w: 3rem;
+  /* 42px — 2ch body digits + the lens-pointer room; the ×1.5 lens digit still
+     fits (09-02 scale-up: the whole instrument re-proportioned to the
+     next/previous chips — body face, --text-mono size) */
+  --scale-num-h: 1.714rem;
+  /* 24px — one fraction row (body line + breathing); chip = 2 rows + 1px */
+  --scale-pitch: 48px;
+  /* station pitch = touch detent (SCALE_PITCH_PX). On the ≤768 tier it is
+     a PRE-HYDRATION FALLBACK only: the skin writes --scale-pitch inline
+     from the engine's resolved detentPx (motion.js + ?detent), so the scale
+     and the finger can never drift out of 1:1. Keep this equal to
+     SCALE_PITCH_PX per tier anyway — it is what the SSR base transform lays
+     out on. 44 → 48 in r8 (Nathan: "slightly more vertical space on
+     select" — breathing room for the scaled-up near trio; the ≤768 tier
+     HOLDS at 48, hard-bounded by the 667px-phone window check below).
+     r12c (11-13): on DESKTOP the direction flips — the pitch is the CSS
+     (featured-projects.css, .fp-scale: 48 × the pager unit) and the skin
+     READS it back (the @property below makes the computed value a px
+     length), so the wheel/hover detent follows it. */
+  --pager-vw: 2.4;
+  /* r12c (Nathan 11-13: "increase the size of the pager overall on desktop —
+     cohesive with the way the filter area scales on the project directory"),
+     r13 narrowed it to the WHEEL TEXT ("just the wheel text (client names)
+     and select project … keep the chip … the original scale"): the DESKTOP
+     roster name in vw — the directory filter tags' own size,
+     --text-drawer-name 2.4vw (34.6px at 1440, 61px at 2560). ONE factor
+     scales the wheel (names, number column, pitch, caps) and the
+     [select_project] pause label: the unit --pager-u (featured-projects.css
+     .fp-scale) = max(1px, this·1vw ÷ 24.315px), 24.315 = today's fixed
+     roster name (0.9141rem × 1.9 × 14px). The chip (lens + den, pointer,
+     hint) stays at its pre-r12c size. Floored at today's size, so it never
+     shrinks (above ≈1012px wide it grows). ?pagervw dials it; 0 = the fixed
+     pre-r12c size. The ≤768 tier ignores it. */
+  --scale-rows: 7;
+  /* Deployed WINDOW reach, in stations each side of the lens (±336px here).
+     Bounds the scale so 13 stations can't run under the fixed nav lockup or
+     off the bottom of a phone; stations beyond it are clipped AND inert,
+     and scrub into view (the strip still slides 1:1). Raise it past the
+     project count for the unbounded scale. */
+  --scale-open-ms: 240ms;
+  /* hairline draw + lens zoom + label reveal */
+  --scale-close-ms: 300ms;
+  --scale-chip-wipe-ms: 300ms;
+  /* 09-06 (Nathan: the mobile chip's exit "hard cuts"): the
+     [select_project] chip's own wipe. It shared --scale-close-ms on
+     --ease-draw (an expo-out: two-thirds done in the first 60ms — ~4
+     phone frames of motion on a solid block, read as a cut). Longer, on
+     --ease-micro. ?chipwipe. 09-07 (Nathan): the desktop chip wipes
+     QUICKER — 300ms here; the ≤768 tier holds the 520 it was tuned at. */
+  /* the whole inward retract (rule wipe + reverse cascade — the cascade is
+     FITTED to this budget in featured-projects.css off --scale-rows) */
+  --scale-stagger-ms: 30ms;
+  /* per-station cascade delay outward from the lens (reversed on retract);
+     a CAP — the fitted stagger uses the smaller of this and
+     (open|close − fade) / --scale-rows */
+  --scale-fade-ms: 120ms;
+  /* one station's own fade inside the cascade */
+  --scale-flash-ms: 160ms;
+  /* crossed major tick: white, then decays */
+  --scale-fill-pxs: 30;
+  /* The /work PREVIOUS/NEXT chips' client-name ticker speed, in UNSCALED
+     px/s (SQ-80: CtaArrows.jsx reads this off <html> and falls back to 30).
+     Nathan's dial 30 (09-07). It began as the pager's desktop fill-ticker
+     speed; that ticker is retired (r12, 11-13) but the token stays, at
+     :root and unscaled by --pager-u — the chips sit outside the pager. */
+  --scale-name-max: 2400px;
+  /* 09-02: per-station client-name cap right of the axis (roster rows).
+     09-07 (Nathan: "no need to cut off so suddenly" on desktop): 12rem →
+     20rem — fit the widest name (Heavy House Society, 264px at the
+     roster 1.9 size) with no ticker. 09-07 later: 20rem → 25rem (350px)
+     once the title token landed — "HEAVY HOUSE SOCIETY (Pre-2026)" is
+     331px at roster size. Nathan's dial the same evening: 2400px —
+     effectively UNCAPPED on desktop (no roster row ever clips or
+     tickers; the selected row's clip is the fixed box, set by the skin).
+     ?namemax (px). */
+  --scale-name-sel-max: var(--scale-name-max);
+  /* 09-03 round 5: the SELECTED row's own, TIGHTER cap — its painted box is
+     ×--scale-sel, and on phones it must stop short of the right-seated
+     [select_project]. Clip → the marquee takes over. Keep the JS mirrors in
+     GraticulePager's selCap in sync. */
+  --scale-box-h: calc(var(--scale-pitch) / (var(--scale-sel) * var(--scale-sel-bump)));
+  /* r11g (Nathan): the flipper box paints EXACTLY one row tall — the pitch
+     back-divided by the selected paint (the box scales ×sel×bump), so it
+     matches the sliced axis's row share. Was a fixed 1.286rem. */
+  /* 18px unscaled (×1.688 ≈ 30px painted) — the selected name's near-black
+     container chip (the round-1 label skin, reborn as the game-show flipper
+     that follows the name under tension) */
+  --scale-sel: 1.5;
+  /* 09-03 round 4: the [select_project] size ratio — --text-secondary over
+     --text-mono (1.543 / 0.9141). Since r8 this is the ±1 NEIGHBOUR rows'
+     landing size (the two-station proximity curve); the selected row rides
+     above it by --scale-sel-bump. Number and name pass from roster to
+     selected as ONE element, no handoff, no double. */
+  --scale-sel-bump: 1.05;
+  /* r11h BAKE (09-05, Nathan's dial): roster 1.9 / sel 1.5 (r11f 1.8) /
+     ink reach 5 / exp 1.9 / floor 0.8. */
+  /* r11f BAKE (09-05, Nathan's dial): sel 1.8 / bump 1.05 / falloff 0.5 /
+     hold 0.5 / exp 2 / slice-reach 3 (+ magnet 4, fliptau 0.1 in motion.js,
+     feather 250 ≤768). */
+  /* 09-04 r8 (Nathan: "selected slightly larger than that size token"):
+     the centre row's extra lift over --scale-sel (≈ 24.8px painted). The
+     flipper box scales by sel×bump to stay flush. Agent number — dial. */
+  --scale-falloff: 0.5;
+  /* 09-04 r11 (Nathan): the proximity curve's RADIUS in stations — where
+     the lift (and the ink) reaches roster size. Was a fixed 2 (r8's
+     two-station curve). BAKED 09-04 r11b at Nathan's dial: radius = hold =
+     0.75 → a STEP — only the row inside ±0.75 of the lens (the one under
+     it, with the magnet) lifts; the rest sit at roster size. ?falloff. */
+  --scale-falloff-hold: 0.5;
+  /* stations either side of the lens that HOLD at the full --scale-sel
+     before the roll-off begins. ?falloffhold. */
+  --scale-falloff-exp: 2;
+  /* the roll-off's curve exponent past the hold (1 = linear, 2 = f²).
+     ?falloffexp. */
+  --scale-roster: 1.9;
+  /* r11g (Nathan: desktop roster too small): multiplier on the roster
+     rows' base size (--text-mono). The selected paint = roster × sel ×
+     bump, so rebalance with ?selscale after raising this. ?roster. */
+  --scale-sub: 0.62;
+  /* 09-07 (Nathan): the project TITLE token after the client name (Sanity
+     `title`, e.g. "(Pre-2026)" on COCO/HHS) — its size as an em ratio of
+     the row, so it rides the row's own roster→selected curve. ?sub. */
+  --scale-sub-ink: 1;
+  /* its ink as a fraction of the row's colour (an opacity — the row's
+     colour already carries the proximity ink). Undimmed 09-07 (Nathan).
+     ?subink. */
+  --scale-ink-reach: 5;
+  /* r11g: the INK curve is its own — continuous (per frame), not the
+     detented size step: white at the lens → the floor at this many
+     stations out. ?inkreach. */
+  --scale-ink-exp: 1.9;
+  /* the ink curve's exponent (1 linear, 2 = f²). ?inkexp. */
+  --scale-ink-floor: 0.8;
+  /* roster ink = this fraction of white (0.55 = the r4 55%). ?inkfloor. */
+  --scale-slice-reach: 3;
+  /* 09-05 r11c (Nathan): the sliced axis is STEPPED AT THE CENTRE and
+     continuous at the outer rows — each row's slice (and tick) pulls OUT
+     toward the selected row's own axis (--scale-w × sel × bump) by a
+     weight that is 1 at the lens and 0 at --scale-slice-reach stations,
+     curved by --scale-slice-exp (>1 = steep near the centre, flat at the
+     edges: big steps at ±1/±2, none by the reach). ?slicereach. */
+  --scale-slice-exp: 2;
+  /* the taper's curve exponent. ?sliceexp. */
+  --scale-slice-amp: 1;
+  /* how far the lens-adjacent target closes on the selected row's axis:
+     1 = the ±1 row (taper-weighted) climbs the full sel lift toward it, 0
+     = straight (r11b). Axis + tick + NAME shift as a group; the number
+     stays. ?sliceamp. */
+
+  /* ── Client-logo ticker (09-07, Nathan) — the band riding the top of
+     the links footer (ClientLogoTicker.jsx). Every dial is applied
+     imperatively at mount (SSR keeps the server's inline style). ── */
+  --logo-h: 28px;
+  /* logo row height — every mark is height-fit, width auto. ?logoh (px). */
+  --logo-gap: 3.5rem;
+  /* 49px between marks. ?logogap (px). */
+  --logo-max-w: 8;
+  /* cap on a mark's width as a multiple of --logo-h (the 8:1 wordmarks
+     letterbox past it). ?logomaxw. */
+  --logo-bal: 0.5;
+  --logo-ref-ar: 3;
+  /* 09-08 (Nathan): optical balance. Each mark's height = --logo-h ×
+     (ref-ar ÷ aspect)^bal — squares come up, wide wordmarks come down, so
+     the row reads at ONE perceived size. 0.5 equalises area; 0 = height-
+     fit; 1 = equal width. The 3:1 reference sits at exactly --logo-h.
+     JS computes the per-item factor (--lf, clamped 0.55–2) from the
+     manifest dims — these two are the documented bake, mirrored in
+     ClientLogoTicker.jsx BAL_K / BAL_REF_AR. ?logobal ?logoref. */
+  --logo-pxs: 40;
+  /* marquee speed in px/s — CONSTANT across viewports: the roll's ambient
+     velocity on the shared drag + momentum engine (src/lib/dragMomentum.js,
+     09-08 — the globe's choreography, one place). ?logopxs. */
+  --logo-reveal-from: 0.6;
+  --logo-reveal-to: 0.98;
+  /* the band's fade is a WINDOW over --footer-reveal: 0 at -from, 1 at
+     -to. The band is the TOP of a panel rising from 100%, so its top edge
+     only clears the fold at p = 1 — an early window fades in below the
+     fold. ?logofrom ?logoto. */
+  --logo-word-cycle: 1800ms;
+  /* one odometer word per cycle (hold ≈ 75%, move ≈ 25%; the move rides
+     --ease-panel). ?logowordcycle (ms). */
+  --logo-odo-lh: 1.25em;
+  /* the odometer's line box — the column steps by exactly this. */
+  --logo-fade: 6rem;
+  /* the roll's soft edges (mask), each side. */
+  --logo-pad-y: 1.714rem;
+  /* 24px above the copy and below the roll. */
+
   /* Radii */
   --radius-pill: 3.571rem;
   /* 50px */
+  --radius-capsule: 999px;
+  /* full capsule — the corner pills */
   --radius-none: 0;
+
 
   /* Transitions — GSAP-aligned */
   --ease-panel: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-panel: 600ms;
+  /* S2: accent cross-fade duration, synced to the World Turn (TURN_DURATION). */
+  --project-color-fade: 1700ms;
+  /* 11-12: navAccent.js overrides --project-color-fade (duration) and
+     --accent-ease (a sampled linear() curve) and --accent-delay (negative =
+     start part-way in) for the one style flush that starts a passage's colour
+     change, so the nav + every tagged element fade on the passage's OWN
+     clock. Unset, the accent rides the panel curve with no delay. */
+  /* Ink cross-fade curve — the ONE knob for every text-ink fade (the
+     element-local nav color/fill transitions + the fg/text colour twins).
+     08-29 (Nathan, post paint-fix): tracks the accent wash — ink and bar
+     ride the SAME curve, mathematically in lockstep. History: while the
+     paint-invalidation bug made turn-commit jank eat the flip, this held a
+     mid-weighted cubic-bezier(0.65, 0, 0.35, 1) to push the visible work
+     past the WebGL stall (~t 420-490ms); with element-local transitions
+     painting reliably, Nathan chose the tight sync. Dial the mid-weighted
+     bezier back in here if the flip ever reads snappy under turn jank. */
+  --ease-ink: var(--accent-ease, var(--ease-panel));
   --ease-micro: cubic-bezier(0.4, 0, 0.2, 1);
   --duration-micro: 220ms;
+  /* Steep launch, smooth decel into rest — mathematically overshoot-free
+     (the curve never exceeds 1). The house draw curve (NAV-2 lab bake).
+     SHARED consumers: .detail-progress (08-29 adoption, ~L1170) + the
+     ?pager=tape wheel (08-31) — any retune touches every consumer. */
+  --ease-draw: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* House slow pulse — CSS approximation of HOUSE_PULSE_PATH in
+     src/lib/motion.js (the source of truth). The keyframes below carry the
+     shape via stops sampled from that curve (Nathan's 2026-07-17 dial), so
+     they run linear; --ease-pulse stays as the single-ease attack shorthand
+     for any lighter consumer. --duration-pulse is the FULL cycle (hit + rest,
+     HOUSE_PULSE_PERIOD_S). */
+  --ease-pulse: cubic-bezier(0.3, 0, 0.25, 1);
+  --duration-pulse: 2300ms;
+}
+
+/* House pulse envelope, dim polarity (the enter_world reading): rest → soft
+   swell to the dip's floor (0.3) near mid-hit → eased return, then a shorter
+   rest. Stops sampled from HOUSE_PULSE_PATH; the hit occupies 0–75% of the
+   cycle (HOUSE_PULSE_ON_RATIO 0.75), peak at ~33.75%, rest 75–100%. */
+@keyframes house-pulse {
+  0% {
+    opacity: 1;
+  }
+
+  7.5% {
+    opacity: 0.88;
+  }
+
+  15% {
+    opacity: 0.66;
+  }
+
+  22.5% {
+    opacity: 0.44;
+  }
+
+  33.75% {
+    opacity: 0.3;
+  }
+
+  45% {
+    opacity: 0.43;
+  }
+
+  52.5% {
+    opacity: 0.6;
+  }
+
+  60% {
+    opacity: 0.79;
+  }
+
+  67.5% {
+    opacity: 0.93;
+  }
+
+  75% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.house-pulse {
+  animation: house-pulse var(--duration-pulse) linear infinite;
+}
+
+/* House pulse, brighten polarity — the inquiry next-field reading (INQ-1):
+   rest-dim (0.5) → soft swell to full → eased fall back to rest, then the
+   shorter rest. Same sampled stop map as house-pulse above, mirrored onto
+   opacity 0.5→1. */
+@keyframes house-pulse-brighten {
+  0% {
+    opacity: 0.5;
+  }
+
+  7.5% {
+    opacity: 0.58;
+  }
+
+  15% {
+    opacity: 0.75;
+  }
+
+  22.5% {
+    opacity: 0.9;
+  }
+
+  33.75% {
+    opacity: 1;
+  }
+
+  45% {
+    opacity: 0.91;
+  }
+
+  52.5% {
+    opacity: 0.79;
+  }
+
+  60% {
+    opacity: 0.65;
+  }
+
+  67.5% {
+    opacity: 0.55;
+  }
+
+  75% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .house-pulse {
+    animation: none;
+  }
+}
+
+/* ============================================
+   SERVICE TAG (.stag) — Canonical pill primitive
+   ============================================
+   Base shape extracted from the project-inquiry overlay.
+   Every service-tag surface composes on top of this class:
+
+     .project-overlay__tag   — cream / ghost border (interactive)
+     .service-tag            — blue fill (detail page)
+   ============================================ */
+.stag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: lowercase;
 }
 
 /* — Reset — */
@@ -132,8 +828,27 @@
   box-sizing: border-box;
 }
 
+/* Brand selection — electric blue behind white, everywhere */
+::selection {
+  background: var(--scheme-chip);
+  color: var(--scheme-chip-ink);
+}
+
+/* No scrollbar-gutter here: with the global overflow:hidden scroll-lock,
+   `stable` reserved a permanently-empty gutter (hidden boxes are still
+   scroll containers) that rendered as a full-height blue band on every
+   route. Nav stability against scrollbars is handled by sizing the
+   persistent .site-shell to 100vw and reserving a DEVICE-CONSTANT scrollbar
+   width (--scrollbar-w, measured off a probe in SiteShell — identical on
+   every route) in the nav/footer right inset instead. See .site-nav
+   padding-right. */
 html {
   font-size: 14px;
+  /* A scheme change fades the fills that read the role tokens (scheme.css);
+     the tint scope below restates this list with the project colours added. */
+  transition:
+    --scheme-page var(--scheme-fade, var(--project-color-fade)) var(--ease-panel),
+    --scheme-chip var(--scheme-fade, var(--project-color-fade)) var(--ease-panel);
 }
 
 html,
@@ -141,7 +856,7 @@ body {
   width: 100%;
   height: 100dvh;
   overflow: hidden;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
 }
 
 body {
@@ -175,76 +890,822 @@ button {
   height: 100dvh;
   min-height: 100dvh;
   overflow: clip;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
 }
 
 /* ============================================
-   INFO PILL
+   SITE NAV — navigation bar (lives inside info-wrapper)
+   ============================================
+   The nav sits at the BOTTOM of .info-wrapper so it's
+   always visible when the wrapper is closed (translated up).
+   When open, it slides down to the bottom of the drawer.
    ============================================ */
-.info-pill {
-  position: relative;
-  z-index: 50;
-  width: 5.143rem;
-  height: 1.643rem;
-  border-radius: var(--radius-pill);
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 0;
-}
-
-/* Shared layer — fills the pill, holds icon + label side-by-side.
-   Border lives on each layer so clip-path wipes it with the fill. */
-.info-pill__layer {
+.site-nav {
   display: flex;
   align-items: center;
-  gap: 0.429rem;
-  position: absolute;
-  inset: 0;
-  padding: 0 0.571rem 0 0.429rem;
-  font-family: var(--font-ui);
-  font-size: var(--text-ui);
-  font-weight: 400;
-  line-height: var(--lh-ui);
-  white-space: nowrap;
-  border-radius: inherit;
-  overflow: hidden;
-}
-
-/* White variant: white fill, blue content, blue stroke */
-.info-pill__layer--white {
-  background: var(--color-cream);
-  color: var(--color-electric-blue);
-  border: 1px solid var(--color-electric-blue);
-}
-
-/* Blue variant: blue fill, white content, white stroke */
-.info-pill__layer--blue {
-  background: var(--color-electric-blue);
-  color: var(--color-cream);
-  border: 1px solid var(--color-cream);
-}
-
-/* Hover overlay — stacked on top, initially clip-hidden.
-   clip-path wipes border + fill together for hard-edge transition.
-   All hover states get a white stroke. */
-.info-pill__hover {
-  z-index: 1;
-  will-change: clip-path;
-  border-color: var(--color-white);
-}
-
-.info-pill__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 0.714rem;
-  height: 0.714rem;
+  justify-content: space-between;
+  height: 2.929rem;
+  /* 41px */
+  padding: 0.214rem var(--nav-inset);
+  /* 3px 16px */
+  /* extra right clearance — the shared scrollbar-aware right-edge token
+     (see --chrome-right-inset for the full story) */
+  padding-right: var(--chrome-right-inset);
+  background: var(--scheme-page);
   flex-shrink: 0;
 }
 
-.info-pill__label {
+/* ── Globe-page nav variant ──
+   BaseLayout sets body.route-home server-side (no hydration flash); the
+   ClientRouter swaps body attributes on navigation, so leaving the globe
+   restores the blue variant automatically. The info pill's blue accents go
+   black here.
+
+   10-08, Nathan: the bar takes the BRAND BLACK fill rather than running
+   transparent. It was the only chrome surface on the globe with no fill of
+   its own, so the sphere tracked through behind the links as it turned —
+   worst where a bright panel passed under start_project / featured_projects.
+   --color-black is the token the house already uses for exactly this kind of
+   chrome band (the home nav pills below, the links-footer band), NOT
+   --color-near-black, which is the Figma-band value. Flat background, never
+   opacity: the bar's own autoAlpha is animated on the home chrome gate, and
+   fading the element would fade the links with it. */
+body.route-home .site-nav {
+  background: var(--color-black);
+}
+
+/* r12c: the /work pager's station pitch, registered as a <length> so its
+   COMPUTED value is resolved px (48 × the pager unit, vw and all). The skin
+   reads it back (GraticulePager getComputedStyle) so the finger's detent
+   and the scale can never disagree. Unregistered it would read back as the
+   calc() source text. Inherited, initial = the fixed pre-r12c pitch. */
+@property --scale-pitch {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 48px;
+}
+
+/* ── /work focused-project accent (S2) ──
+   FeaturedProjects broadcasts the active project's accent on <html>
+   (--project-color) with a readable ink (--project-color-fg), an accent-as-text
+   colour (--project-color-text) and a globe-flip filter. Registering the colour
+   vars as @property <color> lets them INTERPOLATE, so every accent surface
+   cross-fades on the house curve as the World Turn changes project. html:has(.fp)
+   scopes it to /work; a colourless project falls back to brand blue. */
+@property --project-color {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+@property --project-color-2 {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+@property --project-color-fg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255, 255, 255);
+}
+
+@property --project-color-text {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+/* Scheme role tokens (US-7). Registered <color> so a scheme change cross-fades
+   the fills that read them (--scheme-fade, default the project fade); inks that
+   read them snap (the custom-property paint trap). Initial = today's colour. */
+@property --scheme-page {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+@property --scheme-chip {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+@property --scheme-chip-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255, 255, 255);
+}
+
+@property --scheme-accent-ink {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(0, 0, 255);
+}
+
+/* Scalar twin of the ink colour (1 = white ink, 0 = dark ink). Interpolating a
+   NUMBER and feeding it through color-mix(in oklab) makes the nav text cross-fade
+   perceptually evenly BOTH ways — the direct sRGB colour interpolation of
+   white↔near-black reads as "holds light, then snaps dark" one direction and
+   smooth the other. */
+@property --nav-ink-l {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
+/* html.fp-tint is the detail-page marker (FeaturedProjectDetail broadcasts the
+   accent to <html> and sets this class) so the persistent nav tints there too,
+   mirroring html:has(.fp) on the /work index. html.pop-tint is home's twin
+   (globe-worlds, ?popmode): the world on the globe broadcasts its accent the
+   same way, and it cross-fades on the same curve as each world takes over. */
+html:has(.fp),
+html.fp-tint,
+html.pop-tint,
+.fp {
+  /* Hue washes ride the house panel curve; the fg/text colour twins ride
+     --ease-ink. --nav-ink-l is deliberately NOT in this list (08-29 fix,
+     Nathan's rossi→kamino report): Chromium does not paint-invalidate
+     text/SVG that consume an ANIMATING inherited custom property — their
+     computed style glides (any getComputedStyle poll reads perfect
+     intermediates, which masked this in probes) but the PIXELS freeze
+     until the next full recalc at turn settle, then cut. The tell: the
+     info pill faded correctly (its background rides the animating
+     --project-color, forcing its own repaint every frame) while the plain
+     links and the lockup froze. So the scalar SNAPS here, and every ink
+     consumer below animates its OWN color/fill — an element-local
+     transition guarantees invalidation. */
+  transition:
+    --project-color var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
+    --project-color-2 var(--project-color-fade) var(--accent-ease, var(--ease-panel)) var(--accent-delay, 0s),
+    --project-color-fg var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s),
+    --project-color-text var(--project-color-fade) var(--ease-ink) var(--accent-delay, 0s),
+    --scheme-page var(--scheme-fade, var(--project-color-fade)) var(--ease-panel),
+    --scheme-chip var(--scheme-fade, var(--project-color-fade)) var(--ease-panel);
+  /* Perceptually-even nav ink: oklab mix of near-black↔white from the
+     (snapping) scalar. The color-mix() result is a NON-LEGACY colour, so
+     the consumers' own color/fill transitions interpolate it in Oklab —
+     the perceptual-evenness goal of the old animated-scalar design holds. */
+  --nav-ink: color-mix(in oklab, var(--color-near-black), var(--color-white) calc(var(--nav-ink-l, 1) * 100%));
+}
+
+html:has(.fp) .site-nav,
+html.fp-tint .site-nav {
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* Nav links + labels take the ink (the hover underline is text-decoration —
+   it rides currentColor for free). ELEMENT-LOCAL ink transition (see the
+   transition-list note above): --nav-ink snaps on <html>; each element
+   fades its own color over the turn window on --ease-ink, so the flip is
+   paint-invalidation-proof. --ink-fade is the instant-commit gate —
+   navAccent.js sets it to 0s while applying page arrivals/clears so those
+   stay flash-free. */
+html:has(.fp) .site-nav__link,
+html:has(.fp) .site-nav__label,
+html.fp-tint .site-nav__link,
+html.fp-tint .site-nav__label {
+  color: var(--nav-ink, var(--color-white));
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
+}
+
+/* info pill: accent fill + readable ink; hover inverts to ink-fill.
+   The pill's accent BG rides the <html> @property cross-fade in lockstep
+   with the bar — its base `transition: background` (for hover) would
+   low-pass the interpolating var and land the fill LATE, so background is
+   deliberately NOT transitioned here (re-armed only on :hover). Its ink
+   channels (color/border) ride the element-local ink transition like the
+   links, so the whole nav's text flips as one. */
+html:has(.fp) .site-nav__pill,
+html.fp-tint .site-nav__pill {
+  background: var(--project-color, var(--color-electric-blue));
+  border-color: var(--nav-ink, var(--color-white));
+  color: var(--nav-ink, var(--color-white));
+  transition:
+    color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s),
+    border-color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
+}
+
+/* Hover is REAL-POINTER-ONLY (08-31, Nathan's report: on touch the :hover
+   state sticks after a tap, so the info pill "hung" white after closing —
+   @media (hover: hover) keeps every pill hover off touch devices). */
+@media (hover: hover) {
+  html:has(.fp) .site-nav__pill:hover,
+  html.fp-tint .site-nav__pill:hover {
+    background: var(--nav-ink, var(--color-white));
+    color: var(--project-color, var(--color-electric-blue));
+    transition:
+      background var(--duration-micro) var(--ease-micro),
+      color var(--duration-micro) var(--ease-micro);
+  }
+}
+
+/* 08-24: the nav brand is the full SWM inline lockup (inlined SVG). The
+   artwork is native #0000FF — identical to the bar — so OFF-HOME the fills
+   take the nav ink instead: white on the blue bar, dark on a light project
+   accent. 08-29: fill now consumes the SAME --nav-ink the links use (was
+   an hsl(calc) of the scalar) and fades via its own element-local fill
+   transition — same paint-invalidation fix, and one ink formula. Home
+   (transparent bar over the black field) keeps the native blue artwork. */
+body:not(.route-home) .site-nav__lockup svg * {
+  fill: var(--nav-ink, var(--color-white));
+  transition: fill var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
+}
+
+body.route-home .site-nav__pill {
+  background: var(--color-black);
+}
+
+@media (hover: hover) {
+  body.route-home .site-nav__pill:hover {
+    background: var(--scheme-chip);
+  }
+
+  /* Home under a population world (html.pop-tint): the bar stays clear and
+     the pills black at rest, the hover wears the world's accent with its
+     readable ink. Before the open-state block, so an open pill keeps its
+     skin. The open ink, the drawer's accents, the hero gradient, stroke
+     ring, enter_world and the commit fill resolve --project-color already. */
+  html.pop-tint .site-nav__pill:hover {
+    background: var(--project-color, var(--color-electric-blue));
+    color: var(--project-color-fg, var(--color-white));
+  }
+}
+
+.site-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.714rem;
+}
+
+.site-nav__logo {
+  display: flex;
+  align-items: center;
+  /* Seat the artwork's optical left edge on --lockup-left: back out the bar's
+     own padding and the SVG's internal left whitespace. Nets ≈ −0.82rem. */
+  margin-left: calc(var(--lockup-left) - var(--nav-inset) - var(--lockup-bleed));
+}
+
+.site-nav__lockup {
+  display: flex;
+  align-items: center;
+}
+
+.site-nav__lockup svg {
+  display: block;
+  height: var(--lockup-svg-h);
+  width: auto;
+  fill: var(--color-white);
+}
+
+/* 11-03: the lockup's svg canvas is taller than the bar (98px on the 41px
+   bar at 1440, the artwork centred), so the brand row's transparent
+   overhang, about 28px under the bar, took clicks meant for what sits just
+   below the nav: the detail breadcrumb once scrolled, /work's SCALE
+   stations at 1024px, the directory's filter tags. Hits now stop at the
+   bar: the row and the link let clicks through, and a bar-tall band on the
+   link takes them. No box moves. Scoped to the nav's brand row: the mobile
+   menu's own logo sits in a layer that is pointer-events: none while
+   closed, and an `auto` band would arm it. */
+.site-nav__brand {
+  pointer-events: none;
+}
+
+.site-nav__brand .site-nav__pill {
+  pointer-events: auto;
+}
+
+/* the band's containing block; ≤768px the logo's absolute seat (below) wins */
+.site-nav__logo {
+  position: relative;
+}
+
+.site-nav__brand .site-nav__logo::after {
+  content: '';
+  position: absolute;
+  inset: calc(50% - var(--nav-height) / 2) 0;
+  pointer-events: auto;
+}
+
+/* 08-30 (Nathan, tap-only comp): the nav LOCKUP lives in the bar on HOME
+   too now — the centered hero lockup retired, so the brand row reads the
+   same on every route (desktop: left seat beside the info pill; ≤768px:
+   absolutely centered). Over home's transparent bar on the black hero
+   field the fills go brand WHITE (the retired hero lockup's reading);
+   off-home keeps the --nav-ink formula below. */
+body.route-home .site-nav__lockup svg * {
+  fill: var(--color-white);
+}
+
+.site-nav__pill {
+  display: inline-flex;
+  align-items: center;
+  /* 08-30 (Nathan): label↔icon gap matches the nav links' glyph gap (2px)
+     — one spacing across every chrome button (was 0.571rem). */
+  gap: 0.143rem;
+  padding: 0.214rem 0.929rem;
+  /* 3px 13px */
+  border: 1px solid var(--color-white);
+  border-radius: 1.714rem;
+  /* 24px */
+  background: var(--scheme-chip);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  /* 08-27: the 18/22/−0.005 trio became tokens (--text-pill family) when the
+     site tagline joined the pill idiom — same values, now shared. */
+  font-size: var(--text-pill);
+  line-height: var(--lh-pill);
+  letter-spacing: var(--tracking-body);
+  cursor: pointer;
+  transition: background var(--duration-micro) var(--ease-micro);
+}
+
+@media (hover: hover) {
+  .site-nav__pill:hover {
+    background: var(--color-black);
+  }
+}
+
+/* ── OPEN-STATE skin (08-31, Nathan): one rule across every panel toggle —
+   a pill whose component is OPEN wears WHITE fill with the accent ink
+   (blank → brand blue); closing returns it to the accent/route rest above.
+   Covers: the info pill + menu pill via aria-expanded (SiteNav maintains
+   it), and the two dedicated close pills (the menu takeover's and the info
+   drawer's), which only ever render in the open state. Placed after every
+   rest/hover rule so the attribute wins at any route. */
+.site-nav__pill[aria-expanded="true"],
+.site-nav__pill.mobile-menu__close,
+html:has(.fp) .site-nav__pill[aria-expanded="true"],
+html.fp-tint .site-nav__pill[aria-expanded="true"],
+html:has(.fp) .site-nav__pill.mobile-menu__close,
+html.fp-tint .site-nav__pill.mobile-menu__close,
+body.route-home .site-nav__pill[aria-expanded="true"],
+body.route-home .site-nav__pill.mobile-menu__close {
+  background: var(--color-white);
+  border-color: var(--color-white);
+  color: var(--project-color, var(--color-electric-blue));
+}
+
+.site-nav__pill-icon {
+  width: 0.714rem;
+  /* 10px */
+  height: 0.857rem;
+}
+
+.site-nav__right {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.site-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 1.714rem;
+  /* 24px */
+}
+
+/* ── Mobile menu (≤768px full-screen takeover) ──
+   The menu pill replaces the collapsed links row; the panel is portaled to
+   the shell (brand-black takeover) with its own top row mirroring the nav
+   geometry, so `close` sits where `menu` was. GSAP drives the fade +
+   item stagger; data-open gates pointer events. */
+.site-nav__menu-pill {
+  display: none;
+}
+
+.mobile-menu {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-black);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  /* The menu foot's seat (08-30 (3)): the HOME page tagline seats at the
+     bare bottom inset now — the narrow three-line block leaves room for
+     the hidden copyright BESIDE it in the row (no wrapped-line reserve
+     anymore) — so the foot matches with the same token and menu
+     open/close on home reads as one persistent block. */
+  /* 09-08: = the page tagline's seat — the privacy pill's TEXT bottom */
+  --menu-pill-seat: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
+}
+
+/* /work + detail routes (08-30, Nathan): the takeover inherits the focused
+   project's accent + ink EXACTLY as the nav bar does — same <html>
+   broadcast, same element-local ink transitions (the paint-invalidation
+   doctrine on the fp block above). The close pill and the bar's lockup are
+   already covered by the shared .site-nav__pill / .site-nav__lockup fp
+   rules. */
+html:has(.fp) .mobile-menu,
+html.fp-tint .mobile-menu {
+  background: var(--project-color, var(--color-black));
+}
+
+html:has(.fp) .mobile-menu__item,
+html.fp-tint .mobile-menu__item {
+  color: var(--nav-ink, var(--color-white));
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
+}
+
+.mobile-menu[data-open="true"] {
+  pointer-events: auto;
+}
+
+.mobile-menu__bar {
+  display: flex;
+  align-items: center;
+  /* 08-30 (Nathan): close sits at the RIGHT — persisting the menu pill's
+     corner, so close lands exactly where the button that opened it was
+     (the logo is absolute-centered at ≤768px, so flex-end places the one
+     flex item, the close pill). */
+  justify-content: flex-end;
+  height: 2.929rem;
+  padding: 0.214rem var(--nav-inset);
+  padding-right: var(--chrome-right-inset);
+}
+
+.mobile-menu__bar img {
+  width: 2.714rem;
+  height: 2.714rem;
+}
+
+/* Close pill keeps the standard blue pill skin — it pops on the black
+   panel and matches the nav's pill language (black on route-home). */
+
+.mobile-menu__items {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(1.143rem, 4vh, 2.286rem);
+  padding: 0 var(--nav-inset);
+  margin: auto 0;
+}
+
+.mobile-menu__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.571rem;
+  font-family: var(--font-headline);
+  font-size: var(--text-menu-item);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--color-white);
+}
+
+.mobile-menu__item .site-nav__icon {
+  width: 0.9em;
+  height: 0.9em;
+}
+
+/* Lower-left foot (08-30 (3), Nathan): privacy stacked above the tagline,
+   both left-aligned with the item column. The foot's BOTTOM = the home
+   page tagline's seat (--menu-pill-seat), so menu open/close on home
+   reads as one persistent block — no per-element bottom math. */
+.mobile-menu__foot {
+  position: absolute;
+  left: var(--nav-inset);
+  right: var(--chrome-right-inset);
+  bottom: var(--menu-pill-seat);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+
+/* Privacy — item-ink white (08-30 (2): the brand-blue read was invisible
+   on the black takeover), --text-link tier; fp routes ride --nav-ink like
+   the items. */
+.mobile-menu__privacy {
+  /* 09-08 (Nathan): LOWER-RIGHT, the .site-privacy pill's exact twin. The
+     foot's right/bottom edges ARE the pill's seat tokens
+     (--chrome-right-inset / --menu-pill-seat = --footer-bottom-inset), so
+     absolute 0/0 inside it lands on the same pixels; the capsule, padding,
+     face and blue ink mirror .site-privacy (below) for a seamless overlay.
+     The size tier is set in the ≤768 block beside .site-privacy. */
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
+  background: var(--color-black);
+  font-family: var(--font-body);
+  letter-spacing: var(--tracking-body);
+  font-weight: var(--weight-medium);
+  color: var(--pill-ink-on-black);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
   white-space: nowrap;
+}
+
+.mobile-menu__privacy:hover,
+.mobile-menu__privacy:active {
+  color: var(--color-white);
+}
+
+.mobile-menu__privacy:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* (09-08) The fp-route --nav-ink override is GONE: the link sits in its own
+   black capsule now, so brand blue reads on every takeover tint — and it
+   must match .site-privacy pixel-for-pixel (the seamless overlay). */
+
+/* Tagline — the menu's own copy (08-30, Nathan): the takeover is the
+   tagline's site-wide home on phones (the page-level tagline survives
+   only on route-home). 08-30 (3): UNCAPSULED three-line stack at the
+   blurb scale — mirrors the home page tagline exactly (same tokens, same
+   seat via the foot). Fallback size guards the desktop-token gap: the
+   menu only opens ≤768px where --text-blurb exists. */
+.mobile-menu__tagline {
+  display: block;
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: var(--text-blurb, 1.4rem);
+  line-height: 1;
+  letter-spacing: var(--tracking-body);
+  white-space: nowrap;
+}
+
+.mobile-menu__tagline .site-tagline__line {
+  display: block;
+}
+
+/* ©line (10-07, Nathan) — moved here from the footer band's lower-left
+   group, which is gone on phones. Keeps .site-tagline__copy's exact type
+   (the LINK tier, white) so it reads as the same line it was, and sits
+   ABOVE the tagline so the tagline holds the foot's bottom seat. */
+.mobile-menu__copy {
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  white-space: nowrap;
+}
+
+.site-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.143rem;
+  /* 2px */
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+  white-space: nowrap;
+}
+
+/* Hover/focus affordance is the FOOTER NAV's underline idiom (08-29,
+   Nathan — the bracket/fxrule system retired; one link language across nav
+   + footer). Decoration on the LABEL span only, so the leading glyph/icon
+   stays clean. */
+.site-nav__link:hover .site-nav__label,
+.site-nav__link:focus-visible .site-nav__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Current-page state (08-30, Nathan): the SAME underline, pinned — the
+   data-current attribute SiteNav maintains on hydrate + every after-swap
+   finally gets its visual, on the main links row AND the mobile menu. */
+.site-nav__link[data-current] .site-nav__label,
+.mobile-menu__item[data-current] .site-nav__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-nav__glyph {
+  display: inline-block;
+}
+
+.site-nav__icon {
+  width: 1.429rem;
+  /* 20px */
+  height: 1.429rem;
+}
+
+.site-nav__icon--sm {
+  width: 1.143rem;
+  /* 16px */
+  height: 1.143rem;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   NAV micro-interaction — the footer underline idiom (08-29, Nathan)
+   ────────────────────────────────────────────────────────────────────────────
+   The merged bracket/fxrule system (NAV-2 lab bake) is RETIRED: the bracket
+   gutters forced extra air between each glyph and its label, and the pinned
+   current-page rule didn't land. Hover/focus now carries the SAME underline
+   the footer nav links use (the :hover rule on .site-nav__label above —
+   text-decoration, 3px offset, label-only so glyphs stay clean). Current-page
+   state (data-current / aria-current) is still maintained by SiteNav.jsx —
+   a11y + any future current treatment — with no visual attached for now.
+   ───────────────────────────────────────────────── */
+
+/* Focus-visible ring — the standard keyboard focus indicator (promoted
+   unconditional from the NAV-2 lab, a11y). The underline also fires on
+   :focus-visible via the hover rule above. */
+.site-nav__link:focus-visible,
+.mobile-menu__item:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* mobile press feedback — the underline snaps in under a finger (:active;
+   text-decoration is instant, no transition needed). Same label-only scope
+   as desktop hover. */
+.mobile-menu .mobile-menu__item:active .site-nav__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── end NAV micro-interaction ─────────────────────────────── */
+
+/* ============================================
+   SITE SHELL — Persistent fixed wrapper
+   ============================================
+   Survives page navigations (transition:persist).
+   Contains info-wrapper (drawer + nav) and ProjectOverlay.
+   ============================================ */
+.site-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* 100vw, not right:0 — the classic-scrollbar viewport is ~15px narrower
+     than the windowed one, so right-anchored nav items would shift between
+     scrollable and locked routes. 100vw always includes the scrollbar area,
+     keeping nav geometry identical whether a scrollbar is present or not
+     (fixed boxes don't create document overflow, so no sideways scroll). */
+  width: 100vw;
+  z-index: 100;
+
+  pointer-events: none;
+  /* let clicks pass through to page content */
+  /* F1: the footer-reveal nav slide animates on this transform, both ways (see
+     the html[data-footer-revealed] rule below). Only the footer slide sets a
+     transform on .site-shell itself — the drawer transform lives on the child
+     .info-wrapper — so this is safe. */
+  transition: transform var(--duration-panel) var(--ease-panel);
+}
+
+/* The phone menu's seat (SQ-107 pass 8, Nathan 11-17: "have the phone menu wipe over the badge instead of
+   it hard disappearing then reappearing"). SiteShell renders it beside .site-shell and SiteNav portals the
+   takeover in. The colour-scheme badge (.swm-corner, site-scheme.css) is z 101: above the shell, so the
+   route fill and loader never cover it, and below this host, so the takeover's own wipe covers it as its
+   edge passes: one paint, the edge matching for free. A fixed, empty, click-through box: the menu inside
+   is fixed to the viewport itself and takes the pointer only while open (.mobile-menu[data-open]). */
+.site-menu-host {
+  position: fixed;
+  inset: 0;
+  z-index: 102;
+  pointer-events: none;
+}
+
+/* Prevent Astro View Transitions from fading the persisted shell */
+::view-transition-old(site-shell),
+::view-transition-new(site-shell) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* Re-enable pointer events on interactive children */
+.site-shell .info-wrapper,
+.site-shell .project-overlay {
+  pointer-events: auto;
+}
+
+/* Envelopment bridge (ADR-0002) — solid passage fill under the nav chrome.
+   GSAP drives autoAlpha; RouteFill toggles pointer-events on while covered
+   so stray input can't reach the routes swapping underneath. */
+.route-fill {
+  position: fixed;
+  inset: 0;
+  /* S2: RouteFill sets --project-color per passage (from swm:envelop
+     detail.color) and clears it when absent; blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* The loader (overviews_loading 08-25, Nathan; 08-27 (4): a fixed SIBLING of
+   the fill, not a child — the hero's early swm:loader-start raises it over
+   the commit's own spreading blue, and RouteFill fades it in mirror with the
+   fill on release). SQ-32: the lockup globe (GlobeLoader, globe-loader.css)
+   replaced the percentage bar. Viewport-centered; GSAP drives autoAlpha. */
+.route-fill__loader {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.route-fill__loader-label {
+  /* 08-30 (2), Nathan: the loader joins the CHIP type voice (the
+     .detail-next / breadcrumb token set — sans UI face, chip size and
+     tracking, uppercase); the mono face left with it. GlobeLoader's two
+     words wear this class (lowercased by .globe-loader--lower). */
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
+  color: var(--color-white);
+}
+
+/* ============================================
+   STATUS PROGRESS BAR — shared page-scroll chrome
+   (08-30 (2) on the detail pages; 08-31 promoted
+   here when /process adopted it): a simple
+   rounded capsule — project-accent fill over a
+   DARKER TINT of the same accent, no label, no
+   count. Hidden until the user scrolls
+   (data-shown); at the content's end (data-done)
+   it wipes out LEFT → RIGHT via clip-path on the
+   house draw curve at a quick cut. z-index 4
+   keeps it UNDER promoted commit boxes (z-90)
+   and the site shell (z-100). DetailProgressBar
+   .jsx drives the fill width + the two data
+   states; process.css adds field-aware skins.
+   ============================================ */
+.detail-progress {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--nav-inset);
+  z-index: 4;
+  /* the old overviews_loading track's width language (the bar is gone, SQ-32) */
+  width: min(60vw, 15.714rem);
+  height: 0.429rem;
+  /* 6px */
+  border-radius: var(--radius-capsule);
+  /* the unfilled track: the accent pulled toward black */
+  background: color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-black) 65%);
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  clip-path: inset(0 0 0 0);
+  /* house draw curve at quick cuts — the reveal fades, the wipe clips */
+  transition:
+    opacity 0.3s var(--ease-draw),
+    visibility 0s linear 0.3s,
+    clip-path 0.4s var(--ease-draw);
+}
+
+.detail-progress[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s var(--ease-draw),
+    clip-path 0.4s var(--ease-draw);
+}
+
+/* The end-state wipe: the erase edge starts at the LEFT edge and travels
+   right (left inset 0 → 100%). Scrolling back re-arms it in reverse. */
+.detail-progress[data-done] {
+  clip-path: inset(0 0 0 100%);
+}
+
+.detail-progress__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* 11-07 (Nathan, on his phone: "move the status bar upward from the bottom of
+   the viewport, currently too close to the bottom edge"). --nav-inset is 4px;
+   on phones the capsule sits at the page tagline's seat instead
+   (--footer-bottom-inset + --pill-pad-y = 20px, .mobile-menu's
+   --menu-pill-seat), the line the phone's bottom chrome already holds.
+   ?barbottom=<px> re-dials it. /process keeps its own --ps-bar-bottom:
+   `.process-page .detail-progress` outranks this. */
+@media (max-width: 768px) {
+  .detail-progress {
+    bottom: var(--detail-progress-bottom, calc(var(--footer-bottom-inset) + var(--pill-pad-y)));
+  }
+}
+
+/* The footer reveal slides up over the page bottom — the bar yields (same
+   html-level hook the shell nav rides; normally the data-done wipe has
+   already fired by then — this is the belt). */
+html[data-footer-revealed] .detail-progress {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-progress {
+    transition: none;
+  }
 }
 
 /* ============================================
@@ -252,21 +1713,17 @@ button {
    ============================================
    Architecture:
    ┌──────────────────────────────┐
-   │  .info-panel (cream content) │  ← clipped when closed
+   │  .info-panel (black content) │  ← clipped when closed
    │  (description + clients)     │
    ├──────────────────────────────┤
-   │  .info-nav (blue 40px bar)   │  ← always visible, contains pill
+   │  SiteNav (blue nav bar)      │  ← always visible, sits at bottom
    └──────────────────────────────┘
 
-   Closed: wrapper y = -contentHeight (only nav bar visible at top)
-   Open: wrapper y = 0 (content revealed below nav bar)
+   Closed: wrapper y = -contentHeight (only SiteNav visible at top)
+   Open: wrapper y = 0 (content revealed, SiteNav at bottom of drawer)
    ============================================ */
 .info-wrapper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 30;
+  position: relative;
   display: flex;
   flex-direction: column;
   will-change: transform;
@@ -278,28 +1735,19 @@ button {
   pointer-events: auto;
 }
 
-/* Nav bar — sits at bottom of wrapper, always visible */
-.info-nav {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  width: 100%;
-  height: 2.857rem;
-  padding: var(--space-3) var(--space-4);
-  /* 6px top/bottom — matches Framer .framer-zzk8m8 */
-  background: var(--color-electric-blue);
-  flex-shrink: 0;
-}
-
-/* Content panel — cream bg, sits above the nav bar */
+/* Content panel — brand black, sits above the nav bar */
 .info-panel {
   width: 100%;
-  background: var(--color-cream);
+  background: var(--color-black);
   /* Match horizontal padding to nav bar's var(--space-4) = 8px */
   padding: var(--space-4);
   overflow: clip;
   flex-shrink: 0;
 }
+
+/* (The 08-30 .info-panel__bar close row was removed 08-31, Nathan — the
+   nav's info pill, white while open via aria-expanded, closes the drawer.) */
+
 
 /* Horizontal 2-column layout: left (embed + desc), right (clients) */
 .info-panel__layout {
@@ -318,14 +1766,6 @@ button {
   flex: 0 0 clamp(14.286rem, 22vw, 22.857rem);
 }
 
-/* Placeholder box for Unicorn Studio embed */
-.info-panel__embed {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border: 1px solid var(--color-electric-blue);
-  background: transparent;
-}
-
 /* Description */
 .description {
   display: flex;
@@ -338,13 +1778,27 @@ button {
   font-size: 2.6vw;
   letter-spacing: -.02em;
   line-height: 1.0;
-  color: var(--color-electric-blue);
+  color: var(--color-white);
   font-weight: 400;
 }
 
-.description__text strong {
-  color: var(--color-electric-blue);
-  font-weight: 400;
+/* `strong` is the drawer's old hard-coded bold; `.kw-em` is the `**bold**`
+   marker, which the Site Settings blurb (infoBlurb, 11-12) renders through
+   renderKeywords. One look for both. */
+.description__text strong,
+.description__text .kw-em {
+  /* 08-30 (2), Nathan: the drawer's brand accents ride the PROJECT accent
+     wherever one is broadcast (<html> --project-color on /work + detail
+     routes); everywhere else the fallback keeps them brand blue. */
+  color: var(--project-color, var(--color-electric-blue));
+  /* 10-08, Nathan: "make Small World Media bold in the info drawer blurb to
+     match the blurb in the footer" — the footer's cut is --weight-medium on
+     .site-footer__blurb-em, and BOTH surfaces resolve to ABC Areal first
+     (--font-headline and --font-body share it, a variable face at 400..700),
+     so 500 is a real instance here and the two match exactly. The accent
+     colour above is a separate 08-30 decision and is deliberately kept: the
+     drawer's subject now carries weight AND hue, the footer's only weight. */
+  font-weight: var(--weight-medium);
 }
 
 /* Clients — fills remaining space to the right */
@@ -358,11 +1812,11 @@ button {
 
 .clients__header {
   font-family: var(--font-mono);
-  font-size: .95vw;
+  font-size: var(--text-drawer-head);
   font-weight: 400;
   line-height: 1.0;
-  color: var(--color-black);
-  letter-spacing: -.07em;
+  color: var(--color-white);
+  letter-spacing: var(--tracking-drawer-head);
   text-transform: uppercase;
   padding: 0;
 }
@@ -384,20 +1838,45 @@ button {
   gap: 0;
 }
 
+/* A name. A live one (its coverage holds directory tiles) links to the
+   Project Directory filtered by it; the rest stay plain labels until their
+   links land (InfoPanel). The box hugs the text, so only the name takes
+   the pointer, and the eye after the directory's own client is the
+   filter's check (.filter-tag__check), sized the same. */
 .clients__item {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.25em;
   font-family: var(--font-body);
-  font-size: 2.4vw;
-  letter-spacing: -.02em;
-  line-height: 0.8;
+  font-size: var(--text-drawer-name);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-drawer-name);
   font-weight: 400;
-  color: var(--color-electric-blue);
-  cursor: pointer;
-  text-decoration: none;
-  transition: text-decoration-color 160ms ease;
+  color: var(--color-white);
 }
 
-.clients__item:hover {
+/* The house label underline (.site-nav__label) and focus ring. */
+a.clients__item:hover .clients__name,
+a.clients__item:focus-visible .clients__name {
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+a.clients__item:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* The client the directory is filtered to. */
+.clients__item[aria-current] {
+  color: var(--project-color, var(--color-electric-blue));
+}
+
+.clients__eye {
+  flex: none;
+  width: 0.72em;
+  height: 0.72em;
 }
 
 /* ============================================
@@ -413,142 +1892,2249 @@ button {
   height: 100dvh;
   min-height: 42.857rem;
   overflow: clip;
-  background: var(--color-electric-blue);
+  /* Globe-approved backdrop — matches /lab/globe tuning. The horizon takes
+     the population world's accent on home (html.pop-tint); blank → blue. */
+  background: linear-gradient(to top,
+      var(--project-color, var(--color-electric-blue)) 0%,
+      var(--color-black) 40%);
   flex-shrink: 0;
 }
 
-.hero__scene {
+/* Intro start-state (chunk 5; the loom's veil, repurposed) — solid black
+   over the gradient, sitting UNDER the globe canvas (DOM order): the
+   wordmark phase gets a black field with the live globe over it for free.
+   The intro machine (full) / settle (replay) thins it away so the blue
+   horizon arrives with the resting comp. */
+.hero__veil {
   position: absolute;
   inset: 0;
   z-index: 0;
+  background: var(--color-black);
   pointer-events: none;
-  /* Isolate from layout recalcs — prevents resize flicker */
-  contain: strict;
-  transform: translateZ(0);
-  backface-visibility: hidden;
 }
 
-.hero__scene>* {
-  /* SDK container already sizes itself via CSS custom properties.
-     Use absolute positioning instead of forced dimensions to prevent
-     the SDK's internal ResizeObserver from firing on viewport changes. */
+/* Video globe layer — replaced the Unicorn Studio .hero__scene.
+   Pointer events stay ON: drag-to-spin reaches the canvas anywhere
+   the pointer-events:none text layer above doesn't intercept.
+   (Never transformed since chunk 5 — the loom's DOM scale became a
+   camera move, rig.zoom.) */
+.hero__globe {
   position: absolute;
   inset: 0;
-  transform: translateZ(0);
+  /* Above the intro wordmark (z:1) so the growing globe OBSCURES the letters as
+     it scales up (its transparent canvas shows them through elsewhere); still
+     below .hero__fill (z:3, the commit blue) and .hero__lead-col (z:2 chrome). */
+  z-index: 2;
 }
 
-.hero__text {
+/* Globe outer stroke (Globe/Homepage) — a flat electric-blue disc BEHIND the
+   canvas, sized just proud of the globe by Hero from the overlay disc, so the
+   only part not covered by the (opaque) globe is a thin ring at the silhouette:
+   the lockup globe's outer stroke, scaling proportionately through the intro
+   zoom and commit. Transform-driven (no per-frame relayout); a 200px base
+   circle scaled to the live diameter. */
+.hero__globe-stroke {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  /* the lattice's colour — a population world's accent, else brand blue */
+  background: var(--project-color, var(--color-electric-blue));
+  transform-origin: 0 0;
+  will-change: transform;
+  visibility: hidden;
+  pointer-events: none;
   z-index: 1;
+}
+
+/* ============================================
+   BUTTON COMPONENTS — shared site chrome
+   ============================================
+   PRIMARY — high-impact pill (UI face): enter_world on the World cards and
+   scroll_to_enter on the globe. White fill + blue text at rest; hover flips
+   to blue fill + white text, borderless. Variants may drive the colours
+   through --cta-bg/--cta-fg (the globe's scroll-fill does). */
+.cta-primary {
+  display: inline-block;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: var(--text-secondary);
+  letter-spacing: var(--tracking-tight);
+  background: var(--cta-bg, var(--color-white));
+  /* S2: enter_world text ingests the accent-as-text (a light accent → brand
+     black); other .cta-primary consumers leave it unset → brand blue. */
+  color: var(--cta-fg, var(--project-color-text, var(--color-electric-blue)));
+  border: none;
+  border-radius: var(--radius-capsule);
+  padding: 0.6rem 1.4rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.cta-primary:hover {
+  /* S2: on hover the accent fills the chip; the label takes the readable ink
+     (dark on a light accent); blank → brand blue. */
+  background: var(--cta-bg, var(--project-color, var(--color-electric-blue)));
+  color: var(--cta-fg, var(--project-color-fg, var(--color-white)));
+}
+
+/* SECONDARY — the nav CTA chip family.
+   [NEXT]/[PREVIOUS] on /work. 08-26 (Nathan): navigation-centric chips ride
+   the UI sans face (the enter_world/.cta-primary family) at the chip's small
+   size, and their REST state is the focused project's accent (readable ink;
+   blank → brand blue) — the hover/scroll "charged" state is brand
+   white/black (FeaturedProjects lerps --cta-bg/--cta-fg between them).
+   Scale via --cta-scale (× --tx-scale — the enter-commit text-exit
+   choreography's push-in multiplier, textExit.js); /work sets its
+   interaction-mode transition timing through --cta-return/--cta-ease. */
+.fp-cta {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%) scale(calc(var(--cta-scale, 1) * var(--tx-scale, 1)));
+  transform-origin: center;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  border: none;
+  cursor: pointer;
+  background: var(--cta-bg, var(--project-color, var(--color-electric-blue)));
+  color: var(--cta-fg, var(--project-color-fg, var(--color-white)));
+  font-family: var(--font-ui);
+  font-size: var(--text-ui);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  padding: var(--space-3) var(--space-4);
+  transition:
+    transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    background-color var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    color var(--cta-return, 0.18s) var(--cta-ease, ease-out);
+}
+
+.fp-cta__label {
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Looping caret strip — a tall track of identical thin chevrons translating
+   at a constant rate through this window. The mask feathers to 0% opacity
+   ONLY on the side nearest the label (no-repeat, sized to the window), so
+   carets stay fully visible all the way to the far edge — never clipped
+   early. Chevron weight lives in CtaArrows.jsx (1.5px SVG strokes). */
+.fp-cta__arrows {
+  position: relative;
+  display: block;
+  width: 60px;
+  height: 34px;
+  overflow: hidden;
+}
+
+/* Each direction extends its window through the chip's own padding (negative
+   margin), so carets stay visible until they exit at the chip's true edge —
+   the padding no longer clips them early. */
+.fp-cta__arrows--down {
+  margin-bottom: calc(-1 * var(--space-3));
+  height: calc(34px + var(--space-3));
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 65%, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 65%, #000 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.fp-cta__arrows--up {
+  margin-top: calc(-1 * var(--space-3));
+  height: calc(34px + var(--space-3));
+  -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 65%, #000 100%);
+  mask-image: linear-gradient(to top, transparent 0%, #000 65%, #000 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.fp-cta__arrows-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fp-cta__arrows-track svg {
+  display: block;
+  flex: none;
+  margin: 2.5px 0;
+}
+
+/* enter_world — the PRIMARY button, TAP ONLY (08-30, Nathan: the scroll
+   accumulator + caret strip retired — the button is the "tap to the next
+   layer inward" mechanism, resting at the viewport center over the
+   centered globe). Colour states drive through --cta-* vars (pulse base /
+   hover pour / commit pin). Hidden until the chrome beat (Hero fades the
+   wrap in). */
+.hero__enter-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  /* only the button opts back in — the empty wrap lets drag-to-spin through */
+}
+
+.hero__enter {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  border: 1px solid var(--color-white);
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+
+/* Commit blue-fill (home-hero chunk 4) — the envelopment surface: a fixed
+   electric-blue layer the master timeline unclips through the globe's own
+   disc (clip-path circle, stamped per frame off the overlay bridge).
+   Hidden at rest and on EVERY fresh mount (a reverse arrival from /work
+   included) — only the commit timeline reveals it, imperatively (gsap.set
+   fired from the running timeline, never tl.set — the bgMorph killTweensOf
+   trap). Sits above the ring/hit/text chrome so the spreading disc
+   swallows them, below the site shell (z 100): nav stays up and the
+   RouteFill owns the cross-route frame at the handoff. */
+.hero__fill {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  background: var(--project-color, var(--color-electric-blue));
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
-.hero__fg {
+/* Blob-tracking labels (home-hero chunk 6, flag-gated OFF — ?herolabels /
+   the bench toggle): the /process label voice ported to the globe — mono
+   chips latched to LIVE panels, each with a 1px leader stroke to its
+   panel's center. HeroLabels owns the spans and the SVG strokes, writing
+   chip transforms + line endpoints on the overlay cadence; everything
+   here is static. Pointer-inert; z 2 like the ring, so the spreading
+   commit fill (z 3) swallows the layer. */
+.hero-labels {
   position: absolute;
   inset: 0;
   z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* One full-viewport stroke layer — no viewBox, so user units are CSS px
+   and the line endpoints land exactly on the projected anchor. */
+.hero-labels__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-labels__leader {
+  stroke: var(--color-white);
+  stroke-width: 1;
+}
+
+.hero-labels__dot {
+  fill: var(--color-white);
+}
+
+/* The chip — the .process-label family voice (mono, white, GSAP-owned
+   autoAlpha with a 0.85 hold); two block lines: client name, service
+   tags. Transform-only placement, never a layout write per frame. */
+.hero-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--lh-mono);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--color-white);
+  white-space: nowrap;
+}
+
+.hero-label__line {
   display: block;
 }
 
-/* Taglines — extracted from Unicorn Studio text layers */
-.tagline {
+/* Logo→globe intro (chunk 5) — the stand-in wordmark layer HeroIntro
+   mounts in full mode only (never under reduced motion). One line centered
+   over the held scene; the o of "world" is a hidden slot the live globe
+   shows through. Font size is set inline by placeGlyphRect (solved from
+   the o-slot diameter target); chars start hidden via GSAP in a layout
+   effect, pre-paint. Pointer-inert — drag-to-spin reaches the canvas
+   through it even mid-intro. */
+.hero-intro {
   position: absolute;
-  font-family: var(--font-mono);
-  font-size: 18px;
-  line-height: calc(17 / 18);
-  letter-spacing: 0.067em;
-  color: var(--color-cream);
-  white-space: pre-line;
-  text-transform: uppercase;
+  inset: 0;
+  /* Below .hero__globe (z:2) so the growing globe obscures the wordmark on the
+     zoom; above .hero__veil (z:0) so the letters read on the black field. */
   z-index: 1;
-  pointer-events: none;
-  will-change: transform;
-  width: 180px;
-}
-
-.tagline--left {
-  left: 24%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.tagline--right {
-  left: 76%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-/* Hero title — SMALL WORLD MEDIA™ */
-.hero__title {
-  position: absolute;
-  /* Layout-based centering — immune to GSAP transform overrides */
-  left: 0;
-  width: 100%;
-  top: 76.7%;
-  opacity: 0;
-  font-family: var(--font-display);
-  font-size: 104px;
-  font-weight: 500;
-  line-height: calc(113 / 104);
-  letter-spacing: 0;
-  color: var(--color-cream);
-  text-align: center;
-  white-space: nowrap;
-  z-index: 1;
-  pointer-events: none;
-}
-
-
-/* Bottom CTA — percentage-based bottom spacing */
-.hero__cta {
-  position: absolute;
-  bottom: 8%;
-  left: 50%;
-  /* Transform removed to avoid GSAP baking it into explicit pixel offsets */
   display: flex;
-  flex-direction: row;
   align-items: center;
-  gap: 1.143rem;
-  z-index: 2;
-  white-space: nowrap;
+  justify-content: center;
+  pointer-events: none;
 }
 
-/* UI / Utility — Framer: Inter 16px/19.2px, white */
-.cta {
-  font-family: var(--font-ui);
-  font-size: var(--text-ui);
-  font-weight: 400;
-  line-height: var(--lh-ui);
-  color: var(--color-cream);
-  text-decoration: none;
-  padding: var(--space-2) var(--space-1);
-  background: var(--color-electric-blue);
-  transition: transform var(--duration-micro) var(--ease-micro);
+.hero-intro__mark {
+  /* Sizes to the injected lockup SVG; placeGlyphRect sets the svg width so
+     the globe glyph lands at the target diameter (the line bleeds past the
+     hero, which clips it). */
+  line-height: 0;
 }
 
-.cta:hover {
+/* The injected lockup artwork — its own #0000FF fill is the brand blue;
+   the block never wraps, height tracks the viewBox. overflow:visible so the
+   letters can translate all the way to (and past) the VIEWPORT edge on the
+   launch — the outermost <svg> clips to its own box by default (sized to the
+   wordmark, narrower than the viewport), which was cutting letters off early. */
+.hero-intro__art {
+  display: block;
+  height: auto;
+  overflow: visible;
+}
+
+/* Lockup letterforms — the "chars": translated (variant A tracks them
+   apart) and opacity-flickered (variant C), all GSAP-owned. fill-box keeps
+   the transform origin on each glyph so the outward tracking reads true. */
+.hero-intro__art path,
+.hero-intro__art polygon,
+.hero-intro__art rect {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+/* .hero__footer RETIRED (08-27): the persistent SiteTagline pill owns the
+   hero's lower-left; the no-fill SiteFooter variant keeps its CSS below for
+   backward compatibility but no longer mounts anywhere. */
+
+/* ============================================
+   SITE FOOTER — shared (moved from project-detail.css)
+   ============================================
+   Simple variant: near-black bar, globe mark + copyright.
+   `--nofill` drops both fills for overlay use (home hero). */
+.site-footer {
+  /* FT-1: horizontal outer pad dropped — the bar runs full-bleed and its
+     INNER padding carries the shared --nav-inset, so footer content sits
+     exactly on the nav's edges. */
+  padding: 3.5rem 0 0.571rem;
+  /* 49px 0 8px */
+  background: var(--color-black);
+}
+
+.site-footer__bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.857rem;
+  /* 12px */
+  padding: 0.571rem var(--nav-inset);
+  /* 8px 4px — the nav's hug */
+  /* scrollbar clearance, the nav's right-edge idiom */
+  padding-right: var(--chrome-right-inset);
+  background: var(--color-near-black);
+}
+
+.site-footer--nofill {
+  padding-top: 0.571rem;
+  background: transparent;
+}
+
+.site-footer--nofill .site-footer__bar {
+  background: transparent;
+}
+
+/* Studio tagline — the canonical footer line site-wide (globe-mark variant
+   retired). Body face by design call: not the condensed display. */
+.site-footer__tagline {
+  font-family: var(--font-body);
+  font-size: var(--text-secondary);
+  line-height: var(--lh-secondary);
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+}
+
+.site-footer__copy {
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+}
+
+.site-footer__privacy {
+  color: var(--color-white);
+}
+
+.site-footer__privacy:hover {
   text-decoration: underline;
 }
 
-/* Drag handle */
-.hero__handle {
-  position: absolute;
-  bottom: 4%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 1.714rem;
-  height: 0.143rem;
-  border-bottom: 2px dashed var(--color-cream);
-  opacity: 0.5;
-  z-index: 2;
+/* ============================================
+   SITE FOOTER — links / sticky-reveal variant (F1)
+   ============================================
+   The expanded footer on non-hero routes (detail + process): a full-bleed
+   panel FIXED to the viewport bottom, hidden below the fold and driven UP
+   scroll-linked over the page's final stretch (SiteFooter.jsx owns the
+   transform; the spacer below reserves the matching scroll room). z below the
+   inquiry overlay (50) and nav (100) so both still cover it. */
+.site-footer--links {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding: 0;
+  /* 08-29, Nathan: BRAND BLACK, not near-black — the corner pills are
+     --color-black capsules seated in this band; on near-black they read a
+     tad lighter than their own chrome. One token, seamless band. */
+  background: var(--color-black);
+  /* Pre-JS / no-JS resting state: hidden below the fold. SiteFooter.jsx
+     overwrites this inline every scroll frame once mounted. */
+  transform: translateY(100%);
+  will-change: transform;
 }
 
-/* Button reset for CtaButton */
-button.cta {
-  border: none;
+/* In-flow spacer — its height is set to the panel height by SiteFooter.jsx,
+   adding exactly one panel-height of scroll so the reveal completes at the
+   document end. Transparent: the fixed panel paints ON TOP as it rises. */
+.site-footer__spacer {
+  width: 100%;
+  pointer-events: none;
+}
+
+.site-footer__inner {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--space-6);
+  /* 08-27: the left column lives OUTSIDE this panel now (the persistent
+     SiteTagline pill + its reveal-state lockup/copyright) — this min-height
+     reserves the band that stack occupies. 08-29, Nathan: the old 5rem
+     under-reserved and the lockup poked above the band — computed from the
+     stack's OWN tokens (border-box) since: lockup art + the tagline column's
+     --space-2 gap + the pill's box (--lh-link line + 2 × --pill-pad-y), plus
+     this box's top padding and bottom inset. 11-05, Nathan: the lockup moved
+     down into the pill's seat beside the copyright, so the stack is ONE row,
+     not a column: --tagline-row-h (the taller of the lockup art and the
+     pill's box) plus the same pad and inset. The panel is shorter by exactly
+     what the column added on top of the pill box: the lockup art + the
+     --space-2 gap. */
+  --footer-top-pad: 1.286rem;
+  /* 18px */
+  min-height: calc(var(--tagline-row-h) + var(--footer-top-pad) + var(--footer-bottom-inset));
+  /* Nav's shared hug; bottom rides the shared --footer-bottom-inset (the
+     corner pills seat on the same token); extra right clearance mirrors the
+     nav's scrollbar idiom. */
+  padding: var(--footer-top-pad) var(--nav-inset) var(--footer-bottom-inset);
+  padding-right: var(--chrome-right-inset);
+}
+
+/* The HOME variant's blurb (10-07, Nathan; both tiers since 10-09) — the tagline pill's long
+   layer, moved INTO the panel so the footer answers "what is Small World
+   Media" on load. It rides the pill's own mobile scale (--text-blurb, the
+   shared project-blurb token) and the logo band's "utilized by…" line is
+   pointed at that same token in the variant block, so the two read as one
+   size. Hidden by default: it is drawn only under [data-footer-rest] (the
+   variant block) — home on both tiers since 10-09 (?footerrest=0 hands the
+   blurb back to the pill), and no other route is handed the `blurb` prop at
+   all. */
+.site-footer__blurb {
+  display: none;
+  flex: 1 1 auto;
+  margin: 0;
+  font-family: var(--font-body);
+  /* fallback guards the desktop token gap: --text-blurb is a ≤768px token */
+  font-size: var(--text-blurb, 1.4rem);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+}
+
+.site-footer__blurb-em {
+  font-weight: var(--weight-medium);
+}
+
+/* ── Highlights in the blurb (10-08) ─────────────────────────────────────────
+   The blurb is CMS copy now, so `[[keyword]]` can appear in it. Two things it
+   needs that the project pages already had:
+
+   1. THE COLOUR. --kw-bg / --kw-ink are per-surface tokens with no inherited
+      value outside a project page (which binds them to the project colour) and
+      /process (per data-bg field). On black, under the globe, the brand blue
+      box with white ink IS the house pairing — bound here rather than left to
+      kw's var() fallbacks so it is one declared, dialable place.
+
+   2. A VISIBLE RESTING STATE. `.kw__box` rests at scaleX(0) and `.kw__ink` at a
+      fully-clipped inset, so a highlight is INVISIBLE until a driver wipes it.
+      Everywhere else in the repo the driver is guaranteed — the wipe is part of
+      a scroll-triggered entrance that always runs. Here it is not: the footer's
+      entrance plays once per session (`entranceShown`), skips under reduced
+      motion, and does not run at all without JS. Resting the box open and the
+      ink unclipped makes the degraded state "the highlight is simply there",
+      and playFooterEntrance winds it back to 0 with inline styles — which
+      outrank these rules — on the paths where it does animate. */
+.site-footer__blurb {
+  --kw-bg: var(--scheme-chip);
+  --kw-ink: var(--color-white);
+}
+.site-footer__blurb .kw__box {
+  transform: scaleX(1);
+}
+.site-footer__blurb .kw__ink {
+  clip-path: inset(-0.35em 0% -0.35em 0);
+}
+
+/* LEFT — globe lockup + copyright */
+.site-footer__left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.site-footer__lockup {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-white);
+}
+
+/* Full SWM wordmark+globe lockup (src/assets/swm-lockup-inline.svg — brand
+   blue in source) rendered mono-white to sit on the near-black footer.
+   brightness(0) invert(1) flattens any source hue to pure white. */
+.site-footer__lockup-art {
+  display: inline-flex;
+  filter: brightness(0) invert(1);
+}
+
+.site-footer__lockup-art svg {
+  display: block;
+  /* Lockup size dial: the fallback IS the shipped default; the ?footertune=1
+     bench (footerTune.js) writes --footer-lockup-h on <html> to dial it live.
+     Panel height follows the lockup, and SiteFooter's ResizeObserver
+     re-sizes the reveal spacer/travel to match. Bake a blessed value HERE. */
+  height: var(--footer-lockup-h, 3.2rem);
+  width: auto;
+}
+
+.site-footer--links .site-footer__copy {
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+}
+
+/* RIGHT — nav links restyled for the footer (the .site-nav__link idiom).
+   08-29: the row lifts by the pill's vertical padding so the link text line
+   sits flush with the tagline pill's text line — the tagline row's
+   align-center reading, mirrored. 11-20 (Nathan): privacy closes the row in
+   the right corner (.site-footer__link--privacy, below), so there is no
+   fixed pill left to keep clear of. */
+.site-footer__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4) var(--space-6);
+  justify-content: flex-end;
+  margin-bottom: var(--pill-pad-y);
+  /* 11-20 (SQ-138): keep clear of the left stack. The lockup and the ©line are SiteTagline's,
+     fixed over this band, so the row cannot know where they end: at 769-~990px its first links
+     printed over "All rights reserved". SiteTagline writes the stack's width as
+     --footer-stack-w; the margin takes the row's room down to what is right of the stack, and
+     the row wraps onto a second right-aligned line instead of running under it. The clearance
+     is the stack's own run-on gap (lockup → ©line). Wide enough for one line (1024+), the
+     margin changes nothing: the row stays hugged right. */
+  margin-left: calc(var(--footer-stack-w, 0px) + 1.5rem);
+}
+
+/* 08-29: hidden ground for the link-row stagger (SiteFooter.jsx animates
+   autoAlpha in on the reveal beat; pre-play the row must not show inside
+   the rising panel). No-JS never reveals the panel at all, so this hides
+   nothing reachable. NOTE: no opacity transition here — a CSS transition
+   would low-pass the GSAP stagger's per-frame writes. */
+.site-footer__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.143rem;
+  /* 2px — the nav link's glyph gap */
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Underline the LABEL only (08-29, Nathan): decoration on the inline-flex
+   link propagates into BOTH flex items — glyph and label each drew their
+   own underline segment with a bare gap at the flex gap between them, a
+   visibly broken line. Label-scoped, it matches the main nav exactly. */
+.site-footer__link:hover .site-footer__label,
+.site-footer__link:focus-visible .site-footer__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-footer__link:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+.site-footer__glyph {
+  display: inline-block;
+}
+
+/* 08-27 (4), Nathan: privacy closes the row one weight up, in the pill
+   ink at rest, white on hover (the old 0.6-opacity whisper retired).
+   11-20 (Nathan: "move the privacy button to just being in the footer and
+   not fixed"): BACK in the row above 768px, as its last link, in the right
+   corner; it opens the notice in place (SiteFooter). The fixed
+   .site-privacy pill stays on home only, where this row is hidden and the
+   pill sits in the resting footer. At 768px and below the whole row is
+   hidden and the mobile menu's link carries privacy (10-07). */
+.site-footer__link--privacy {
+  font-weight: var(--weight-medium);
+  color: var(--pill-ink-on-black);
+}
+
+.site-footer__link--privacy:hover {
+  color: var(--color-white);
+}
+
+/* Stack the columns on narrow viewports */
+@media (max-width: 768px) {
+
+  /* 08-30 (Nathan, mobile pass): NO nav links in the mobile footer — the
+     mobile menu is the navigation surface (and it stays reachable: the F1
+     nav slide is off at ≤768px below). The revealed band carries just the
+     tagline stack — full-width pill, copyright, lockup — from the
+     persistent SiteTagline island. */
+  .site-footer__nav {
+    display: none;
+  }
+
+  /* 10-07 (Nathan, mobile chrome pass): there is NOTHING left to reserve.
+     The lockup and the ©line moved off phones entirely — the lockup is gone
+     and the copyright now lives in the mobile menu's foot — so the band's
+     height is its own content (the home variant's blurb) plus these
+     paddings. The 08-29 stack calc would have held an empty 5rem band. */
+  .site-footer__inner {
+    min-height: 0;
+  }
+
+  /* …and off the home variant there is no content at all (the nav is hidden
+     above, the stack is gone, and only home is handed the blurb), so the box
+     goes with it rather than leaving the band's rule hanging over an empty
+     strip. On home it carries the blurb and stays. */
+  html:not([data-footer-rest]) .site-footer__inner {
+    display: none;
+  }
+}
+
+/* ============================================
+   CLIENT LOGO TICKER — the band riding the top of the links footer
+   (09-07, Nathan; ClientLogoTicker.jsx). Rendered INSIDE the fixed panel,
+   above .site-footer__inner, so it rides the panel's reveal transform in
+   both the scroll and the driven (/work) modes — no listener of its own.
+   ============================================ */
+.logo-ticker {
+  /* Fade = a window over the footer's own broadcast (one motion). No
+     translate of its own: the panel already carries it. Reads the PEAK
+     (09-08): fades IN on the rise, holds through the retreat — the exit is
+     masked by the panel's top edge, never a fade. */
+  --lt-p: clamp(
+    0,
+    (var(--footer-peak, var(--footer-reveal, 0)) - var(--logo-reveal-from)) /
+      (var(--logo-reveal-to) - var(--logo-reveal-from)),
+    1
+  );
+  opacity: var(--lt-p);
+  padding: var(--logo-pad-y) 0;
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--color-black);
+  overflow: hidden;
+}
+
+/* ── Copy line + odometer ── */
+.logo-ticker__copy {
+  margin: 0 0 var(--logo-pad-y);
+  padding: 0 var(--nav-inset);
+  padding-right: var(--chrome-right-inset);
+  /* 09-08 (Nathan): body face at the enter_world button's weight token
+     (.cta-primary = --weight-medium 500), not mono. */
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+  font-size: var(--text-secondary);
+  line-height: var(--logo-odo-lh);
+  letter-spacing: var(--tracking-tight);
+  /* 10-08 (Nathan: "not enough contrast"). Was --color-dim-gray #404040,
+     measured 2.03:1 on this band — the band's ground is PURE --color-black,
+     not near-black, so 2.03 is the honest figure. --ink-muted at its 0.58
+     default resolves to #7a7a7a = 4.89:1, clearing AA body with headroom and
+     still sitting ~4.3x below the white odometer word, so the hierarchy
+     holds. The dim-gray VALUE stays put: it is the enter_world CTA's pulse
+     floor plus two other fills, none of them ink.
+     NB the token is only half the contrast story at rest — see
+     --logo-rest-op on the [data-footer-rest] band below. */
+  color: var(--ink-muted);
+}
+
+.logo-ticker__odo {
+  position: relative;
+  display: inline-grid;
+  vertical-align: top;
+  height: var(--logo-odo-lh);
+  overflow: hidden;
+  color: var(--color-white);
+}
+
+/* ── "full spectrum": the half-note spectrum pulse ──
+   10-08 (Nathan): the ink flips between a rapid walk of the house palette
+   and the muted ink, in HARD frame shifts — "not interpolated, hard hold
+   frame shifts" — on half-note pulses at 127 BPM.
+
+   THE TIMING IS THE MUSIC, so it is derived, not typed. --swm-bpm is the
+   only number: a half note is 120/bpm s, and the full cycle is two of them
+   (one pulse cycling, one pulse flat), hence 240s/bpm = 1.8898s at 127.
+   The five colour frames divide the CYCLING half note exactly, so one pulse
+   is one complete sweep of the palette — "full spectrum", once per pulse,
+   at 188.98ms a frame.
+
+   WHY steps(1, end) AND NOT A TWEEN. It is the scrim grain's own idiom
+   (scrimNoise): the timing function applies between every
+   keyframe pair, so each segment HOLDS its start value and jumps at the
+   end. No interpolation anywhere, which is the brief, and it also means the
+   colours need no @property registration to behave.
+
+   WHY `color` ON THE ELEMENT AND NOT AN INHERITED VAR. Animating an
+   inherited custom property does not paint-invalidate the text consuming it
+   — the computed value glides while the pixels freeze (the 08-29 --nav-ink-l
+   finding above). Animating this element's own `color` is the documented fix,
+   so the frames actually land. */
+/* TWO ANIMATIONS, ONE PROPERTY (10-08). The rate and the tempo used to share
+   one keyframe table, which pinned the colour frames to 10% of the cycle —
+   and @keyframes percentages are literals, so no var() can move them. Split
+   in two: the WALK's duration carries the colour rate, the GATE's carries the
+   BPM, and the two never have to agree on a percentage. ?pulsereps is then
+   just the walk's divisor. */
+.logo-ticker__spectrum {
+  animation:
+    swm-spectrum-walk calc(120s / var(--swm-bpm, 127) / var(--swm-pulse-reps, 3)) steps(1, end)
+      infinite,
+    swm-spectrum-gate calc(240s / var(--swm-bpm, 127)) steps(1, end) infinite;
+  /* Paused by default and released by the same latch as the odometer below.
+     Ungated, a 15.9Hz text repaint would run on /work beside the WebGL world,
+     on /process, on every detail page, and while this panel is parked
+     off-screen at translateY(100%). On home the latch never clears while the
+     footer rests, so the pulse is continuous there — which is the point. */
+  animation-play-state: paused;
+}
+
+/* THE WALK — one COMPLETE sweep of the palette per iteration, five equal
+   frames. "Full spectrum" is the phrase, so sweeps-per-half-note is the only
+   unit in which every legal value keeps that promise: the five frames divide
+   the cycling half exactly, no frame is ever truncated, and walk:gate =
+   2 x reps is an integer, so every flat half begins on a sweep boundary. */
+@keyframes swm-spectrum-walk {
+  0% {
+    color: var(--swm-cycle-1);
+  }
+  20% {
+    color: var(--swm-cycle-2);
+  }
+  40% {
+    color: var(--swm-cycle-3);
+  }
+  60% {
+    color: var(--swm-cycle-4);
+  }
+  80% {
+    color: var(--swm-cycle-5);
+  }
+  100% {
+    color: var(--swm-cycle-1);
+  }
+}
+
+/* THE GATE — the half note, and the whole trick.
+   THERE IS NO 0% KEYFRAME FOR `color` ON PURPOSE. With the property absent
+   from 0%, the UA synthesises that keyframe from the UNDERLYING value — which
+   here is the walk, because this animation is declared SECOND and so is the
+   higher-priority effect. Under steps(1, end) the 0→50% segment therefore
+   HOLDS that underlying value, re-read every frame: the walk passes straight
+   through. At 50% this animation takes over and replaces it with the flat
+   ink, which holds to 100%.
+   DO NOT "fix" this by adding `0% { color: … }` — that pins the whole cycling
+   half to one colour and kills the walk.
+   Verified by stepping a paused clock across the cycle in 0.5ms seeks: 6
+   distinct painted inks, zero intermediate values, the boundary nailed at
+   t=945ms, identical in Blink 151 and WebKit 26.5. (The tempting alternative
+   — a `-webkit-text-fill-color: currentColor` gate over an animated `color`
+   — measures perfectly in Blink and collapses to a FLAT muted phrase for the
+   entire cycle in WebKit, i.e. invisible on every iPhone. It is not used.) */
+@keyframes swm-spectrum-gate {
+  50% {
+    color: var(--ink-muted);
+  }
+  100% {
+    color: var(--ink-muted);
+  }
+}
+
+/* A 15.9Hz colour walk on text is squarely a reduced-motion case: hold the
+   muted ink flat. (It is well under WCAG 2.3.1's flash threshold, which is
+   about large-area luminance change, but comfort is the point here.) */
+@media (prefers-reduced-motion: reduce) {
+  .logo-ticker__spectrum {
+    animation: none;
+    color: var(--ink-muted);
+  }
+}
+
+/* THE WHITE SWITCH (11-07, Nathan): the phrase in the odometer word's own
+   ink (.logo-ticker__odo above), with both animations dropped so nothing
+   repaints. (0,3,0) outranks the base rule, the play-state latch and the
+   reduced-motion hold. SPECTRUM_WHITE in ClientLogoTicker.jsx is the bake,
+   ?spectrumwhite the dial. */
+.logo-ticker[data-spectrum='white'] .logo-ticker__spectrum {
+  animation: none;
+  color: var(--color-white);
+}
+
+/* sizer: all five words stacked in ONE cell → box = the longest word */
+.logo-ticker__odo-sizer {
+  display: inline-grid;
+  visibility: hidden;
+}
+
+.logo-ticker__odo-sizer > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.logo-ticker__odo-col {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+  animation: logo-ticker-odo calc(var(--logo-word-cycle) * 5) infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+
+.logo-ticker__odo-word {
+  display: block;
+  height: var(--logo-odo-lh);
+  line-height: var(--logo-odo-lh);
+}
+
+/* five words + the clone of the first: hold 15 of every 20%, move on the
+   house panel curve (no overshoot) for the last 5%; 100% = -5 lines = the
+   clone = word 0 → the loop snaps back invisibly. */
+@keyframes logo-ticker-odo {
+  0%, 15% { transform: translateY(0); animation-timing-function: var(--ease-panel); }
+  20%, 35% { transform: translateY(calc(var(--logo-odo-lh) * -1)); animation-timing-function: var(--ease-panel); }
+  40%, 55% { transform: translateY(calc(var(--logo-odo-lh) * -2)); animation-timing-function: var(--ease-panel); }
+  60%, 75% { transform: translateY(calc(var(--logo-odo-lh) * -3)); animation-timing-function: var(--ease-panel); }
+  80%, 95% { transform: translateY(calc(var(--logo-odo-lh) * -4)); animation-timing-function: var(--ease-panel); }
+  100% { transform: translateY(calc(var(--logo-odo-lh) * -5)); }
+}
+
+/* ── The roll: one row, one direction, seamless ── */
+.logo-ticker__roll {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+  /* the drag surface (09-08): horizontal drag is ours, vertical stays the
+     page's; the engine paints the cursor */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  /* soft edges — mask, not overlays, so the black ground needs no match */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--logo-fade),
+    #000 calc(100% - var(--logo-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--logo-fade),
+    #000 calc(100% - var(--logo-fade)),
+    transparent
+  );
+}
+
+/* the strip = both track copies; JS translates it (dragMomentum engine),
+   wrapping modulo one track width */
+.logo-ticker__strip {
+  display: flex;
+  flex: none;
+  will-change: transform;
+}
+
+.logo-ticker__track {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--logo-gap);
+  /* the gap between the two copies = the item gap, so the seam is one
+     more ordinary gap */
+  padding-right: var(--logo-gap);
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.logo-ticker__item {
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.logo-ticker__img {
+  display: block;
+  /* --lf = the item's optical factor (see --logo-bal) */
+  height: calc(var(--logo-h) * var(--lf, 1));
+  width: auto;
+  max-width: calc(var(--logo-h) * var(--logo-max-w));
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* The odometer runs ONLY while the footer is revealing — the same
+   attribute that gates the shell slide (the roll's JS loop reads it too). */
+html[data-footer-revealed] .logo-ticker__odo-col,
+html[data-footer-revealed] .logo-ticker__spectrum {
+  animation-play-state: running;
+}
+
+/* …but NOT through the on-load entrance (10-08). The roll is a main-thread
+   animation — the band's per-frame `opacity: calc(…)` keeps Chrome from
+   compositing the column — and the entrance is the busiest window the page
+   has, so it froze mid-step and then jumped a whole word when the thread
+   freed. Measured: one 1555 ms frame, then 1272 ms of animation clock and a
+   full -31.78px step in the next. SiteFooter owns this latch on the same
+   lifecycle as --footer-slide (see settleOdometer there); same specificity as
+   the rule above, so ORDER is what makes it win — keep it below.
+   The spectrum is deliberately left running: its animation is a hard-hold
+   `steps(1, end)` colour flip, where a stalled frame reads as one slightly
+   long hold rather than as a jump. */
+html[data-footer-settling] .logo-ticker__odo-col {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-ticker__odo-col {
+    animation: none;
+  }
+
+  /* static: one copy, first word, no fade edges to hint motion */
+  .logo-ticker__track[aria-hidden] {
+    display: none;
+  }
+}
+
+/* ============================================
+   KEYWORD HIGHLIGHT — src/lib/keywords.jsx (09-08, Nathan)
+   Three layers per <mark class="kw">: the box (scaleX from the left), the
+   resting-ink word, and the highlight-ink word clip-wiped in lockstep — a
+   mask that replaces one ink state with the other. Colour per blurb via
+   --kw-bg / --kw-ink on any ancestor (defaults: electric blue / white).
+   inline-block: a keyword never breaks across lines (a split box would
+   read as two highlights). GSAP drives scaleX + clip-path directly —
+   no custom-property animation (the paint trap).
+   ============================================ */
+
+/* `**bold**` — the weight marker (10-08). renderKeywords emits <b class=
+   "kw-em">, and <b> would otherwise take the browser's default 700, which is
+   NOT the house cut: every marked surface means --weight-medium by it (the
+   footer blurb gets there via its own emClass, .site-footer__blurb-em, and the
+   drawer's <strong> via .description__text strong). Declared here so the marker
+   lands on the same weight wherever the PROSE renderer is used — project detail
+   paragraphs, /process stage blurbs and CTA line — instead of only where a
+   caller happens to pass a class. */
+.kw-em {
+  font-weight: var(--weight-medium);
+}
+
+.kw {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.12em;
+  margin: 0 -0.12em;
+  color: inherit;
+  background: none;
+  vertical-align: baseline;
+  /* a multi-word keyword is one .kw PER WORD (keywords.jsx); the trailing
+     space lives inside each fragment so the box runs on without a gap */
+  white-space: pre;
+}
+
+/* Stack: base word → box → ink. The box covers the base as it wipes (the
+   mask), so the base's mobile text-shadow never bleeds onto the box. */
+.kw__box {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--kw-bg, var(--scheme-chip));
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  will-change: transform;
+}
+
+.kw__base {
+  position: relative;
+  z-index: 0;
+}
+
+/* Prose links inside blurbs (09-10): the nav/footer underline idiom, and a
+   keyword-link lifts its box on hover — the box IS the affordance. */
+.prose-link {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  text-decoration-thickness: 0.04em;
+}
+.prose-link:hover,
+.prose-link:focus-visible {
+  color: var(--kw-bg, var(--scheme-chip));
+}
+.kw-link:hover .kw__box,
+.kw-link:focus-visible .kw__box {
+  filter: brightness(1.18);
+}
+
+.kw__ink {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: 0 0.12em;
+  color: var(--kw-ink, var(--color-white));
+  /* vertical slack: with a tight line-height the descenders overflow the mark box,
+     and the NEXT line's box (z 1) would cover them — the ink layer sits above
+     every box, so let its clip breathe past the box top and bottom (09-10) */
+  clip-path: inset(-0.35em 100% -0.35em 0);
+  white-space: pre;
+  text-shadow: none;
+}
+
+/* ── INTEGRATION FLAG (F1) — nav slide ───────────────────────────────────────
+   As the footer reveals, the shared .site-shell slides up by one nav height so
+   the redundant bar leaves the viewport (its own nav links live in the footer).
+   CONTINUOUS, not a threshold toggle: SiteFooter.jsx writes the live reveal
+   progress to `--footer-reveal` (0..1) on <html> every frame and sets
+   [data-footer-revealed] the moment progress leaves 0, so the nav slide and the
+   footer rise are ONE scroll-linked motion — the old >0.5 attribute flip rode
+   the base 600ms transition and produced a discrete mid-reveal "scoot".
+   `transition: none` here keeps the shell glued to the scroll (the base
+   .site-shell transition would smear per-frame var updates); the var fallback
+   of 1 preserves the old full-slide behavior for any attribute-only setter.
+   Gated by :not([data-chrome-open]) — SiteShell marks <html> while the info
+   drawer or inquiry overlay is open; a transformed .site-shell becomes the
+   containing block for the fixed overlay, so the slide backs off whenever
+   either is open (dropping to this rule's absence re-enters the base
+   transition, so that back-off still animates).
+   11-14 (Nathan: the bar disappeared on a directory client with a tile or
+   two): the slide reads `--footer-nav-p`, the reveal measured from the
+   progress the page shows at the top of its scroll (footerTune.js navSlide).
+   On a page taller than the fold that is the reveal itself; on one whose
+   footer is in view before any scroll the bar stays until the page scrolls,
+   and stays for good where it cannot. The directory's filter follows on the
+   same var (directory.css). */
+html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
+  transform: translateY(calc(var(--footer-nav-p, var(--footer-reveal, 1)) * -1 * var(--nav-height)));
+  transition: none;
+}
+
+/* ≤768px the slide is OFF (08-30, Nathan): the mobile footer carries no
+   nav links (see the footer's mobile block), so the bar is not redundant
+   at page end — and the menu pill must stay reachable top-right through
+   the reveal. */
+@media (max-width: 768px) {
+  html[data-footer-revealed]:not([data-chrome-open]) .site-shell {
+    transform: none;
+  }
+}
+
+/* ============================================
+   HOME FOOTER VARIANT — [data-footer-rest] (10-07, Nathan; desktop 10-09)
+   ============================================
+   "A frictionless experience for users in knowing what small world media is
+   and establishing our credentials right off the bat": the home footer RESTS
+   OPEN — on phones since 10-07 (0.59), on desktop since 10-09 (Hero's
+   FOOTER_REST_DESKTOP: 0.62, re-baked to a 0.40 sliver on 10-31). Hero floors
+   its driven progress at ?footerrest and sets this attribute on <html> for
+   exactly as long as that floor is live, so
+   the whole variant keys off ONE fact read at module load, never a media
+   query that could disagree with it mid-session. ?footerrest=0 removes it on
+   either tier.
+
+   The panel re-stacks: the blurb on top, then the logo band (its
+   "utilized by…" line + the marks) ORDERED LAST, so the resting band shows
+   the blurb with that line fading in below it as the gesture reveals the
+   rest. The fade is the band's existing window over --footer-peak, opened
+   from 0 here so the hint is already partly in at rest (?logofrom/?logoto
+   still override — ClientLogoTicker writes them inline).
+   ============================================ */
+html[data-footer-rest] .site-footer--links {
+  display: flex;
+  flex-direction: column;
+
+  /* The on-load slide (10-08, Nathan). The INDIVIDUAL `translate` property,
+     never `transform`: SiteFooter writes the whole transform string
+     imperatively every reveal frame (paint(), both modes), so a GSAP tween of
+     y/transform here would be clobbered on the next frame and would fight
+     GSAP's own transform cache. `translate` pre-multiplies it instead, so the
+     two compose — the same reason --hero-lift uses it.
+     0px is the inert ground: the var is set only while the slide is armed,
+     and removed when it lands. Layout is untouched — offsetHeight and
+     ResizeObserver report the layout box, so --footer-panel-h (the
+     denominator of both the rest fraction and --hero-lift) does not move.
+     --info-push (11-12) rides the same property: the open info drawer pushes
+     the panel down with it (see the INFO PUSH block below). */
+  translate: 0 calc(var(--footer-slide, 0px) + var(--info-push, 0px));
+}
+
+/* the blurb is the band's own content now — left-aligned, full measure */
+html[data-footer-rest] .site-footer__inner {
+  justify-content: flex-start;
+}
+
+html[data-footer-rest] .site-footer__blurb {
+  display: block;
+}
+
+html[data-footer-rest] .logo-ticker {
+  /* LAST element in the band (DOM order is untouched, so /work, /process,
+     the detail footers and home at ?footerrest=0 keep the band at the
+     panel's top) — the rule the separator hairline hangs off flips with it. */
+  order: 1;
+  border-bottom: 0;
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+
+  /* DIM AT REST, FULL ONCE SEEN — and it never goes back (10-08, Nathan:
+     "'Utilized by a full spectrum' opacity and the logo ticker below it
+     start at 0.4 until the user scrolls up to reveal it for the first
+     time").
+
+     --lt-p, the band's own window, cannot express this: it is a RISE window
+     keyed on --footer-peak, and on this variant there is no rise — the band
+     IS the resting content, so at the then-0.62 floor it resolved to a flat 0.633
+     and the --logo-reveal-from: 0 override that used to sit here was that
+     window being fought with the only lever it had. Both are gone.
+
+     THE RAMP rides --footer-rise-peak, the rest-normalized peak: 0 in the
+     resting pose, 1 at a full reveal, and it holds through a retreat WITHIN
+     an excursion. It is NOT a session latch — measured, it resets 1 → 0 the
+     frame the panel parks back on its floor, which is deliberate (the marks'
+     at-rest hint has to be able to come back, and the probe gates
+     marksHoldOnRetreat on exactly that). So the ramp alone would re-dim the
+     band on every park, which is the one thing the ask rules out. The
+     [data-footer-seen] rule below is the one-way half; this is only the
+     glide into it.
+
+     FAILS OPEN: with --footer-rise-peak absent or non-numeric the whole
+     calc is invalid-at-computed-value and the declaration drops, leaving the
+     base rule's own opacity — visible, never 0.
+
+     WHAT 0.4 COSTS, measured over the panel's pure black: the lead-in ink
+     composites to rgb(49,49,49) = 1.61:1 and the odometer word to
+     rgb(102,102,102) = 3.66:1. Both are under AA body (4.5:1), and the copy
+     line is 19.6px/500 on the phone and below the desktop crossover, so the
+     large-text exemption does not apply there; on the desktop variant the
+     copy line rides --footer-blurb-size and only reaches WCAG's 24px bar
+     above ~1530px. This is
+     NOT reachable by brightening ink — at 0.4 pure white itself tops out at
+     3.66:1. ?logorestop is the floor: 0.5 reads barely brighter and brings
+     the white odometer word to 5.32:1, which is the honest compromise if the
+     number matters. (The 1.43:1 figure this comment used to carry was
+     measured against the retired --color-dim-gray; today's #7a7a7a lead-in
+     through the old 0.633 veil is 2.48:1.) */
+  opacity: calc(
+    var(--logo-rest-op, 0.4) + (1 - var(--logo-rest-op, 0.4)) *
+      var(--footer-band-p, var(--footer-rise-peak, 1))
+  );
+}
+
+/* THE ONE-WAY HALF. Specificity (0,3,1) beats the rule above, and the value
+   is a literal 1 — no var, no calc, nothing that can go invalid. SiteFooter
+   sets the attribute the first time the rise clears 0.999 and never removes
+   it, re-asserting from sessionStorage after a soft nav (ClientRouter
+   replaces every <html> attribute).
+   THE THRESHOLD HAS TO BE A FULL REVEAL. At 0.999 the ramp above is already
+   at 0.9994, so the handoff to a hard 1 is a 0.0006 step — invisible. Latch
+   at, say, 0.6 and it is a visible 0.24 jump, because neither rule carries a
+   transition (deliberately: a transition would low-pass the per-frame var
+   updates into a smear — and the minimum fade is a clock in SiteFooter for
+   the same reason).
+   IT IS THE GATED --footer-band-p THAT HAS TO CLEAR 0.999, NOT THE RISE.
+   This rule outranks the ramp, so latching on the rise would snap the band to
+   full on the first frame of a quick scroll and erase the minimum fade. */
+html[data-footer-rest][data-footer-seen] .logo-ticker {
+  opacity: 1;
+}
+
+/* Nathan: "ensure the 'utilized across a full spectrum' text matches to the
+   text size of the blurb that now sits above it" — one token, both lines.
+   (Still true above 769px, where the token becomes --footer-blurb-size — see
+   the desktop block below, which keeps the pair matched.) */
+html[data-footer-rest] .logo-ticker__copy {
+  font-size: var(--text-blurb, 1.4rem);
+}
+
+/* ============================================
+   DESKTOP RESTING VARIANT — the panel's own layout (10-08, Nathan)
+   ============================================
+   The variant is on desktop home by default since 10-09 (Hero: desktop rests
+   at 0.40 since 10-31 and 0.62 before, the phone at 0.59, an explicit dial
+   anywhere), so on desktop it
+   inherits a panel built for a different pose. Everything here is gated at 769px because
+   the three things it reckons with — the fixed lockup, the (c) line and the
+   privacy pill — are all display:none at <=768px, where the phone's layout is
+   already right. A gate inside an attribute-keyed variant is normally the
+   thing this file warns against; it is correct here precisely because the
+   OTHER tier's rules are the media query's, so the two cannot disagree.
+   ============================================ */
+@media (min-width: 769px) {
+  /* (1) THE DEAD RESERVE ABOVE THE BLURB. `.site-footer__inner`'s min-height
+     reserves the fixed tagline stack — lockup art + gap + the (c) line's box
+     — from back when that stack sat over this panel's bottom. Under this
+     variant the band is ordered last and the lockup is now hidden, so the
+     reserve pays for a column that is never drawn, and `align-items:
+     flex-end` parked the blurb at the bottom of it: measured 64.90px from the
+     panel's top to the blurb's first line where the pad alone is 18.00px.
+     Dropping it lands the blurb at exactly the pad, at every width tested
+     from 800 to 3440. (The <=768px block makes the same call, for the same
+     reason, further down.) */
+  html[data-footer-rest] .site-footer__inner {
+    min-height: 0;
+    padding-top: var(--footer-rest-top-pad, 1.286rem);
+  }
+
+  /* (2) THE BAND'S FOOT. Ordered last, the band lands exactly where the fixed
+     lower corners sit: measured, the privacy pill overlapped the marks row by
+     25.97px and the copyright by 10.00px. None of these numbers moves with
+     width — html{font-size:14px} pins the whole rem chain and all three boxes
+     are bottom-fixed — so one clearance holds everywhere. It is the same
+     construction the inner's min-height tail used (the pill's own box seated
+     on the shared bottom inset) plus one row gap: the reserve has effectively
+     MOVED from above the blurb to below the band, which is where this
+     variant actually needs it. Clears them by 12.02px and 27.99px. */
+  html[data-footer-rest] .logo-ticker {
+    padding-bottom: var(
+      --ticker-foot-clearance,
+      calc(
+        var(--footer-bottom-inset) + var(--lh-link) + 2 * var(--pill-pad-y) + var(--space-6)
+      )
+    );
+  }
+
+  /* (3) ONE LINE, FULL MEASURE, AT ANY WIDTH (Nathan: "scale up to maintain
+     the full width of the viewport, beyond any viewport width… value that
+     makes the blurb run on only one line, similar to how the blurb and the
+     info drawer scales up. cross utilize the scaling system if possible").
+
+     THE SCALING SYSTEM REUSED is the info drawer's — bare, UNCAPPED viewport
+     type — not the project blurb's clamp(), whose 3.571rem ceiling is exactly
+     the cap being rejected. What gets divided is the panel's OWN measure, the
+     same `100vw minus the two chrome insets` expression
+     .site-tagline__text--long already writes for this very copy.
+
+     THE DIVISOR IS A MEASUREMENT OF THE COPY, which is why it is taken at
+     RUNTIME (see below) rather than typed. Tracking is in em, so the scaling
+     is exactly linear and ONE number holds at every width: the copy as
+     shipped measures 55.722em and fills exactly one line at 1180, 1200, 1280,
+     1366, 1440, 1536, 1600, 1728, 1920, 2048, 2560, 2880, 3440 and 4480, with
+     zero overflow at any of them (25.43px @1440, 45.43px @2560, 61.14px
+     @3440).
+
+     A BARE vw COEFFICIENT CANNOT DO THIS. The 16px inset is fixed, so exact
+     fill is 1.5746vw at 1280 and 1.5845vw at 2560 (asymptote 1.5945): any
+     single number either wraps at the narrow end or leaves a widening gap at
+     the wide end. Dividing the measure is what makes the trailing slack a
+     constant 0.5% instead.
+
+     --footer-blurb-fill is the taste knob — the share of the measure the line
+     takes. 1 is flush and sits on the sub-pixel edge (it wrapped at 1024w),
+     so 0.995 keeps ~0.5% in hand; that headroom is also what absorbs a
+     Retina device rounding glyph advances differently from this measurement.
+
+     NO `white-space: nowrap`. The computed size already makes one line fit,
+     and nowrap would turn any miss — a copy edit, a font swap — into content
+     overflowing a panel whose .logo-ticker ancestor is overflow:hidden, i.e.
+     a clipped sentence instead of a wrapped one. Wrapping is the correct
+     failure mode, and the per-word entrance is unaffected either way.
+
+     THE DIVISOR IS MEASURED, NOT BAKED. SiteFooter publishes
+     --footer-blurb-em from a nowrap clone of the real blurb (weights and all)
+     and re-measures on document.fonts.ready, so the fill follows the copy
+     instead of one frozen sentence. That is the whole reason the blurb could
+     move into Sanity: an editor rewords it and the size follows, with no
+     number here to update.
+
+     55.722 IS THE FALLBACK, AND IT IS COPY-DEPENDENT BY NATURE. It is the
+     shipped string's own measurement, so SSR and a no-JS load are correct for
+     today's copy; the moment someone edits the blurb in the Studio this
+     number is stale and only the first paint sees it, because the runtime
+     measurement overwrites it. Staleness is harmless in one direction and
+     not the other: a divisor that is too LARGE under-fills (smaller type,
+     still one line), a divisor that is too SMALL over-fills and wraps. Since
+     shortening copy raises the true divisor's accuracy and lengthening it
+     lowers the number needed, keep this value at or ABOVE the current
+     measurement if it is ever hand-edited. Webfont failure is safe for the
+     same reason: the fallback stack measures ~7% narrower than ABC Areal, so
+     a swap period under-fills rather than wrapping.
+
+     THE FILL ONLY SCALES UP. Below the baseline it would keep shrinking to
+     stay on one line — 11.9px at 769w — so max() floors it at the SAME
+     1.4rem every other desktop site falls back to, and the sentence wraps
+     from there instead (Nathan, 10-08). `--text-blurb` is a ≤768px token, so
+     above 769px this var() resolves to the literal 1.4rem; it is written as
+     the var anyway so the floor follows the token if it ever gains a desktop
+     value, exactly as every other desktop consumer reads it.
+
+     THE CROSSOVER MOVES WITH THE COPY — it is `19.6 x em / fill` in measure
+     terms, not a width anyone chose. For the copy as shipped that lands at a
+     measure of ~1098px, i.e. a viewport of ~1110-1130px: measured one line
+     from 1130px up and two lines at 1100px and below, the wrapped band all at
+     exactly 19.6px with no overflow. Below the crossover the blurb is two lines at
+     precisely the baseline every other desktop surface falls back to, which
+     is why the narrow band needed no second bake. (It sat at ~1245px for the
+     pre-Sanity copy; a longer blurb pushes it back up.)
+
+     It floors the DIAL too: ?footerblurbfill can only pull the size down to
+     the baseline (≈0.863 at 1440w), below which it is clamped and inert. */
+  html[data-footer-rest] {
+    --footer-blurb-size: max(
+      var(--text-blurb, 1.4rem),
+      calc(
+        var(--footer-blurb-fill, 0.995) * (100vw - var(--nav-inset) - var(--chrome-right-inset)) /
+          var(--footer-blurb-em, 55.722)
+      )
+    );
+  }
+
+  /* Both lines, one token — Nathan's own "one token, both lines" rule for
+     this pair, carried up to the new size. The odometer rides it for free:
+     its whole geometry is --logo-odo-lh (1.25em) and the keyframes step in
+     multiples of it, so the rolling word scales coherently instead of
+     desyncing. */
+  html[data-footer-rest] .site-footer__blurb,
+  html[data-footer-rest] .logo-ticker__copy {
+    font-size: var(--footer-blurb-size);
+  }
+}
+
+/* The page-level tagline pill yields: the blurb it carried is in the panel
+   now, and the resting panel sits exactly where the pill does (the 09-08
+   mask clipped it out of the risen footer for the same reason — this is that
+   mask's resting-footer case, expressed once instead of per frame). */
+html[data-footer-rest] .site-tagline__pill {
+  display: none;
+}
+
+/* …and the white lockup with it (10-08, Nathan: "we still need to hide the
+   lockup… it is overlapping with the logo ticker"). The band is ORDERED LAST
+   under this variant, so the marks row lands exactly where the fixed lockup
+   sits: measured 27.44px of the lockup's 27.44px height inside
+   .logo-ticker__roll — 100% of it, over the marks, at every width from 800 to
+   3440 and at a full reveal only (at rest it is still visibility:hidden,
+   REVEAL_ON 0.85).
+   VIEWPORT-UNGATED ON PURPOSE, like the rest of this block: at <=768px the
+   lockup is ALREADY display:none (the phone block below), so this is a
+   measured no-op there rather than a second breakpoint to keep in sync.
+   THE COPYRIGHT STAYS — it is a separate element in the same bottom-anchored
+   fixed column, and hiding only the lockup leaves its rect untouched
+   (measured identical before and after, the --space-2 gap collapsing with the
+   hidden sibling). It gets its clearance from the band's foot instead. */
+html[data-footer-rest] .site-tagline__lockup {
+  display: none;
+}
+
+/* The footer link row goes with it (10-08, Nathan: "on globe page footer
+   variant let's remove the footer links"). THE WHOLE FIX IS HERE: the row was
+   only ever killed inside @media (max-width: 768px), and this variant is
+   viewport-ungated — desktop home rests too (by default since 10-09) — so
+   above 769px the resting footer was still showing all five links. display:none takes the row
+   and its --pill-pad-y lift out together, and
+   drops the links from the tab order and the accessibility tree in one move.
+   The nav stays reachable: the F1 shell slide is explicitly OFF under this
+   variant (just below), so the main nav bar never leaves the viewport here;
+   at ≤768px the mobile menu is the nav surface anyway (08-30).
+   /work, /process and the detail footers never carry this attribute and keep
+   their rows untouched. */
+html[data-footer-rest] .site-footer__nav {
+  display: none;
+}
+
+/* F1 OFF while the footer rests: a nonzero resting progress would translate
+   the shell up by that fraction of a nav height for the whole session. At
+   ≤768px it is already off; above 769px — desktop home, which rests open
+   since 10-09 (0.40 since 10-31) — this rule is what keeps the nav bar in
+   place. */
+html[data-footer-rest][data-footer-revealed]:not([data-chrome-open]) .site-shell {
+  transform: none;
+}
+
+/* ── The HERO PARALLAX on the resting footer's reveal (10-07, Nathan: "have
+   the globe and Enter World button scroll up slightly, maybe at half the rate
+   of the actual scroll") ──────────────────────────────────────────────────
+   Driver: --footer-rise, NOT --footer-reveal. The raw var RESTS at ?footerrest
+   (0.59 on the phone, 0.40 on desktop since 10-31), so a consumer reading it
+   lifts the globe a third of the way on the FIRST PAINT; the rise is 0 in the
+   resting pose by construction.
+
+   Travel: the panel's own climb is span × --footer-panel-h, and --footer-lift-k
+   (?footerlift) is the fraction of it the hero follows. There is no document
+   scroll on home (html, body are 100dvh / overflow hidden), so the panel's own
+   rise IS "the actual scroll" — it is the thing the user is watching move.
+   ONE number feeds every selector below, so the globe, its ring and the button
+   can never drift apart.
+
+   One intermediate property, not five copies of the calc, so the reduced-motion
+   override is a single auditable line rather than an accident.
+
+   GATED on [data-footer-rest] — mandatory, not tidiness. `translate: 0 0px` is
+   NOT `none`: ungated, these five would permanently establish a transform, a
+   containing block and a stacking context on desktop and at every other
+   breakpoint, silently capturing any future position:fixed descendant. The
+   attribute exists only while Hero's resting floor is live — home on both
+   tiers since 10-09; ?footerrest=0 and every other route are byte-identical
+   to before.
+
+   The individual `translate` property, NOT `transform` — this is the whole
+   trick. .hero__lead-col's transform IS its -50%/-50% centering (below) and
+   .hero__globe-stroke's transform is rewritten from the overlay disc EVERY
+   FRAME by Hero. `translate` pre-multiplies the final matrix without
+   participating in `transform` at all, so the blue ring stays welded to the
+   silhouette and the button stays centered with no JS change.
+
+   NOT in the list: .hero-labels__svg, because it is a CHILD of .hero-labels
+   (above) — listing both would lift the leader strokes TWICE while the chips
+   moved once. And .hero__veil, which is a full-bleed black field that must
+   stay full-bleed.
+
+   `transition: none` is mandatory too: a transition low-passes per-frame var
+   updates into a smear (the shell-slide lesson above). */
+html[data-footer-rest] {
+  --hero-lift: calc(
+    var(--footer-rise, 0) * var(--footer-lift-k, 0.5) * var(--footer-span, 1) *
+      var(--footer-panel-h, 0px)
+  );
+}
+
+/* Reduced motion: the gesture SNAPS progress between the floor and 1 with no
+   in-betweens (Hero's addDelta), so a live lift would read as a ~50px jump
+   cut. Explicit, not a side effect. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-footer-rest] {
+    --hero-lift: 0px;
+  }
+}
+
+html[data-footer-rest] .hero__globe,
+html[data-footer-rest] .hero__globe-stroke,
+html[data-footer-rest] .hero-labels,
+html[data-footer-rest] .hero__lead-col,
+html[data-footer-rest] .hero__fill {
+  translate: 0 calc(var(--hero-lift, 0px) * -1 + var(--info-push, 0px));
+  transition: none;
+}
+
+/* ── INFO PUSH (11-12, Nathan) ────────────────────────────────────────────
+   "When the info panel is expanded, push down the footer, globe logo, ticker
+   and essentially everything behind it, in lockstep — to the point where the
+   footer's blurb bar is just outside the bottom of the viewport, so there
+   aren't two descriptions on screen."
+
+   --info-push (px, on <html>) is written by SiteShell's drawer tween through
+   src/lib/infoPush.js: the same call, duration and ease as the drawer's own
+   slide, and the distance is MEASURED (the footer bar's top edge to the
+   viewport's bottom edge), never the drawer's height. It is absent (0) while
+   the drawer is closed, so every rule here rests byte-identical.
+
+   What it moves, all on the individual `translate` property so it composes
+   with the transforms each one already writes (the footer's per-frame reveal,
+   the globe's centering, --hero-lift):
+     · the links footer + its logo ticker — folded into the --footer-slide
+       rule above;
+     · the globe, its ring, the chips, the zoom_in column and the commit fill —
+       folded into the --hero-lift list above;
+     · the tagline column (the copyright) and the lower-right privacy pill,
+       below;
+     · the hero's gradient backdrop, so the horizon travels with the globe
+       instead of staying put behind it.
+   All of it keys off the [data-footer-rest] latch, so only home ever moves. */
+html[data-footer-rest] .site-tagline,
+html[data-footer-rest] .site-privacy {
+  translate: 0 var(--info-push, 0px);
+}
+
+html[data-footer-rest] .hero {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: 0 var(--info-push, 0px);
+}
+
+/* The commit fill is in the list because its clip-path circle is written from
+   canvas-local coords (Hero sizes it off the overlay disc) — left unlifted, a
+   ?committune dry-run fired mid-reveal would bloom from a centre up to the
+   full lift off. It is position:fixed inset:0, so lifting it would open a bare
+   strip at the viewport bottom; one panel height of bottom bleed covers every
+   reachable lift (max lift = k × span × panelH ≤ panelH). Static per layout —
+   not a per-frame value. The real commit never blooms it: onEnterClick dives
+   the camera instead (the bloom is beginEnvelopment's, the bench dry-run), and
+   since 11-03 it GLIDES the reveal back to the floor rather than cutting it. */
+html[data-footer-rest] .hero__fill {
+  bottom: calc(var(--footer-panel-h, 0px) * -1);
+}
+
+/* ── The CLIENT MARKS arrive on the reveal (10-07, Nathan: "have the scroll
+   upward reveal the rest of the footer and the logo ticker") ──────────────
+   The gesture already works — an upward swipe advances the reveal from the
+   floor to 1 and the panel climbs. What was missing is hidden-at-rest STATE:
+   the marks sit clear BELOW the fold at rest, so they merely slid into frame
+   at full strength. This is their own window inside the band's, the same
+   clamp idiom --lt-p already uses one tier up, so the copy line and the marks
+   stage instead of arriving together.
+
+   Reads --footer-rise-PEAK, never the live rise. "Footer exits are masked via
+   --footer-peak, never faded": the roll's top edge does not leave the fold
+   until most of this window is already spent, so windowed over the live rise
+   the marks would dim away in FULL VIEW on every downward gesture. The peak
+   rises with the reveal and holds through the retreat, resetting only once the
+   panel is back at its floor.
+
+   The window start is MEASURED, not guessed — scripts/globe-probe.mjs
+   --footer interpolates marksFoldCrossRise, the rise at which the roll's top
+   edge touches the fold, and gates it against this number (within 0.05). 0.6
+   is the FIXED POINT of that measurement on a 390×844 viewport: at rise 0.6
+   the roll sits exactly at the fold, so the fade begins on its first visible
+   pixel — none of it spent off-screen, none of it already spent on arrival.
+   Measured, not derived: an arithmetic guess off static CSS said 0.42, and a
+   16-step scrub said 0.66. Keep this equal to FOOTER_TUNE_DEFAULTS.marksFrom
+   (scripts/test/footer-reveal.test.mjs holds the pair together).
+   ?footermarksfrom ?footermarksto ?footermarkslift. */
+html[data-footer-rest] .logo-ticker__roll {
+  --mk-from: var(--footer-marks-from, 0.6);
+  --mk-to: var(--footer-marks-to, 0.9);
+  --mk-p: clamp(
+    0,
+    (var(--footer-rise-peak, 0) - var(--mk-from)) / (var(--mk-to) - var(--mk-from)),
+    1
+  );
+  opacity: var(--mk-p);
+  translate: 0 calc((1 - var(--mk-p)) * var(--footer-marks-lift, 1.25rem));
+  transition: none;
+}
+
+/* ── The resting footer's ON-LOAD entrance ground (10-07, Nathan: "the footer
+   text and footer elements don't just instantly load abruptly") ───────────
+   Set by Hero in the same frame as [data-footer-rest] and removed by
+   SiteFooter's playFooterEntrance on the chrome beat — the beat the CTA, the
+   nav and the tagline pill already arrive on. ABSENCE MEANS VISIBLE: a dead
+   chrome beat, or anything thrown inside the entrance, leaves the studio blurb
+   UP rather than blank, which is the whole point of the resting floor. The
+   words' own fade is GSAP, element-locally, on .site-footer__blurb-word. */
+html[data-footer-in] .site-footer__blurb,
+html[data-footer-in] .logo-ticker__copy {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Reduced motion never has an entrance to wait for. Hero already declines to
+   ground it, so this is the belt: the frozen JS read and the live media query
+   can disagree if the preference is toggled mid-session. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-footer-in] .site-footer__blurb,
+  html[data-footer-in] .logo-ticker__copy {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+/* The landscape-rotation escape that used to live here (a @media
+   (min-width: 769px) rule clearing .site-footer__link's hidden ground) is
+   GONE as of 10-08: the row itself is now display:none under this variant at
+   every width, so the state it rescued — links layout-visible while the
+   stagger loop is retired — is unreachable. */
+
+/* ============================================
+   SITE TAGLINE — persistent lower-left pill (Figma Frame 19, 08-27)
+   ============================================
+   Fixed on every route (own island in BaseLayout — NOT inside .site-shell,
+   whose footer-reveal slide would carry it off alignment). Its resting
+   inset IS the links footer's inner padding (left --nav-inset / bottom
+   --footer-bottom-inset), so the rising footer settles around it by
+   construction. The copyright + white lockup start hidden; SiteTagline.jsx
+   reveals them on the footer's --footer-reveal broadcast. z: above the
+   footer panel (40), below the inquiry overlay (50) and nav shell (100).
+   ONE child, the row (11-05: the lockup left the column above it). */
+.site-tagline {
+  position: fixed;
+  left: var(--nav-inset);
+  bottom: var(--footer-bottom-inset);
+  z-index: 45;
+  pointer-events: none;
+}
+
+/* White SWM lockup at the NAV lockup's scale (svg height 7rem — the shared
+   asset's viewBox carries ~72% whitespace, so the wrapper is the row's
+   height (--tagline-row-h) and centers the oversize svg inside it). 11-05,
+   Nathan: it takes the VISUAL WORLDS pill's seat, inline before the
+   copyright at the row's gap; the pill leaves the row's flow above 768px
+   (below) and is covered for the rest of the reveal, so nothing but this
+   and the copyright is left in the row. The left margin backs out the
+   internal left whitespace so the optical edge seats on the pill's TEXT
+   inset (--pill-pad-x) — where the lockup sat before it moved down (Nathan
+   11-05: "retain the same 11px positioning"), not on the capsule's edge.
+   Hidden until the footer reveal; visibility (autoAlpha) also gates its
+   pointer target. */
+.site-tagline__lockup {
+  height: var(--tagline-row-h);
+  display: flex;
+  align-items: center;
+  margin-left: calc(var(--pill-pad-x) - var(--lockup-bleed));
+  pointer-events: auto;
+  visibility: hidden;
+  opacity: 0;
+}
+
+.site-tagline__lockup-art {
+  display: inline-flex;
+  align-items: center;
+}
+
+.site-tagline__lockup-art svg {
+  display: block;
+  height: var(--lockup-svg-h);
+  width: auto;
+  flex: none;
+}
+
+.site-tagline__lockup-art svg,
+.site-tagline__lockup-art svg * {
+  fill: var(--color-white);
+}
+
+.site-tagline__row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem; /* lockup → copyright run-on (Figma: 21px, pill → copyright) */
+}
+
+/* SQ-140 (11-24): where the links footer's nav row wraps onto a second line (769-~1000px: SiteTagline
+   sets <html data-footer-wrap> from the row's own layout, see writeStackW), the ©line drops under the
+   lockup so the left stack is two lines like the row's. The lockup's box is one row-height tall and
+   its art centres in it, so lockup-over-©line lands on the row's two lines (measured 11-24: row
+   lines [828–850] and [858–880], lockup box [820–858] centred on the first, ©line [858–880] on the
+   second). The ©line's bottom margin is the --pill-pad-y the row-height centring gave it in the
+   run-on, which is also the nav's own lift. The ©line seats on the lockup's optical left
+   (--pill-pad-x, the pill's text inset). The gap that ran lockup → ©line sideways is gone
+   (row-gap 0); --footer-stack-w stays the RUN-ON width, so the row's wrap does not change with
+   this. At 1024px+ the row is one line, the attribute is off and the run-on stack is untouched;
+   ≤768px the ©line and the lockup are hidden. */
+html[data-footer-wrap] .site-tagline__row {
+  flex-direction: column;
+  align-items: flex-start;
+  row-gap: 0;
+}
+
+html[data-footer-wrap] .site-tagline__copy {
+  margin-left: var(--pill-pad-x);
+  margin-bottom: var(--pill-pad-y);
+}
+
+/* The pill — the shared black capsule skin (--pill-pad-* / --radius-capsule).
+   08-27 (4), Nathan: the pill line + copyright ride the FOOTER NAV LINK text
+   style (--text-link/--lh-link, --tracking-body) so the whole revealed
+   footer reads as one type tier; only VISUAL WORLDS keeps the Medium
+   emphasis. The intro wipes clip-path left→right; words are per-span for
+   the stagger. */
+.site-tagline__pill {
+  /* 09-08: a BUTTON (it invokes the footer) — the UA skin is reset HERE, at
+     the class's own specificity, so the ≤768 blurb-size rule below still
+     wins (a `button.` selector outranked it and shrank the phone tagline). */
+  appearance: none;
+  border: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  /* 10-06: the long/short layers stack BOTTOM-anchored, so the morph's
+     resize closes the capsule from its top-right while the text holds
+     still (SiteTagline setLong).
+     11-05 (Nathan: the lockup takes this pill's seat): above 768px the pill
+     is OUT of the row's flow, seated on the tagline's bottom-left corner, so
+     the lockup that replaces it in the revealed footer — and the copyright
+     after it — run on at the row's own gap instead of after the pill's
+     width. The bottom edge is the same line the in-flow pill sat on. The
+     ≤768px block puts it back in flow (there is no lockup or copyright
+     beside it). */
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  /* the one-line capsule's half-height — the short state is still an exact
+     capsule, the two-line blurb a chip with the same corners */
+  border-radius: calc(var(--lh-link) / 2 + var(--pill-pad-y));
+  overflow: hidden;
+  background: var(--color-black);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  white-space: nowrap;
+  /* pre-JS ground: hidden until the intro (or the session-revisit set) */
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* Line groups (08-30 (3)) — structure only on desktop (display:contents
+   keeps the pill's single-row flex read); ≤768px they stack as the
+   three-line block. */
+.site-tagline__line {
+  display: contents;
+}
+
+.site-tagline__word {
+  display: inline-block;
+}
+
+/* 10-06 (Nathan): the long blurb (home at rest) and the short tagline. The
+   resting layer is in flow and sizes the pill; the other waits out of flow,
+   unseen; .is-leaving keeps an outgoing layer drawn through the morph. */
+.site-tagline__text--short {
+  display: flex;
+  align-items: center;
+  gap: 0.28em;
+}
+
+.site-tagline__text--long .site-tagline__line {
+  display: block;
+}
+
+.site-tagline__pill[data-tagline='long'] .site-tagline__text--short,
+.site-tagline__pill:not([data-tagline='long']) .site-tagline__text--long {
+  position: absolute;
+  left: var(--pill-pad-x);
+  bottom: var(--pill-pad-y);
+  visibility: hidden;
+}
+
+.site-tagline__pill .site-tagline__text.is-leaving {
+  visibility: visible;
+}
+
+.site-tagline__word--em {
+  font-weight: var(--weight-medium);
+}
+
+.site-tagline__copy {
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+  white-space: nowrap;
+  visibility: hidden;
+  opacity: 0;
+}
+
+@media (max-width: 768px) {
+
+  /* 08-30 (3), Nathan: the CAPSULE is desktop-only — on phones the tagline
+     is a bare three-line stack (VISUAL WORLDS / for the music /
+     industry.), blurb-size type, left-justified in the lower-left corner.
+     The wrapper keeps its corner seat; the row still reserves the wrapped
+     copyright line below (the --menu-pill-seat math rides it). */
+  .site-tagline {
+    /* 10-07 (Nathan): no corner to reserve any more — the privacy pill is
+       GONE on phones (the mobile menu's link is the only one), which is the
+       width the blurb gets back. */
+    right: var(--chrome-right-inset);
+  }
+
+  .site-tagline__row {
+    /* --space-6 (12px), not a literal — the mobile-menu foot and the
+       footer band min-height rebuild the tagline's seat from this same
+       token (the wrapped-copy reserve). */
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  .site-tagline__pill {
+    /* back in the row's flow (the desktop pill is seated out of it) */
+    position: relative;
+    left: auto;
+    bottom: auto;
+    width: max-content;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    /* bare text: descenders at line-height 1 must not clip */
+    overflow: visible;
+    /* the project-detail blurb's mobile size — one shared token */
+    font-size: var(--text-blurb);
+    line-height: 1;
+  }
+
+  .site-tagline__text--short {
+    display: block;
+  }
+
+  .site-tagline__pill .site-tagline__line {
+    display: block;
+  }
+
+  /* block lines lose the pill's flex gap — word spacing returns as the
+     same 0.28em, between words only */
+  .site-tagline__line .site-tagline__word:not(:last-child) {
+    margin-right: 0.28em;
+  }
+
+  /* 10-06: the long blurb runs as one wrapping paragraph, a size down from
+     the short stack, measured to the tagline's own seat (left inset → the
+     right chrome inset; 10-07 dropped the retired privacy pill's clearance
+     from that measure — Nathan: "that should free up the longer text blurb
+     on mobile globe page to have more width in its text box"). */
+  .site-tagline__text--long {
+    max-width: calc(100vw - var(--nav-inset) - var(--chrome-right-inset));
+    white-space: normal;
+    font-size: 0.82em;
+    line-height: 1.1;
+  }
+
+  .site-tagline__pill .site-tagline__text--long .site-tagline__line {
+    display: inline;
+  }
+
+  .site-tagline__text--long .site-tagline__line .site-tagline__word {
+    margin-right: 0;
+  }
+
+  .site-tagline__pill[data-tagline='long'] .site-tagline__text--short,
+  .site-tagline__pill:not([data-tagline='long']) .site-tagline__text--long {
+    left: 0;
+    bottom: 0;
+  }
+
+  /* 08-30 (2), Nathan: on phones the page-level tagline is HOME-ONLY — on
+     every other route it covered needed bottom real estate, so the mobile
+     menu's own copy (.mobile-menu__tagline) is the tagline's site-wide
+     home. display:none (not visibility) so the wrapped copyright takes
+     the row's first line and seats at the bottom inset in the footer. */
+  body:not(.route-home) .site-tagline__pill {
+    display: none;
+  }
+
+  .site-tagline {
+    bottom: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
+  }
+
+  /* 10-07 (Nathan): the 09-08 lower-left footer group — SWM LOCKUP +
+     ©copyright, positioned into the risen band — is RETIRED on phones.
+     "Move 2026 all rights reserved to the mobile menu": the ©line is
+     .mobile-menu__copy now (SiteNav's foot, beside the privacy link), and
+     "remove the SWM lockup from the footer" takes the lockup with it. The
+     freed band height is what the logo ticker drops into. Nothing left here
+     needs the per-frame panel-edge mask either (see SiteTagline maskLive). */
+  .site-tagline__copy,
+  .site-tagline__lockup {
+    display: none;
+  }
+}
+
+/* ============================================
+   SITE PRIVACY — persistent lower-right pill (08-29, Nathan)
+   ============================================
+   The tagline pill's MIRROR: a fixed black capsule linking /privacy, seated
+   at the links footer's inner right/bottom padding (same construction — the
+   rising footer settles around it; the footer nav's margin-right reserves
+   its clearance). Rendered by the SiteTagline island as a sibling; wipes in
+   right→left on the tagline's intro beat. Privacy link language (08-27):
+   brand blue Medium at rest, white on hover. Hidden pre-JS like the pill;
+   ≤768px it yields to the mobile menu's lower-corner privacy link
+   (08-30 — the full-width tagline pill owns the bottom edge on phones). */
+.site-privacy {
+  position: fixed;
+  right: var(--chrome-right-inset);
+  bottom: var(--footer-bottom-inset);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
+  background: var(--color-black);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  font-weight: var(--weight-medium);
+  color: var(--pill-ink-on-black);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
+  white-space: nowrap;
+  /* pre-JS ground: hidden until the intro (or the session-revisit set) */
+  visibility: hidden;
+  opacity: 0;
+}
+
+.site-privacy:hover {
+  color: var(--color-white);
+}
+
+/* 11-20 (Nathan): the fixed pill is HOME's only. Everywhere else privacy is the footer row's last link
+   (.site-footer__link--privacy), so nothing floats in the lower-right corner while the page scrolls. Home
+   hides that row ([data-footer-rest]) and its footer rests open, so the pill, seated in that resting band,
+   is the homepage's privacy link. body.route-home is server-rendered, so a reload never flashes it. The
+   SQ-107 shift left of the badge is gone: the badge seats above the footer panel now (SQ-121/125). */
+body:not(.route-home) .site-privacy {
+  display: none;
+}
+
+/* The home footer's blurb on a phone: its measure ends where the badge begins (SQ-107 pass 11, the
+   integrator's blurb regression at 390). The badge sits at the lower-right corner, a little off the bottom
+   edge, in the rows the blurb's last line lands on, so the blurb's right inset is the badge's own width plus
+   the page's inset (--nav-inset) again: the same air as the blurb's left edge. The token follows
+   ?schemesize, ?schemepad and ?schemelids. Only home carries the blurb ([data-footer-rest]). Phones have no
+   badge since 11-21 (colorScheme.js PHONE_QUERY), so :has(.swm-corner) drops this and the blurb runs to
+   --chrome-right-inset as it did before SQ-107; ?schemeui=1 brings the badge and this inset back. */
+@media (max-width: 768px) {
+  html[data-footer-rest]:has(.swm-corner) .site-footer__inner {
+    padding-right: calc(var(--badge-reserve) + var(--nav-inset));
+  }
+}
+
+.site-privacy:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* ≤768 (09-08, Nathan): the privacy pill LIVES in the lower-right corner
+   on phones too — one size up (--text-pill) — and the mobile menu's link
+   is its pixel twin (same seat, padding, face, ink), so menu open/close
+   and the footer reveal read as ONE persistent element. Above the tagline
+   stack (z 45) so the full-width tagline row never covers it. */
+/* Open state (09-08): the info pill's convention — white fill, blue ink,
+   `close ×` with the glyph after the word. */
+.site-privacy[aria-expanded='true'] {
+  background: var(--color-white);
+  color: var(--pill-ink-on-white);
+  gap: 0.143rem;
+}
+
+.site-privacy__icon {
+  width: 0.714rem;
+  height: 0.714rem;
+  flex: none;
+}
+
+/* ============================================
+   PRIVACY OVERLAY — the notice in place (09-08, Nathan)
+   ============================================
+   Lives in the SiteTagline island UNDER its pill (z 44 < 46): the pill is
+   the close. Wipes up on the shared overlay wipe (src/lib/overlayWipe.js).
+   Hidden pre-JS; autoAlpha brackets the wipe. */
+.privacy-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  overflow-y: auto;
+  background: var(--color-black);
+  color: var(--color-white);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.privacy-overlay[data-open='true'] {
+  pointer-events: auto;
+}
+
+/* The overlay's OWN way out wherever the pill is absent: on phones (10-07,
+   below) and, since 11-20, on every desktop route but home (the pill is
+   home's only; the footer row's link opens the notice there). Phones: the
+   privacy pill that closes it on desktop does not exist, and nothing else did: no
+   Escape key, and the notice never changes route. This is that pill's OPEN
+   state (white fill, blue ink, `close ×`) in the exact corner it held, so
+   menu → notice → close reads as one persistent element. `fixed` INSIDE the
+   overlay: the wipe animates clip-path, which makes the overlay the
+   containing block for it, so the capsule holds the corner while the notice
+   scrolls and leaves with the wipe instead of outliving it. */
+.privacy-overlay__close {
+  display: none;
+  position: fixed;
+  right: var(--chrome-right-inset);
+  /* the seat the MENU's privacy link holds (.mobile-menu's --menu-pill-seat,
+     a var scoped to that panel) — the capsule the user just tapped does not
+     jump as the menu wipes out and the notice wipes in */
+  bottom: calc(var(--footer-bottom-inset) + var(--pill-pad-y));
+  align-items: center;
+  gap: 0.143rem;
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+  border-radius: var(--radius-capsule);
+  background: var(--color-white);
+  color: var(--pill-ink-on-white);
+  transition: color var(--ink-fade, var(--project-color-fade)) var(--ease-ink) var(--accent-delay, 0s);
+  font-family: var(--font-body);
+  font-size: var(--text-link);
+  line-height: var(--lh-link);
+  letter-spacing: var(--tracking-body);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
   cursor: pointer;
 }
+
+.privacy-overlay__close:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+
+@media (min-width: 769px) {
+  body:not(.route-home) .privacy-overlay__close {
+    display: flex;
+  }
+}
+
+/* /privacy and /terms: full-bleed black behind the measure; the route's own
+   scroll room. SQ-109: lift the global html,body overflow:hidden lock, as the
+   detail, directory, process and specimen routes do. Lenis' html.lenis
+   height:auto only lifted the height, so its wheel scroll worked while a
+   finger (and the keyboard) met a locked viewport — iPhone could not scroll
+   /terms or /privacy (the menu's privacy link opens the overlay, which
+   scrolls on its own, so the route went unnoticed). */
+html:has(.privacy-page) {
+  overflow: auto;
+  height: auto;
+  overscroll-behavior-y: none;
+}
+
+html:has(.privacy-page) body {
+  overflow: visible;
+  height: auto;
+}
+
+body:has(.privacy-page) {
+  background: var(--color-black);
+}
+
+.privacy-page {
+  min-height: 100dvh;
+  background: var(--color-black);
+}
+
+/* The notice's measure — shared by /privacy, /terms and the overlay
+   (PrivacyContent) */
+.privacy {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 8rem var(--space-6) 6rem;
+  color: var(--color-white);
+}
+
+.privacy__title {
+  font-family: var(--font-headline);
+  font-weight: 400;
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  letter-spacing: -0.02em;
+}
+
+.privacy__updated {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  margin-top: var(--space-2);
+  opacity: 0.7;
+}
+
+.privacy__section {
+  margin-top: 2.5rem;
+}
+
+.privacy__section h2 {
+  font-family: var(--font-secondary);
+  font-weight: 400;
+  font-size: var(--text-secondary);
+  /* white, not electric blue — pure #00f on black fails contrast for
+     running document headings */
+  color: var(--color-white);
+}
+
+.privacy__section p {
+  margin-top: var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  line-height: 1.5;
+}
+
+.privacy__section ul {
+  margin-top: var(--space-4);
+  padding-left: 1.25em;
+  list-style: disc;
+}
+
+.privacy__section li {
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  line-height: 1.5;
+}
+
+.privacy__section li + li {
+  margin-top: var(--space-4);
+}
+
+.privacy__section strong {
+  font-weight: 500;
+}
+
+.privacy__section a {
+  color: var(--color-white);
+  text-decoration: underline;
+}
+
+/* return_home + the other legal page; the overlay shows only the latter */
+.privacy__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) 2.5rem;
+  margin-top: 3.5rem;
+}
+
+.privacy__links a {
+  font-family: var(--font-body);
+  font-size: var(--text-ui);
+  color: var(--color-white);
+}
+
+.privacy__links a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .site-privacy,
+  .mobile-menu__privacy,
+  .privacy-overlay__close {
+    font-size: var(--text-pill);
+    line-height: var(--lh-pill);
+  }
+
+  /* room for the lower-right close pill under the copy */
+  .privacy {
+    padding-bottom: 8rem;
+  }
+
+  /* 10-07 (Nathan): "move the privacy policy button to only be in the mobile
+     menu, remove from globe page and any other occurrence on mobile
+     breakpoint". The 08-30 note above this section already CLAIMED this
+     arrangement — the rule was never written, so the pill stayed on phones
+     and ate the pill's clearance out of the blurb's measure. The mobile
+     menu's .mobile-menu__privacy is the one opener now; since this pill was
+     also the overlay's CLOSE, the overlay carries its own (above). */
+  .site-privacy {
+    display: none;
+  }
+
+  .privacy-overlay__close {
+    display: flex;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
+
+/* The hero brand lockup layer is RETIRED (08-30, Nathan) — the NAV carries
+   the lockup on home now (white fills over the transparent bar; ≤768px it
+   sits absolutely centered in the bar, the phone order's center seat). */
+
+/* enter_world column — CENTERED in the viewport on EVERY breakpoint (08-30
+   tap-only comp: the button floats at the centered globe's heart). z-index
+   3 keeps it ABOVE the globe (z:2) — below only the commit fill (z:3,
+   later in DOM, so it still swallows the chrome at the handoff).
+   Pointer-inert (drag-to-spin reaches the canvas); only the button opts
+   back in. Faded on the commit as .hero__lead-col in the chrome list. */
+.hero__lead-col {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* HeroText's root is now just a passthrough — display:contents drops its box
+   so .hero__lead participates directly in the column flow (the sr-only h1 is
+   position:absolute, so it stays out of the flex layout). */
+.hero__text {
+  display: contents;
+}
+
+/* Skip link — hidden until keyboard-focused, then a pill over the nav */
+.skip-link {
+  position: fixed;
+  top: 0.214rem;
+  left: 50%;
+  transform: translate(-50%, -250%);
+  z-index: 200;
+  padding: 0.214rem 0.929rem;
+  border-radius: 1.714rem;
+  background: var(--color-black);
+  border: 1px solid var(--color-white);
+  color: var(--color-white);
+  font-family: var(--font-body);
+  font-size: 1.143rem;
+  transition: transform 160ms var(--ease-micro);
+}
+
+.skip-link:focus-visible {
+  transform: translate(-50%, 0);
+}
+
+/* Screen-reader-only — keeps semantic content without visual presence */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* .hero__lead rules RETIRED (08-30) — the visible hero statement left the
+   comp on 08-24 (HeroText keeps only the sr-only h1); these selectors had
+   nothing to style. Git history holds the display register if copy ever
+   returns. */
 
 /* ============================================
    PROJECT OVERLAY — Full-screen contact form
@@ -557,46 +4143,97 @@ button.cta {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 5vw;
-  /* Initial state: clipped away */
-  clip-path: inset(100% 0 0 0);
+  /* Initial state: hidden — GSAP drives the open/close clip-path wipe
+     (INQ-2; reduced motion falls back to the fade). autoAlpha snaps in
+     tandem so `visibility` keeps gating pointer events while closed */
+  opacity: 0;
+  visibility: hidden;
   /* will-change applied by GSAP during animation only —
      permanent promotion wastes GPU memory on full-viewport layer */
 }
 
 .project-overlay__close {
-  position: absolute;
-  top: var(--space-6);
-  right: var(--space-6);
-  background: none;
-  border: none;
-  font-family: var(--font-body);
-  font-size: 1.714rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.571rem;
+  padding: 0.214rem 0.929rem;
+  /* 3px 13px — matches info pill */
+  border: 1px solid var(--color-cream);
+  border-radius: 1.714rem;
+  /* 24px pill */
+  background: transparent;
   color: var(--color-cream);
+  font-family: var(--font-body);
+  font-size: 1.286rem;
+  /* 18px */
+  line-height: 1.571rem;
+  letter-spacing: var(--tracking-body);
   cursor: pointer;
-  line-height: 1;
-  padding: var(--space-4);
+  transition: background var(--duration-micro) var(--ease-micro);
+  margin-left: auto;
+  /* push to right edge of form */
+  position: relative;
   z-index: 2;
-  transition: transform var(--duration-micro) var(--ease-micro);
 }
 
 .project-overlay__close:hover {
-  transform: rotate(90deg);
+  background: rgba(250, 250, 250, 0.12);
 }
 
-.project-overlay__globe {
+.project-overlay__close-icon {
+  width: 0.714rem;
+  /* 10px — matches pill-icon */
+  height: 0.714rem;
+}
+
+/* 09-08 (Nathan): the SWM LOCKUP replaces the top-left globe — at the NAV
+   BAR's exact seat + size: desktop = the bar's left seat (the same
+   --lockup-left / --lockup-bleed margin as .site-nav__logo, centred in a
+   --nav-height box at the top); ≤768 = absolutely centred in that bar box
+   (the .site-nav__logo mobile rule, same no-overlap cap). One set of
+   tokens, so the two can never drift. */
+.project-overlay__lockup {
   position: absolute;
-  top: var(--space-6);
-  left: var(--space-6);
-  width: 3vw;
-  height: auto;
+  top: 0;
+  left: var(--nav-inset);
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  margin-left: calc(var(--lockup-left) - var(--nav-inset) - var(--lockup-bleed));
   z-index: 2;
   pointer-events: none;
+}
+
+.project-overlay__lockup svg {
+  display: block;
+  height: var(--lockup-svg-h);
+  width: auto;
+}
+
+.project-overlay__lockup svg,
+.project-overlay__lockup svg * {
+  fill: var(--color-white);
+}
+
+@media (max-width: 768px) {
+  .project-overlay__lockup {
+    left: 50%;
+    top: calc(var(--nav-height) / 2);
+    height: auto;
+    translate: -50% -50%;
+    margin-left: 0;
+    max-width: calc(100vw - 2 * var(--bar-pill-reserve));
+  }
+
+  .project-overlay__lockup svg {
+    max-width: 100%;
+  }
 }
 
 .project-overlay__header {
@@ -642,7 +4279,7 @@ button.cta {
 }
 
 /* Check sits at top of the field row, aligned with the label */
-.project-overlay__field > .project-overlay__check {
+.project-overlay__field>.project-overlay__check {
   margin-top: 0.1em;
 }
 
@@ -660,6 +4297,25 @@ button.cta {
 .project-overlay__field--filled .project-overlay__label,
 .project-overlay__field-content:has(.project-overlay__input:focus) .project-overlay__label {
   color: var(--color-cream);
+}
+
+/* INQ-1 — next-field highlight: the first incomplete step's label rests at
+   the dim label alpha and lifts to full cream on the house pulse (brighten
+   polarity — the twin of the enter_world dim). The row's className moves as
+   fields complete and drops once the form is valid. */
+.project-overlay__field--next .project-overlay__label {
+  color: var(--color-cream);
+  opacity: 0.5;
+  animation: house-pulse-brighten var(--duration-pulse) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  /* Static highlight — the next step reads bright, no loop */
+  .project-overlay__field--next .project-overlay__label {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 /* Input underline — full opacity when field is filled or focused */
@@ -725,7 +4381,7 @@ button.cta {
 
 .project-overlay__tag--active {
   background: var(--color-cream);
-  color: var(--color-electric-blue);
+  color: var(--scheme-page);
   border-color: var(--color-cream);
 }
 
@@ -772,7 +4428,7 @@ button.cta {
 /* Base layer — cream bg / blue text */
 .project-overlay__submit-base {
   background: var(--color-cream);
-  color: var(--color-electric-blue);
+  color: var(--scheme-page);
 }
 
 /* Hover wipe layer — blue bg / cream text, clipped from left */
@@ -782,7 +4438,7 @@ button.cta {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-electric-blue);
+  background: var(--scheme-page);
   color: var(--color-cream);
   border: 1px solid var(--color-cream);
   clip-path: inset(0 100% 0 0);
@@ -820,45 +4476,172 @@ button.cta {
    RESPONSIVE
    ============================================ */
 @media (max-width: 1024px) {
+  .site-nav__links {
+    gap: 1rem;
+  }
+
   .info-panel__left {
     flex: 0 0 clamp(12.857rem, 20vw, 18.571rem);
   }
 }
 
-/* Tablet — Unicorn breakpoint: 576–991px */
+/* 11-03: below the tablet breakpoint the five links run past the bar's
+   right edge (measured), so the row keeps the four it shipped with and
+   the directory link waits for the wider bar; the phone menu lists all
+   five. Measured with the label project_directory; services (11-18) is
+   half as long and may fit now (unmeasured). */
 @media (max-width: 991px) {
-  .tagline {
-    font-size: 15px;
-    line-height: calc(16 / 15);
-    letter-spacing: 0.038em;
-    width: 144px;
-  }
-
-  .tagline--left {
-    left: 13%;
-  }
-
-  .tagline--right {
-    left: 87%;
-  }
-
-  .hero__title {
-    font-size: 90px;
-    line-height: calc(170.4 / 90);
-    top: 70.7%;
+  .site-nav__links .site-nav__link--directory {
+    display: none;
   }
 }
 
+/* Tablet — Unicorn breakpoint: 576–991px */
+@media (max-width: 991px) {}
+
 @media (max-width: 768px) {
+
+  /* Type tokens — the fixed 14px root keeps rem sizes constant across
+     breakpoints, so tokens re-tier here rather than at their consumers
+     (the mobile-token doctrine, 08-30: breakpoint overrides live in THIS
+     block — consumers keep reading the same token names). */
+  :root {
+    --text-mono: 1rem;
+    /* 14px (12.8 desktop) */
+    --lh-mono: 1.286rem;
+    /* 18px */
+    /* The LINK tier steps DOWN on phones (08-30, Nathan: the tagline pill
+       reads smaller) — every consumer follows: tagline pill + copyright,
+       footer links, the mobile menu's privacy link. The footer band
+       min-height calc rides --lh-link, so the clearances re-derive
+       consistently. */
+    --text-link: 1rem;
+    /* 14px (16 desktop) */
+    --lh-link: 1.286rem;
+    /* 18px (22 desktop) */
+    --text-drawer-name: 1.571rem;
+    /* 22px (2.4vw desktop) */
+    --lh-drawer-name: 0.9;
+    --text-drawer-head: 0.786rem;
+    /* 11px (0.95vw desktop) */
+    /* Lockup canvas steps down so the bar-centered lockup CLEARS the info
+       and menu pills (08-30 probe: the 7rem canvas ≈ 240px of artwork —
+       wider than the 390px bar's center seat; 5rem ≈ 172px fits). Every
+       consumer re-derives: --lockup-bleed, --lockup-art-h, the tagline
+       lockup, the footer band min-height. */
+    --lockup-svg-h: 5rem;
+    /* Per-side corner reserve for the bar-centered lockup (08-30): the
+       widest pill (menu/close, post-tighten) + its edge inset + a touch of
+       gap. The logo caps its width against 100vw − 2× this, so the lockup
+       SCALES DOWN before it can ever touch a pill on narrow devices. */
+    --bar-pill-reserve: 7rem;
+    /* The project-detail blurb's mobile size, promoted to a token
+       (08-30 (3)): the uncapsuled tagline stack rides the SAME scale —
+       project-detail.css consumes it for .project-blurb__text ≤768px. */
+    --text-blurb: clamp(1.4rem, 5.5vw, 2.2rem);
+    /* ?pager=scale re-tier: a touch more chip for the 14px mono digits, the
+       36px pitch (SCALE_PITCH_MOBILE_PX — a thumb-sized detent), and the
+       preview label floors against the viewport before the desktop cap. */
+    --scale-w: 3.143rem;
+    /* 44px */
+    --scale-num-h: 1.857rem;
+    /* 26px — chip ≈ 44×53 */
+    --scale-pitch: 48px;
+    --scale-rows: 6;
+    /* ±288px around a lens at 50vh — still clears the 41px bar at the top
+       on a 667px phone (333 − 288 = 45px), the shortest device in the
+       gate; drop to 5 if the fit reads tight there. */
+    /* r11d (Nathan): the SELECTED slot spans the viewport — its cap is
+       EVALUATED: the full 100vw at the painted ×sel×bump, back in the
+       row's own px, minus the name's seat (chip + --space-2). The roster
+       cap IS this value, so a long name clips (and tickers) identically in
+       every row — no jump at the detent. Was min(28vw, 8rem) sel / min(45vw,
+       12rem) roster. JS reads the computed value (no px mirror any more).
+       11-13 r12b (Nathan: "extend to the actual edge of the viewport"): the
+       --space-4 right pad that held the clip short of the edge is gone —
+       the selected name's painted right edge IS the viewport edge. */
+    --scale-name-sel-max: calc(
+      100vw / (var(--scale-sel) * var(--scale-sel-bump)) - var(--scale-w) - var(--space-2)
+    );
+    --scale-name-max: var(--scale-name-sel-max);
+    /* r11h: the roster multiplier is a DESKTOP dial (1.9 baked there) —
+       at 1.9 on a phone the digits overrun the 44px cell into the axis
+       and mid-length names tip into the ticker. Holds at 1 here; dial
+       ?roster on device separately. */
+    --scale-roster: 1;
+    --scale-chip-wipe-ms: 520ms;
+    /* the ≤768 chip wipe stays at its 09-06 tune; desktop is 300 */
+    /* logo ticker re-tier: smaller marks, tighter gap, shorter edges. */
+    --logo-h: 22px;
+    --logo-gap: 2.286rem;
+    /* 32px */
+    --logo-fade: 3rem;
+    --logo-pad-y: 1.286rem;
+    /* 18px */
+    /* selected: painted ×(1.688 × --scale-sel-bump 1.15 ≈ 1.94) from
+       x≈54px → right edge ~316px of 390. WIDENED r10 (was 17vw/4.5rem):
+       the [select_project] chip left the lens band in r9 (rotated, top
+       right edge), so the only bound is the viewport. JS mirror in
+       GraticulePager setMarquee: 28vw/112. */
+  }
+
+  /* Tightened pill skin on phones (08-30, Nathan): horizontal padding
+     0.929rem → --space-5 (13px → 10px); the global 2px label↔icon gap
+     does the rest — together they widen the lockup's center seat. */
+  .site-nav__pill {
+    padding: 0.214rem var(--space-5);
+  }
+
+  .site-nav__links {
+    display: none;
+    /* links collapse into the full-screen mobile menu */
+  }
+
+  .site-nav__menu-pill {
+    display: inline-flex;
+  }
+
+  /* 08-25 (Nathan): phone nav order = info pill LEFT, lockup CENTERED,
+     menu pill RIGHT. The logo leaves the brand flex row for an absolute
+     center seat; the pill falls back to the corner. CSS `translate` (not
+     transform) does the centering so the brand-arrival GSAP transform
+     (yPercent drop) composes with it instead of clobbering it. The
+     mobile-menu takeover bar mirrors the geometry. */
+  .site-nav,
+  .mobile-menu__bar {
+    position: relative;
+  }
+
+  .site-nav__logo,
+  .mobile-menu__bar .site-nav__logo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    /* the svg canvas is taller than the 41px bar — center both axes */
+    translate: -50% -50%;
+    margin-left: 0;
+    /* desktop alignment margin is a flex-flow concern — not here */
+    /* No-overlap guard (08-30): cap the lockup at the space between the
+       corner pills (--bar-pill-reserve per side); the svg letterboxes
+       inside its fixed-height box (preserveAspectRatio), so on very
+       narrow devices the artwork shrinks instead of sliding under a pill. */
+    max-width: calc(100vw - 2 * var(--bar-pill-reserve));
+  }
+
+  .site-nav__logo .site-nav__lockup,
+  .site-nav__logo .site-nav__lockup svg {
+    max-width: 100%;
+  }
 
   html,
   body {
-    overscroll-behavior: none;
+    overscroll-behavior-y: none;
   }
 
   /* --- Info Panel: 2-column equal-width layout --- */
   .info-panel {
-    max-height: calc(100dvh - 2.857rem);
+    max-height: calc(100dvh - 2.929rem);
+    /* subtract SiteNav bar at bottom */
     padding-top: 1.429rem;
     overflow: clip;
   }
@@ -874,11 +4657,6 @@ button.cta {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-  }
-
-  /* Embed placeholder — square on mobile */
-  .info-panel__embed {
-    aspect-ratio: 1;
   }
 
   .description {
@@ -924,21 +4702,22 @@ button.cta {
     z-index: 2;
   }
 
-  /* Custom scrollbar thumb — persistent on mobile, GSAP entrance scaleY */
+  /* Custom scrollbar thumb — persistent on mobile, GSAP entrance scaleY.
+     08-30 (2): rides the project accent like the drawer's other brand
+     elements (blank → brand blue). */
   .clients__scrollbar-thumb {
     position: absolute;
     top: 0;
     right: 0;
     width: 4px;
     border-radius: var(--radius-pill);
-    background: var(--color-electric-blue);
+    background: var(--project-color, var(--color-electric-blue));
   }
 
   .clients__header {
-    font-size: 0.786rem;
     position: sticky;
     top: 0;
-    background: var(--color-cream);
+    background: var(--color-black);
     padding-bottom: var(--space-2);
     z-index: 1;
   }
@@ -953,54 +4732,11 @@ button.cta {
     width: 100%;
   }
 
-  .clients__item {
-    font-size: 1.571rem;
-    line-height: 0.9;
-  }
-
   /* --- Hero & overlay mobile overrides --- */
 
-  /* Reposition shared taglines for mobile X-axis drift */
-  .tagline--left {
-    left: 50%;
-    top: 31%;
-    font-size: 12px;
-    line-height: calc(13 / 12);
-    letter-spacing: 0.038em;
-    width: auto;
-  }
-
-  .tagline--right {
-    left: 50%;
-    top: 68%;
-    font-size: 12px;
-    line-height: calc(13 / 12);
-    letter-spacing: 0.038em;
-    width: auto;
-  }
-
-  .hero__title {
-    font-size: 58px;
-    line-height: calc(90.5 / 58);
-    top: 72%;
-  }
-
-  .hero__fg {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1.143rem;
-    padding: 1.429rem;
-  }
-
-  .hero__cta {
-    position: absolute;
-    bottom: 8%;
-    left: 50%;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
+  /* (08-30) No hero comp overrides needed here anymore — the base
+     .hero__lead-col rule centers the enter_world button in the viewport on
+     every breakpoint (the mobile layout IS the layout now). */
 
   .project-overlay {
     padding: 1.429rem;
@@ -1043,10 +4779,6 @@ button.cta {
   .project-overlay__tag {
     font-size: 0.786rem;
     padding: 0.35rem 0.65rem;
-  }
-
-  .project-overlay__globe {
-    width: 2.5rem;
   }
 
   .project-overlay__confirmation {

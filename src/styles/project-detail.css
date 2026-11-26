@@ -1,0 +1,1094 @@
+/* ============================================
+   FEATURED PROJECT DETAIL — /work/[slug]
+   Editorial page populated by the Content
+   Population Hierarchy (see CONTEXT.md).
+   ============================================ */
+
+/* --- Override global scroll lock for detail pages --- */
+html:has(.project-detail) {
+  overflow: auto;
+  height: auto;
+  overscroll-behavior-y: none;
+  background: var(--color-black);
+}
+
+html:has(.project-detail) body {
+  overflow: visible;
+  height: auto;
+  background: var(--color-black);
+}
+
+/* --- Page Shell --- */
+.project-detail {
+  /* near-black (#0a0a0a) now lives in :root (global.css) — consumed here,
+     by the site footer bar, and by masonry on every route */
+  position: relative; /* anchors the breadcrumb chip */
+  width: 100%;
+  min-height: 100dvh;
+  background: var(--color-black);
+  color: var(--color-cream);
+}
+
+.project-detail__flow {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* ============================================
+   CLIENT PANEL — blue info band
+   ============================================ */
+.client-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+  padding: 3.5rem 0.571rem 1rem;
+  /* S2: this project's accent (set on the .client-panel section via
+     ClientPanel's projectColor prop); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+.client-panel__title {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  font-size: clamp(2.4rem, 5.33vw, 6.857rem);
+  /* 96px @ 1800w */
+  line-height: 0.78;
+  /* 74/96 */
+  letter-spacing: var(--tracking-body);
+  text-transform: uppercase;
+  /* S2: readable ink on the accent-filled band (dark on light accents). */
+  color: var(--project-color-fg, var(--color-white));
+  max-width: clamp(400px, 58vw, 1054px);
+}
+
+/* Chips + socials in one horizontal row. Full-width so the next_project
+   chip's margin-left:auto can push it to the band's far right (chips and
+   socials keep their left cluster — nothing else stretches). */
+.client-panel__meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.857rem;
+  width: 100%;
+}
+
+/* Chips sit side-by-side */
+.client-panel__chips {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.571rem;
+}
+
+.client-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.857rem;
+  /* 12px */
+  padding: 0.143rem 0.571rem;
+  /* 2px 8px */
+  background: var(--color-near-black);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  /* 14px */
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
+  color: var(--color-white);
+  white-space: nowrap;
+}
+
+.client-chip__glyph {
+  display: inline-flex;
+  justify-content: center;
+  font-size: 2rem;
+  width: 0.571rem;
+  /* 8px */
+}
+
+.client-panel__socials {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 1rem;
+  padding: 0;
+  /* no extra vertical padding — row handles alignment */
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+.social-btn__icon {
+  display: block;
+  width: 2rem;
+  /* 28px — tight-fill baseline */
+  height: 2rem;
+  object-fit: contain;
+  /* S2: the marks are white <img> SVGs (CSS colour can't reach into an <img>),
+     so the same light/dark flip the title uses is delivered as a filter —
+     brightness(0) darkens them to near-black on a light accent (inherited
+     --project-globe-filter from .client-panel); dark accents leave them white. */
+  filter: var(--project-globe-filter, none);
+}
+
+/* Per-platform optical corrections — viewBox fill varies per logo */
+.social-btn[data-platform="beatport"] .social-btn__icon {
+  width: 1.857rem;
+  /* dense mark, reads slightly large — pull back a touch */
+  height: 1.857rem;
+}
+
+.social-btn[data-platform="soundcloud"] .social-btn__icon {
+  /* The viewBox is cropped to the cloud's ink (0 109.8 400 180.2, ~2.22:1;
+     Nathan 11-13: the file's top 38% was empty, so the cloud sat on the row's
+     bottom instead of its centre). Same ink size as before: 2.4 × 1.081rem. */
+  width: 2.4rem;
+  height: 1.081rem;
+}
+
+.social-btn[data-platform="spotify"] .social-btn__icon {
+  /* viewBox is 22×18 — give proportional width so circle isn't squished */
+  width: 2.286rem;
+  height: 1.857rem;
+}
+
+.social-btn[data-platform="instagram"] .social-btn__icon {
+  width: 2.143rem;
+  height: 2.143rem;
+}
+
+.social-btn[data-platform="website"] .social-btn__icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.social-btn:hover {
+  opacity: 0.65;
+}
+
+/* ============================================
+   NEXT-PROJECT CHIP — inline with the breadcrumb
+   (08-30, Nathan — moved out of the meta row):
+   right-anchored to the viewport on the
+   breadcrumb's own row, NOT sticky — only the
+   breadcrumb pins; this scrolls away with the
+   content. Same height-neutral footprint trick
+   as the breadcrumb (see its block-level note):
+   the two chips collapse to one zero-height row
+   so the media below sits flush. Skin joins the
+   breadcrumb family now that they read as a pair
+   (accent rest / white-black charged) — the old
+   near-black rest existed only because the chip
+   sat ON the accent band. Commits through the
+   same envelopment cover as the NextProjectBand.
+   ============================================ */
+.detail-next {
+  position: relative;
+  z-index: 19; /* floats over the content top, under the sticky breadcrumb */
+  display: flex;
+  align-items: center;
+  gap: 0.571rem;
+  width: max-content;
+  /* Cap = the breadcrumb's rendered box (probe-measured 183.1px, font-ui
+     1rem "↩ FEATURED_PROJECTS" chip) — the pair reads as equals; a long
+     client name overflows the window below and marquees instead of
+     widening. */
+  --detail-next-max: 13.08rem;
+  max-width: var(--detail-next-max);
+  margin: 0.571rem 0.571rem calc(-1.857rem - 0.571rem) auto;
+  padding: 0.143rem 0.571rem;
+  background: var(--project-color, var(--color-electric-blue));
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
+  color: var(--project-color-fg, var(--color-white));
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.detail-next:hover,
+.detail-next:focus-visible {
+  /* Nav-chip charged state (08-26): brand white, black ink/arrows. */
+  background: var(--color-white);
+  color: var(--color-black);
+}
+
+/* The client-name window — the only flexible box in the chip: it shrinks
+   under the max-width cap and clips; an overflowing name scrolls on repeat
+   (the [data-marquee] track below — JS mounts the duplicate copy only when
+   the single copy truly overflows). */
+.detail-next__window {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  /* Bleed the clip window to the chip's own edges (08-30 (2), Nathan: the
+     inner padding read as the ticker "cutting off early"): the left bleed
+     swallows the chip's padding so text exits AT the capsule edge; the
+     right bleed swallows the flex gap so text enters at the caret stack's
+     edge. */
+  margin-left: -0.571rem;
+  margin-right: -0.571rem;
+}
+
+.detail-next__track {
+  display: inline-flex;
+}
+
+/* The marquee gap rides ONLY the marquee state — a static (fitting) name
+   keeps no trailing dead-space before the carets. Padded per copy so the
+   -50% translate of the two-copy track loops seamlessly. */
+[data-marquee] .detail-next__copy {
+  padding-right: 1.5em;
+}
+
+/* The loop's second copy is an empty span painted from data-copy. */
+.detail-next__copy[data-copy]::before {
+  content: attr(data-copy);
+}
+
+[data-marquee] .detail-next__track {
+  animation: detail-next-loop var(--marquee-s, 6s) linear infinite;
+  animation-delay: var(--marquee-phase, 0s); /* 09-05: wall-clock phase-lock */
+}
+
+@keyframes detail-next-loop {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-next__track {
+    animation: none !important;
+  }
+}
+
+/* Horizontal re-cut of the shared caret strip (global.css owns the 60×34
+   vertical base; process.css's 34×20 re-cut is the size precedent). The
+   window feathers on the side nearest the label (left). 08-30 (3), Nathan:
+   the window BLEEDS to the chip's full bounds — negative margins swallow
+   the vertical padding and the right padding (the ticker-window idiom), so
+   carets run edge-to-edge instead of floating inset. */
+.detail-next .fp-cta__arrows {
+  flex: none;
+  align-self: stretch;
+  width: calc(34px + 0.571rem);
+  height: auto;
+  margin: -0.143rem -0.571rem -0.143rem 0;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 65%, #000 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.detail-next .fp-cta__arrows-track {
+  flex-direction: row;
+  align-items: center;
+  height: 100%;
+}
+
+.detail-next .fp-cta__arrows-track svg {
+  margin: 0 2.5px;
+}
+
+/* Detail masonry grid spacing */
+.masonry-grid--detail {
+  padding: 0;
+}
+
+/* ============================================
+   HERO BAND — side-by-side layout for portrait heroes
+   When the hero asset is portrait-oriented (ratio < 1.2),
+   the video and editorial blurb sit side-by-side, filling
+   the full viewport height. Narrow ratios (9:16) are
+   cropped up to 3:4 via object-fit:cover; wider portraits
+   (4:5, 1:1) display near-native.
+   --hero-ratio is injected as an inline CSS custom prop.
+   ============================================ */
+.hero-band {
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  background: var(--color-near-black);
+  overflow: hidden;
+}
+
+/* Video slot: flexes to share space with blurb */
+.hero-band>.media-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+}
+
+/* Its shape and fill. The [data-portrait] selector out-specifies
+   media-slot.css's .media-slot[data-portrait], so the hero wins whichever
+   sheet loads last (11-03). */
+.hero-band>.media-slot,
+.hero-band>.media-slot[data-portrait] {
+  aspect-ratio: max(var(--hero-ratio), 0.75);
+  background: var(--color-black);
+}
+
+/* Blurb sidebar: targets 50vw, vertically centered */
+.hero-band>.project-blurb {
+  flex: 0 0 50vw;
+  min-width: 280px;
+  justify-content: center;
+  padding: 2rem 2.5rem 2rem 2rem;
+}
+
+/* Details stack vertically in the narrow sidebar context */
+.hero-band>.project-blurb .project-blurb__details {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+/* ============================================
+   PROJECT BLURB — overview + details band
+   ============================================ */
+/* Keyword highlight (09-08, Nathan; src/lib/keywords.jsx): the box is the
+   project colour, the wiped-in ink its brightness-dependent counterpart
+   (black on a bright accent) — both from the <html> accent vars. */
+.project-blurb {
+  --kw-bg: var(--project-color, var(--color-electric-blue));
+  --kw-ink: var(--project-color-fg, var(--color-white));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.571rem;
+  /* 8px */
+  width: 100%;
+  padding: 0.857rem 0.571rem 2.571rem;
+  /* 12px 8px 36px */
+  background: var(--color-near-black);
+}
+
+/* paragraph break — a blank line in the Sanity description; em of the blurb itself */
+.project-blurb__text + .project-blurb__text {
+  margin-top: 0.6em;
+}
+
+.project-blurb__text {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2.78vw, 3.571rem);
+  /* 50px @ 1800w */
+  line-height: 1;
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+}
+
+.project-blurb__details {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.714rem;
+  /* 24px */
+}
+
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+.detail-field__label {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  /* 14px */
+  line-height: 1;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
+  color: var(--color-white);
+}
+
+.detail-field__value {
+  font-family: var(--font-body);
+  font-size: 1.714rem;
+  /* 24px */
+  line-height: 1.571rem;
+  /* 22px */
+  letter-spacing: var(--tracking-body);
+  color: var(--color-white);
+}
+
+.project-blurb__tags {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.571rem;
+  /* 8px */
+}
+
+/* ============================================
+   SERVICE TAG — blue-fill display variant
+   Extends .stag base (global.css). Both classes in the
+   selector: Astro ranks this sheet and global.css equal,
+   so which loads last is the bundle's accident (11-03).
+   ============================================ */
+.stag.service-tag {
+  /* Overrides: blue fill, black text, detail-page sizing */
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  border: 1px solid var(--color-white);
+  color: var(--color-white);
+  background: var(--color-black);
+  border-radius: var(--radius-capsule);
+  padding: var(--space-2) var(--space-4);
+}
+
+/* ============================================
+   BAND PAGER — shared composite band core
+   (BrandDeckViewer + AlbumArtViewer)
+   Fixed-height horizontal pager; pages ride an
+   isometric angle and transitions ride the
+   World Turn curve. Transforms painted
+   imperatively per frame by BandPager.jsx.
+   ============================================ */
+.band-pager {
+  /* Vertical-only overhang: the band floats past its reserved region
+     into the blurb whitespace above / tile rows below (bounded). Sized
+     for the dealer composition's upward travel (exit + arc + pile creep,
+     bandLayout.js). */
+  --band-overhang: 44px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100% + 2 * var(--band-overhang));
+  margin-top: calc(-1 * var(--band-overhang));
+  width: 100%;
+}
+
+/* Tab chips float top-left over the stage */
+.band-pager__chrome {
+  position: absolute;
+  top: 0.571rem;
+  left: 1.143rem;
+  z-index: 3;
+}
+
+.band-pager__tabs {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.571rem;
+}
+
+.deck-tab {
+  padding: 0.143rem 0.571rem;
+  background: var(--color-near-black);
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  color: var(--color-white);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.deck-tab:hover {
+  border-color: var(--scheme-chip);
+}
+
+.deck-tab--active {
+  background: var(--scheme-chip);
+  color: var(--color-white);
+}
+
+/* Side column — counter with per-item content beneath, top-right */
+.band-pager__side {
+  position: absolute;
+  top: 0.571rem;
+  right: 1.143rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.429rem;
+  max-width: 42%;
+  pointer-events: none;
+}
+
+.band-pager__side a {
+  pointer-events: auto;
+}
+
+.band-pager__counter {
+  padding: 0.143rem 0.571rem;
+  background: var(--color-near-black);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  color: var(--color-white);
+  font-variant-numeric: tabular-nums;
+}
+
+.band-pager__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  perspective: 1400px;
+  touch-action: pan-y;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  transform-style: preserve-3d;
+}
+
+.band-pager__stage:active {
+  cursor: grabbing;
+}
+
+.band-pager__stage:focus-visible {
+  outline: 1px dashed var(--scheme-accent-ink);
+  outline-offset: 4px;
+}
+
+.band-page {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  opacity: 0; /* first paint reveals — avoids the SSR pile-up flash */
+  will-change: transform, opacity;
+  background: var(--color-near-black);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+}
+
+.band-page img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* Collapsed sockets (≤1024px) keep the anchor-fill model — the socket
+   spans fixed rows (masonry.css) — but the overlap treatment goes away
+   with the layered placement. */
+@media (max-width: 1024px) {
+  .band-pager {
+    --band-overhang: 0px;
+  }
+}
+
+/* ============================================
+   DECK SCROLLER — orthographic deck-page wall
+   (08-25, replaces the BandPager presentation
+   for brand decks; DeckScroller.jsx). Full
+   grid width, black hairline gutters, columns
+   drifting in alternating vertical directions,
+   accelerated by the page's Lenis scroll. The
+   frame crops — a peek inside the deck.
+   ============================================ */
+.deck-scroller-shell {
+  position: relative;
+  height: 100%;
+}
+
+/* Live-footage grid (US-4, LiveFootageGrid.jsx): rows share the socket's
+   height by their px heights (inline fr), each row a grid of cells that the
+   slots fill. Black hairline gutters like the deck walls. */
+.live-footage {
+  display: grid;
+  height: 100%;
+  background: var(--color-black);
+  overflow: hidden;
+}
+
+.live-footage__row {
+  display: grid;
+  min-height: 0;
+}
+
+.live-footage__cell {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* A set as the hero (08-25 deck-as-featured, bedouin/saga; US-10 any set that
+   may lead, HeroSet.jsx): the set's own wall leads the flow in the hero slot —
+   a tall full-width stage between the client panel and the blurb. The height
+   is ?herosetvh dvh (--hero-set-vh), 70 until it is dialed; the wall inside
+   measures this box, so every type fills it. */
+.hero-deck {
+  height: calc(var(--hero-set-vh, 70) * 1dvh);
+  background: var(--color-black);
+}
+
+.deck-scroller__chrome {
+  position: absolute;
+  top: 0.571rem;
+  left: 1.143rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.571rem;
+}
+
+.deck-scroller {
+  height: 100%;
+  background: var(--color-black);
+  overflow: hidden;
+  display: flex;
+  gap: var(--deck-wgap, 2px);
+  /* inert wall — the page scroll is the control */
+  pointer-events: none;
+  user-select: none;
+}
+
+.deck-scroller__col {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.deck-scroller__strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--deck-wgap, 2px);
+  will-change: transform;
+}
+
+.deck-scroller__page {
+  display: block;
+  width: 100%;
+  aspect-ratio: var(--deck-ratio, 16 / 9);
+  object-fit: cover;
+  background: var(--color-near-black);
+  /* pre-load ground */
+}
+
+/* Horizontal axis (US-4, 11-11 — the carousel strip, DeckScroller axis 'x'):
+   the frame stacks its rows, each row's strip lays its pages left to right and
+   travels on X. A page is as wide as its row is tall × the wall's ratio. */
+.deck-scroller--x {
+  flex-direction: column;
+}
+.deck-scroller--x .deck-scroller__col {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.deck-scroller--x .deck-scroller__strip {
+  right: auto;
+  bottom: 0;
+  flex-direction: row;
+}
+.deck-scroller--x .deck-scroller__page,
+.deck-scroller--x .media-slot {
+  flex: none;
+  width: auto;
+  height: 100%;
+}
+
+/* ============================================
+   BREADCRUMB — back to Featured Projects
+   Black chip under the client panel, left.
+   Sticky: rides in flow until the panel
+   scrolls away, then pins just under the
+   fixed nav (2.929rem) with a small gap.
+   Height-neutral in flow (negative bottom
+   margin) so it floats over the content top.
+   ============================================ */
+.detail-breadcrumb {
+  position: sticky;
+  top: calc(2.929rem + 0.857rem);
+  z-index: 20; /* above sockets/tiles, below the fixed nav */
+  /* Block-level flex (NOT inline-flex): as an inline box the anonymous line
+     box reserved ~1.857rem of height and the negative margin-bottom below
+     could not pull the following .project-detail__flow up — leaving a black
+     gap under the client panel. Block-level + width:max-content keeps the
+     left-gutter chip while letting the net-zero margin math (mt 0.571 +
+     height 1.857 + mb -(1.857+0.571)) collapse the footprint to 0 so the
+     media sits flush. Do not revert to inline-flex. */
+  display: flex;
+  align-items: center;
+  gap: 0.429rem;
+  width: max-content;
+  margin: 0.571rem 0 calc(-1.857rem - 0.571rem) 0.571rem;
+  padding: 0.143rem 0.571rem;
+  /* 08-26 nav-chip pass (family: /work [NEXT]/[PREVIOUS]): rest = this
+     project's accent with readable ink (inherited from the <html> detail
+     broadcast; blank → brand blue), sans UI face at the chip size. */
+  background: var(--project-color, var(--color-electric-blue));
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.571rem;
+  letter-spacing: -0.024em;
+  text-transform: uppercase;
+  color: var(--project-color-fg, var(--color-white));
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.detail-breadcrumb:hover {
+  /* Nav-chip charged state (08-26): brand white, black ink. */
+  background: var(--color-white);
+  color: var(--color-black);
+}
+
+/* The drawn return arrow (08-30 (3) — replaced the ↩ codepoint, which iOS
+   rendered as an emoji). Sized to the label's cap read. */
+.detail-breadcrumb__glyph {
+  display: inline-flex;
+  align-items: center;
+}
+
+.detail-breadcrumb__glyph svg {
+  display: block;
+  width: 0.93em;
+  height: auto;
+}
+
+/* SITE FOOTER — moved to global.css (shared site chrome; the home hero
+   renders the --nofill variant). */
+
+/* ============================================
+   NEXT-PROJECT BAND — continuation card
+   (NextProjectBand.jsx; Figma "next project card"
+   states 15:385/401/417 @ 1800w canvas)
+
+   CSS holds the END composition: text at the left
+   gutter, media window at its full 4:3 size with its
+   right edge pinned. The engine translates text right
+   and clips the window back to compose the rest state
+   — so the no-JS / reduced-motion paint is the
+   readable intermediate composition, a plain link.
+
+   The band continues the media grid (11-04, Nathan:
+   no black between them): the window hangs one grid
+   gutter (--space-1, the masonry gap) below the
+   grid's last row, flush with its right edge, and
+   the band is the window's height — the Figma's 49px
+   head and 8px foot are gone.
+   ============================================ */
+.np-band {
+  display: block;
+  position: relative;
+  width: 100%;
+  /* the window (446/1800 canvas, the old 503 band × 446/503) + the gutter */
+  height: calc(clamp(284px, 24.78vw, 53.2vh) + var(--space-1));
+  background: var(--color-black);
+  color: var(--color-white);
+  text-decoration: none;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.np-band__text {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.np-band__label-wrap {
+  display: block;
+}
+
+.np-band__label {
+  /* 11-03, Nathan: title case in the house sans, bold, larger than the
+     chip voice it wore since 08-30 (2). The entrance slides it in from the
+     right (and under ?npbig scales it about its bottom-right, growing up
+     off the rule); ?nplabel overrides the rest size in px.
+     11-04, Nathan: both phrases share one grid cell, so the box is the
+     wider `[Keep Scrolling]`'s and the rule never moves between them; the
+     engine seats the box on the client name's left edge. */
+  display: grid;
+  justify-items: start;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  /* 20px floor, 24px @ 1440, 30px cap */
+  font-size: var(--np-label-size, clamp(1.429rem, 1.667vw, 2.143rem));
+  line-height: 1.1;
+  letter-spacing: -0.024em;
+  white-space: nowrap;
+  transform-origin: 100% 100%;
+}
+
+.np-band__label > * {
+  grid-area: 1 / 1;
+}
+
+/* The rest hint, [Keep Scrolling] (11-03, Nathan): hidden between hints. */
+.np-band__keep {
+  visibility: hidden;
+}
+
+.np-band__rule {
+  display: block;
+  width: 100%;
+  height: 1px;
+  margin: var(--space-4) 0;
+  background: var(--color-white);
+  transform-origin: left center;
+  transition: background 0.12s ease-out;
+}
+
+.np-band__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-semi);
+  /* 96px @ 1800w, client-panel title family */
+  font-size: clamp(2.2rem, 5.333vw, 6.857rem);
+  line-height: 0.78;
+  letter-spacing: var(--tracking-body);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 0.12s ease-out;
+}
+
+.np-band__tags {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  white-space: nowrap;
+}
+
+/* The pinned-blue moment: threshold crossed, held through the passage. */
+.np-band.is-pinned .np-band__title {
+  /* S2: the NEXT project's accent (set on .np-band via next.color); blank → blue. */
+  color: var(--project-color, var(--color-electric-blue));
+}
+
+.np-band.is-pinned .np-band__rule {
+  /* S2: the NEXT project's accent (set on .np-band via next.color); blank → blue. */
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* Media window — right edge pinned, height locked, sized by the COMPONENT
+   (4:3 landscape at full open), never by the asset: whatever populates it
+   (16:9, 3:4, 9:16) best-fits via object-fit. The slot is that full-open
+   box (geometry only). The WINDOW inside it is the container: the entrance
+   pushes its real width out from the right edge to the rest reveal and the
+   drag opens it the rest of the way (11-12, Nathan). The media fills the
+   window, cover-fit and centred, so it stays centred as the window opens
+   and scales up with it. At commit the engine promotes the window inline
+   to position:fixed at its measured rect (the slot rises to z-index 90,
+   under the z-100 shell) and grows it to the full viewport. */
+.np-band__media {
+  position: absolute;
+  /* one grid gutter under the grid's last row, flush with its right edge */
+  right: 0;
+  top: var(--space-1);
+  height: calc(100% - var(--space-1));
+  aspect-ratio: 4 / 3;
+  z-index: 2;
+}
+
+.np-band__window {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  /* rest reveal: 57% of the full window (the engine writes the live width) */
+  width: 57%;
+}
+
+/* Zoom target for the commit passage only (?npzoom > 1 pushes INTO the
+   next world's media as the blue covers); rests untransformed. */
+.np-band__media-inner {
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+}
+
+.np-band__media-el {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--color-near-black);
+}
+
+/* In-band pre-cover — the drag's blue, CONFINED to the media window (the
+   page around it stays clean; the full-viewport RouteFill no longer tracks
+   this gesture). The commit timeline raises it to solid while the promoted
+   window grows to the viewport — the window itself becomes the envelopment.
+   Opacity is engine-driven (f² of the fill, ?nppre). */
+.np-band__cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1; /* above the (static) media-inner and its media el */
+  /* S2: the NEXT project's accent (set on .np-band via next.color); blank → blue. */
+  background: var(--project-color, var(--color-electric-blue));
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Stacked mobile band: media full-width on top (11-04: it meets the
+   grid one gutter down, like desktop), text block below. Same physics —
+   the engine zeroes the text shifts; the media reveal, pre-cover, and
+   commit passage carry the gesture. ── */
+@media (max-width: 768px) {
+  .np-band {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 1.143rem;
+  }
+
+  .np-band__text {
+    position: static;
+    transform: none;
+    padding: 0.857rem var(--space-4) 0;
+  }
+
+  .np-band__title {
+    font-size: clamp(2rem, 9vw, 3.5rem);
+    white-space: normal;
+  }
+
+  .np-band__tags {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .np-band__media {
+    position: relative;
+    order: -1;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    margin-top: var(--space-1);
+  }
+}
+
+/* DETAIL PROGRESS BAR — promoted to global.css (08-31: /process mounts the
+   same minimal bar, so the skin is shared site chrome now; process.css
+   carries that page's field-aware overrides). */
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+
+
+/* ── Mobile: chips + socials flip to horizontal, constrained width ── */
+@media (max-width: 768px) {
+  .client-panel {
+    gap: 0.857rem;
+  }
+
+  .client-panel__title {
+    font-size: clamp(2rem, 9vw, 3.5rem);
+  }
+
+  .client-panel__meta {
+    max-width: max-content;
+    /* prevents row from stretching full-width on narrow screens */
+  }
+
+  /* Breadcrumb + next chip share one row on a phone too — the chip
+     additionally caps against the viewport so it can never ride over the
+     breadcrumb (breadcrumb box + its margins + a touch of air ≈ 15rem). */
+  .detail-next {
+    max-width: min(var(--detail-next-max), calc(100vw - 15rem));
+  }
+
+  /* Hero band collapses to stacked on mobile */
+  .hero-band {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .hero-band>.media-slot {
+    width: 100%;
+    height: auto;
+  }
+
+  .hero-band>.project-blurb {
+    /* the desktop rule's `flex: 0 0 50vw` is a HEIGHT in this column: a compact
+       intro (no min-height under it) would be 50vw tall whatever its copy */
+    flex: 0 0 auto;
+    justify-content: flex-start;
+    padding: 0.857rem 0.571rem 1.143rem;
+  }
+
+  .hero-band>.project-blurb .project-blurb__details {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .project-blurb__text {
+    /* the shared mobile blurb token (global.css ≤768px :root — the
+       tagline stack rides the same scale), times the detail page's own
+       --blurb-text: 1.25 on every page (SQ-99, Nathan 11-15: "the text size
+       for the Heavy House Society 2026 project is the reference … consistent
+       across all projects regardless of text length"). ?blurbtext writes
+       --blurb-text on .project-detail to compare. --text-blurb itself is
+       shared (menu, tagline, pill) and is not touched. */
+    font-size: calc(var(--text-blurb) * var(--blurb-text, 1.25));
+  }
+
+  .project-blurb__details {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  /* Reading sections (SQ-26 11-07, reworked SQ-27 11-07, Nathan: "no media
+     is visible above the text section … retain the same percent of the
+     upcoming media being visible at the bottom", phones only): every blurb —
+     the intro and each later band — is its own moment, its copy centred.
+     SQ-99 (Nathan 11-15: "the height of the text blurb container should be
+     dynamic and based on how much text there is"): a section is exactly its
+     copy plus its padding, no minimum, so a short blurb is short and a long
+     one just scrolls. The hold seats a section with its TOP on the
+     viewport's top, so the black section fills up under the nav; one that
+     fits the seat window (1 - ?blurbpeek, 0.12, of the viewport) is held and
+     leaves the next media showing below it. --blurb-air is the extra black
+     above the copy, beyond the chrome clearance (?blurbair, rem; a proposal,
+     Nathan 11-08: "a bit more empty black space at the top"). The hold on
+     top of it (lib/blurbHold.js) is JS; reduced motion keeps these plain
+     sections. */
+  .project-blurb {
+    /* Where the pinned chrome ends, so copy never starts under it (SQ-28,
+       Nathan: Bedouin's intro "is cutting off the top"). A seat puts the
+       section's top on the viewport's top, under the fixed nav (--nav-height)
+       and the pinned .detail-breadcrumb chip (sticky top = nav + 0.857rem,
+       1.857rem tall), so the top padding is their bottom plus a small gap; a
+       short blurb centres in the area below it. */
+    --blurb-clear: calc(var(--nav-height, 2.929rem) + 0.857rem + 1.857rem + 0.571rem);
+    justify-content: center;
+    padding-block: calc(var(--blurb-clear) + var(--blurb-air, 1.5rem)) 0.857rem;
+  }
+
+  .hero-band>.project-blurb {
+    justify-content: center;
+    padding-top: calc(var(--blurb-clear) + var(--blurb-air, 1.5rem));
+  }
+}

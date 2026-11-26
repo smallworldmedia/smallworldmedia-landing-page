@@ -1,77 +1,1422 @@
-import { useRef, useCallback } from 'react';
+/**
+ * Hero — home page hero: the CMS video globe moment.
+ *
+ * Intro entrance (chunk 5 — replaced the loom): sessionStorage
+ * 'swm:hero-intro' gates three modes, decided ONCE at render time (a state
+ * initializer, safe on the client:only island — VideoGlobe needs
+ * holdEntrance as a prop before the scene builds, and HeroIntro must be in
+ * the first commit so its layout effect seeds the glyph rig ahead of the
+ * scene's build). FULL (first visit, or ?intro=full|a|c) mounts HeroIntro:
+ * the stand-in wordmark "small world media" typeset at display scale with
+ * the live globe framed exactly in the o of "world" over a HELD scene (no
+ * entrance cascade, no live-video scheduler until the machine releases
+ * them), then variant A's zoom or variant C's launch lands the resting
+ * comp. REPLAY (revisit / FP-3 return, or ?intro=replay) is a ~1.2s settle
+ * straight into the resting comp — veil 1→0 + rig.zoom 0.92→1 on the intro
+ * curve, no wordmark, cascade auto-fires as always. Reduced motion renders
+ * the static resting comp with instant chrome. The chrome beat — fired by
+ * the machine at its own beat, or at settle·0.78 on replay — arms the
+ * gesture, stamps data-chromed and broadcasts swm:hero-chrome; the ring,
+ * micro CTA, hit target and HeroText all reveal themselves off that one
+ * broadcast. Knobs: ?intro ?introms ?introhold ?introcascadeat ?heroink
+ * ?introease (heroConfig's intro section, on the ?herotune bench).
+ *
+ * enter_world is the PRIMARY button — TAP ONLY on every breakpoint (08-30,
+ * Nathan: the wheel/touch scroll-to-enter accumulator is RETIRED so the
+ * button reads as the "tap to the next layer inward" mechanism the FP page
+ * already hints at — inception style). It rests CENTERED in the viewport,
+ * floating over the centered globe (the 08-30 comp mirrors mobile on
+ * desktop); clicking it (or keyboard Enter) pins the fill blue and fires
+ * the Envelopment. The caret strip and the disc-anchored column machinery
+ * (--lead-top / --cta-slide) retired with the gesture.
+ *
+ * Blob-tracking labels (chunk 6, HeroLabels — on by default now, ?herolabels
+ * / the bench toggle): mono chips + leader strokes latched to the LIVE
+ * panels via the scene api's onLiveChange subscription, running only
+ * between the chrome beat and a commit, never under RM.
+ *
+ * Envelopment (ADR-0002; chunk-4 commit): ONE master timeline drives an
+ * eased proxy e 0→1 on the commit curve (HERO_COMMIT_EASE_PATH,
+ * ?commitease) and every beat is a clamped remap of e — recenter
+ * (offsets/elev → 0 by ?recenterend), the camera dolly through the
+ * silhouette (rig.zoom → ?envscale from ?zoomstart), and the blue reaching
+ * the viewport THROUGH the globe's shape: ?fillmode=panels surges each
+ * panel to field blue on the cascade's own stagger (?bluecascade) before
+ * the .hero__fill disc spreads to the corners; =circle blooms the
+ * disc-clipped fill directly. At e=1 the persistent RouteFill snaps opaque
+ * under the already-blue viewport and owns the cross-route frame while we
+ * client-navigate to /work, which releases it over its World. Reduced
+ * motion: everything rests immediately; entering is a plain navigation.
+ * The ?herotune bench carries the commit knobs + a dry-run that plays the
+ * passage and releases instead of navigating. Knobs: ?commitms ?fillmode
+ * ?bluecascade ?recenterend ?zoomstart ?commitease ?envscale (RouteFill
+ * adds ?fillcover ?fillrelease; WorldCard's enter_world bridge adds
+ * ?entercover).
+ */
+import { useEffect, useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import UnicornBg from './UnicornBg';
-import HeroText from './HeroText';
-import CtaButton from './CtaButton';
+import { CustomEase } from 'gsap/CustomEase';
+import { navigate } from 'astro:transitions/client';
+import VideoGlobe from './globe/VideoGlobe.jsx';
+import HeroText from './HeroText.jsx';
+import HeroIntro from './hero/HeroIntro.jsx';
+import HeroLabels from './hero/HeroLabels.jsx';
+import { createHeroOverlay } from './hero/heroOverlay.js';
+import {
+  TUNING as HERO_TUNING,
+  HERO_TUNE_ACTIVE,
+  COMMIT_TUNE_ACTIVE,
+  HERO_INTRO_EASE_PATH,
+  GLOBE_STROKE_FRAC,
+  HOME_LENS,
+  subscribeHeroTune,
+} from './hero/heroConfig.js';
+import {
+  IS_MOBILE,
+  PREFERS_REDUCED_MOTION,
+  PANEL_CORNER_RADIUS as GLOBE_PANEL_CORNER_RADIUS,
+} from './globe/globeConfig.js';
+import { POP_TUNE_ACTIVE, TUNING as POP_TUNING } from './globe/popConfig.js';
+import { applyNavAccent, clearNavAccent, holdNavAccent, NAV_BLACK } from '../lib/navAccent.js';
 
-export default function Hero({ onStartProject, scenePaused = false }) {
-    const fgRef = useRef(null);
-    const ctaRef = useRef(null);
+/* Home → /work runs through the globe's BLACK (Nathan 11-12): the passage cover
+   goes from the world's colour to black to match the nav bar, the nav is HELD
+   black through the swap, and RouteFill lets the project colour go — nav + every
+   colour-tagged element on one frame — when the cover lifts off /work. */
+function coverToWork(detail) {
+  holdNavAccent();
+  window.dispatchEvent(new CustomEvent('swm:envelop', { detail: { ...detail, color: NAV_BLACK } }));
+}
+import { SCROLL_TRIGGER_HOME_PX } from '../lib/motion.js';
+import { RELEASE_MS } from '../lib/touchTune.js';
+import {
+  footerTensionStep,
+  getFooterTouchBrake,
+  getFooterTouchGain,
+  getFooterTouchLerp,
+  FOOTER_FINGER,
+} from '../lib/footerTune.js';
+import { requestInfoClose } from '../lib/infoPush.js';
+import { holdEntry } from '../lib/gestureHistory.js';
+import { signalRouteReady } from '../lib/overlayWipe.js';
+import SiteFooter, {
+  FOOTER_REVEAL_EVENT,
+  FOOTER_CLOSE_EVENT,
+  wipeReveal,
+  createFooterDrive,
+  paintDrivenFooter,
+  armFooterEntrance,
+  playFooterEntrance,
+  resetFooterEntrance,
+} from './SiteFooter.jsx';
+// The studio blurb — in the resting footer variant it leaves the tagline pill
+// and is set in the panel (below). It is Sanity copy now, handed down from
+// index.astro, so only the no-Sanity fallback lives in code (10-08).
+import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
+// 08-30 (3), Nathan: the home→/work transition carries the FP→detail
+// choreography — the SAME enter-tune vocabulary (cover duration, window
+// model, pow curve) WorldCard/useWorldScene ride, so the two passages can
+// never drift apart.
+import {
+  ENTER_TUNABLES,
+  ENTER_LENS_Y,
+  enterLens,
+  powInOut as enterPow,
+  seg as enterSeg,
+} from './work/world/enterTune.js';
 
-    const handleStartProject = useCallback(() => {
-        // Pass the CTA element so App can capture its Flip state
-        onStartProject(ctaRef.current);
-    }, [onStartProject]);
+gsap.registerPlugin(useGSAP, CustomEase);
 
-    // Entrance animation — staggered reveal
-    useGSAP(() => {
-        // Horizontal centering: left: 50% + xPercent: -50 (both breakpoints)
-        gsap.set('.hero__cta', { xPercent: -50 });
+/* — Intro session gate (chunk 5; replaced 'swm:loomed') — one read+write
+   per page view, same try/catch idiom. RM decides first (dual-guard's
+   outer half — nothing intro-shaped may run there); ?intro forces a mode
+   regardless of the session flag; otherwise first visit = full, revisit
+   (FP-3 returns included) = replay. — */
+const INTRO_SESSION_KEY = 'swm:hero-intro';
+const decideIntroMode = () => {
+  if (typeof window === 'undefined' || PREFERS_REDUCED_MOTION) return 'rm';
+  const p = new URLSearchParams(window.location.search).get('intro');
+  const forced =
+    p === 'full' || p === 'a' || p === 'c' ? 'full' : p === 'replay' ? 'replay' : null;
+  let seen = false;
+  try {
+    seen = sessionStorage.getItem(INTRO_SESSION_KEY) === '1';
+    sessionStorage.setItem(INTRO_SESSION_KEY, '1');
+  } catch {
+    /* storage unavailable — every visit is the first */
+  }
+  return forced ?? (seen ? 'replay' : 'full');
+};
 
-        const tl = gsap.timeline({ delay: 0.3 });
+/* — 08-24: the lockup-morph machine (HeroIntro's chars→globe launch) is
+   RETIRED from the default path — the nav carries the full lockup now, so
+   the entrance no longer spells the wordmark. ?intro=a|c still mounts the
+   old machine for reference/comparison; without it, 'full' runs the ARRIVE
+   settle below. — */
+const INTRO_FORCED_VARIANT = (() => {
+  if (typeof window === 'undefined') return false;
+  const p = new URLSearchParams(window.location.search).get('intro');
+  return p === 'a' || p === 'c';
+})();
 
-        // Bottom CTA: rise from below
-        tl.fromTo('.hero__cta',
-            { y: 20, clipPath: 'inset(100% 0 0 0)' },
-            {
-                y: 0,
-                clipPath: 'inset(0% 0 0 0)',
-                duration: 0.6,
-                ease: 'power3.out',
-            },
-            '-=0.3'
-        );
+/* — Replay settle — revisits skip the wordmark: veil 1→0 + rig.zoom
+   0.92→1 on the intro curve, straight into the resting comp. The chrome
+   beat keeps its loom-era place at duration·0.78; the forced-variant
+   machine fires its own beat (HeroIntro). — */
+const REPLAY_SECONDS = 1.2;
+const REPLAY_ZOOM_FROM = 0.92;
+const CHROME_BEAT_AT = 0.78;
 
-        // Handle
-        tl.fromTo('.hero__handle',
-            { scaleX: 0 },
-            {
-                scaleX: 1,
-                duration: 0.4,
-                ease: 'power2.out',
-            },
-            '-=0.2'
-        );
+/* — Arrive settle (08-24) — the DEFAULT first-visit entrance: the globe
+   subtly scales into the resting comp (rig.zoom 0.94→1 on the intro curve)
+   while the panel cascade paints it; the veil thins across the same window.
+   Chrome beat + live-video scheduler release at the settle's beat point.
+   Longer than the replay settle so the cascade has room to read. — */
+const ARRIVE_SECONDS = 2.2;
+const ARRIVE_ZOOM_FROM = 0.94;
+const ARRIVE_CASCADE_AT = 0.4; // s into the settle — panels cascade as it scales
 
-    }, { scope: fgRef });
+/* — Envelopment (chunk-4 commit) — the dolly's destination scale; the
+   timeline length and the rest of the choreography live on heroConfig's
+   commit section (?commitms ?fillmode ?bluecascade ?recenterend
+   ?zoomstart). */
+/* 08-25: ?envscale moved into heroConfig TUNING (envScale) so the typed
+   commit panel can dial it live — read from HERO_TUNING at commit time. */
 
-    return (
-        <section className="hero">
-            <div className="hero__scene" aria-hidden="true">
-                <UnicornBg paused={scenePaused} />
-            </div>
-            <HeroText />
-            <div className="hero__fg" ref={fgRef}>
+/* Power in-out easing for the commit's camera channels — smooth at BOTH ends
+   (zero velocity in, zero velocity out; no overshoot), curvature set by pow.
+   Each channel gets its own window on the LINEAR dive progress, so recenter
+   and zoom overlap into one cohesive fluid motion (Nathan, 08-25) instead of
+   compounding through the flat-tailed Turn curve. */
+const powInOut = (t, pow) =>
+  t < 0.5 ? 0.5 * Math.pow(2 * t, pow) : 1 - 0.5 * Math.pow(2 * (1 - t), pow);
 
-                <nav className="hero__cta">
-                    <CtaButton
-                        ref={ctaRef}
-                        variant="primary"
-                        onClick={handleStartProject}
-                        data-flip-id="start-project"
-                    >
-                        ↳start a project
-                    </CtaButton>
-                    <CtaButton
-                        href="https://instagram.com/smallworldmedia"
-                        target="_blank"
-                    >
-                        follow us
-                    </CtaButton>
-                </nav>
-                <div className="hero__handle" />
-            </div>
-        </section>
+/* — Rounded panel tiles (note 5) — UV-space radius the home globe passes to
+   VideoGlobe (lockup fidelity, the SWM mark's panels carry a corner radius).
+   Home-only: /lab and /process get the default 0 (hard edges). Lives in
+   globeConfig now so heroConfig's bench can seed ?corner from the same value. — */
+const PANEL_CORNER_RADIUS = GLOBE_PANEL_CORNER_RADIUS;
+
+/* — Commit beat map (08-25: CONCURRENT windows — the blue-first doctrine is
+   retired per Nathan: "the blue panel fill occurs DURING the zoom and center
+   motion"). ONE linear timeline `raw.p`; every channel is a window on it:
+   · BLUE over [?bluestart .. ?blueend]: the panels cascade to field blue
+     (or, circle mode, the disc blooms to the silhouette) WHILE the camera
+     moves — fully overlapping choreography.
+   · RECENTER over [?recenterstart .. ?recenterend] and DOLLY over
+     [?zoomstart .. ?zoomend] (rig.zoom → ?envscale), each on its own
+     power-inOut curve (?campow) — smooth both ends, no overshoot.
+   · The .hero__fill disc spreads to the viewport corners over
+     [?blueend .. 0.98], taking over from the painted globe at its edge →
+     handoff at raw 1. — */
+const SPREAD_PANELS_END = 0.98; // raw: .hero__fill disc fully covers the viewport
+const SPREAD_CIRCLE_END = 0.98;
+const FILL_DISC_PAD = 1.03; // fill circle slightly proud of the disc (bgMorph precedent)
+const CHROME_OUT_SECONDS = 0.2; // the one real-time beat — the chrome exit
+const HANDOFF_COVER_SECONDS = 0.05; // RouteFill's snap under the covered viewport
+const DRYRUN_RETURN_SECONDS = 0.6; // rig back to the resting pose, expo.out
+
+/* Clamped remap: where a beat lives on its progress window. */
+const seg = (e, a, b) => Math.min(1, Math.max(0, (e - a) / (b - a)));
+
+/* — 08-30: the scroll-fill gesture is RETIRED (SCROLL_TRIGGER / drag lean /
+   RouteFill pre-cover all gone with it) — enter_world is TAP ONLY on every
+   breakpoint. The pill's presentation reduces to rest / hover / commit-pin
+   (the presentation vars block). — */
+
+/* — Globe outer stroke (Globe/Homepage): a flat electric-blue disc behind the
+   canvas, sized GLOBE_STROKE_FRAC proud of the globe disc so only a thin ring
+   shows at the silhouette (the lockup mark's outer stroke), scaling with the
+   intro zoom. The fraction (?globestroke, default 6% desktop / 5% mobile,
+   0 = off) is sourced from
+   heroConfig so HeroIntro can compensate the glyph framing by the same amount
+   (globe + stroke = the lockup "o"). — */
+
+/* — The HOME footer floor (phones since 10-07, Nathan; desktop since 10-09,
+   bake A, ba7cf2c) — "On homepage load let's
+   have the footer persistent and visible … show visible only the text blurb
+   with the 'utilized by…' text fading out below to suggest there is more to
+   scroll to". The footer's driven progress PARKS at this fraction instead of
+   0 on phones, so the studio blurb is up on load and the gesture reveals the
+   rest. Desktop rests too since 10-09 (FOOTER_REST_DESKTOP below); an
+   explicitly passed ?footerrest still reaches any width, and ?footerrest=0
+   restores the old retract-to-nothing footer (and the tagline-pill blurb) on
+   either tier.
+
+   The number is Nathan's to bake, so it ships as a dial: ?footerrest=<0..1>
+   (0 restores the old retract-to-nothing feel). Read at module load like
+   IS_MOBILE itself, so one frozen fact drives both the JS and the CSS
+   variant ([data-footer-rest], set below).
+
+   The default is MEASURED, not guessed — it is a fraction of the panel's own
+   height, and the panel is blurb + logo band, so a rest of p clears the blurb
+   when p >= blurbBottom / panelHeight. The floor wanted is the one that clears
+   the whole blurb AND brings the first "utilized by…" line into the frame,
+   dimmed by the band's own reveal window — Nathan's "visible only the text
+   blurb with the 'utilized by…' text fading out below".
+
+   RE-BAKED 0.62 → 0.59 on 10-08 (Nathan: "fix the over-clearing"), after the
+   blurb moved into Sanity and the shorter copy re-wrapped it 5 lines → 4. The
+   panel went 306px → 281.2px, so the SAME 0.62 revealed more of it: 57.7px of
+   blurb clearance where the dialed pose had ~50px, and 26.8px of the "utilized
+   by…" line showing instead of seated.
+
+   SWEPT at 390×844 with ?footerslide=0, so what is read is the settled pose:
+   the relationship is linear at the panel's own height — 2.81px of reveal per
+   0.01 of rest — and the blurb→lead-in gap is a CONSTANT 31.0px at every rest.
+   So 0.59 restores both halves of the dialed framing to within a pixel: blurb
+   clearance 49.3px (pre-Sanity ~50.0) and lead-in peek 18.3px (pre-Sanity
+   ~19.0, derived from that ~50.0 across the same constant gap, since the old
+   panel cannot be re-measured). The sweep also re-derives the clipping floor
+   independently — blurbClear hits 0 at rest 0.4147, i.e. the blurb box ends at
+   0.415 of the panel — so 0.59 holds 0.175 of headroom above it. It still
+   clears at 320px (5 lines, 291px, 0.449) and 430px (4 lines, 297px, 0.427).
+
+   THIS IS A COPY-DEPENDENT NUMBER — a longer blurb re-wraps and moves it, and
+   it has moved once already. docs/tunables-guide.md `?footerrest` carries the
+   full reading and the sweep table, including why the desktop variant needs
+   its own (its panel is 258px at 1440×900). FOOTER_REST_EXPECT in
+   scripts/globe-probe.mjs is this number's gate twin — move both, or --footer
+   fails.
+
+   RAISED 0.59 → 0.62 (SQ-107, Nathan 11-16, "just slightly"): the FIRST line of
+   the lead-in ("utilized by…") shows whole and nothing more. At 390×844 (DSF 1,
+   ?footerslide=0, settled) the lead-in was 18.3px of its two 26.8px lines; at
+   0.62 it is 26.8, the logo row 62.4px below the fold, the blurb clearing by
+   ~58px. A first try at 0.72 showed both lines (53.6px): too much. ?footerrest=0.59
+   restores the old pose. — */
+const FOOTER_REST_MOBILE = 0.62;
+/* The DESKTOP rest. Baked 0.62 on 10-09 (Nathan: "push the globe page footer
+   work (visible when i define ?footerrest) to be live"), the pose every
+   desktop look of the variant ran at on 10-08. RE-BAKED 0.62 → 0.40 on 10-31
+   (Nathan: "lets lower it to a sliver so its more of a suggestion for the user
+   to scroll down to reveal"): 0.40 is the rest that gives desktop the phone's
+   own lead-in peek. SWEPT at DSF 2 with ?footerslide=0, settled; rest → blurb
+   clearance / "utilized by…" peek in px: 1440×900 0.62 → 112.7/75.7 · 0.42 →
+   61.1/24.1 · 0.40 → 55.9/19.0 · 0.38 → 50.8/13.8; 1728×992 0.62 → 114.4/77.5
+   · 0.40 → 55.0/18.0. The phone at 0.59 reads 49.3/18.3, so on both tiers the
+   top ~18px of the lead-in line shows above the fold, a hint rather than a
+   seated band. It holds from 1280 to 1728 (19.5px of peek at 1280×800). Below
+   the blurb fill's ~1130px crossover the blurb wraps to two lines and the peek
+   thins to 6.6px (1024×768, 820×1180 and 800×600 read alike), with the blurb
+   still clearing by 43.5px. It is its own number, not the phone's: at 1440×900
+   the panel is 258px against the phone's 281.2px, so the 0.59 sweep above does
+   not transfer. The clipping floor is that two-line band's 0.2371, held by
+   scripts/test/footer-reveal.test.mjs.
+
+   RAISED 0.40 → 0.47 (SQ-107, Nathan 11-16: "raise it slightly", the lead-in
+   line fully shown, the logos below the fold). Measured at DSF 1,
+   ?footerslide=0, settled; lead-in shown px / logo row below the fold px:
+   1440×900 0.40 → 19.0/54.3, 0.47 → 31.8 (all of it)/~36; 1280×800 0.40 →
+   19.5/50.2, 0.47 → 28.2 (all)/~33; 1024×768 (the two-line blurb) 0.40 → 6.6/
+   59.4, 0.47 → 24.5 (all)/~41. ?footerrest=0.40 restores the sliver. */
+const FOOTER_REST_DESKTOP = 0.47;
+const PARAM = (key, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const n = parseFloat(new URLSearchParams(window.location.search).get(key));
+  return Number.isFinite(n) ? n : fallback;
+};
+const REST_DIAL = PARAM('footerrest', NaN);
+const FOOTER_REST = Math.min(
+  1,
+  Math.max(
+    0,
+    Number.isFinite(REST_DIAL) ? REST_DIAL : IS_MOBILE ? FOOTER_REST_MOBILE : FOOTER_REST_DESKTOP
+  )
+);
+
+/* The resting footer's on-load entrance FAIL-OPEN deadline (10-07). The
+   entrance is armed from inside chromeBeat — the beat the CTA, the nav and
+   the tagline pill already arrive on — which lands at CHROME_BEAT_AT of the
+   settle: 0.78 × 2.2s = 1.72s on a first visit, 0.94s on a revisit. 3s is
+   comfortably past both and still bounded, so a beat that never comes at all
+   (a dead HeroIntro machine under ?intro=a|c) brings the blurb up un-animated
+   instead of leaving it blank. Absence of [data-footer-in] means VISIBLE. */
+const FOOTER_IN_SAFETY_MS = 3000;
+
+export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
+  const footerBlurb = siteCopy?.footerBlurb || SITE_COPY_FALLBACK.footerBlurb;
+  const heroRef = useRef(null);
+  const veilRef = useRef(null);
+  const armedRef = useRef(false);
+  const departingRef = useRef(false);
+  // 09-08 (Nathan): scroll DOWN on home reveals the links footer (+ logo
+  // ticker) — the /work idiom: no document scroll, the wheel/touch delta
+  // drives SiteFooter's driven progress 0..1 directly; upward delta
+  // retracts; it parks where the gesture leaves it. The tagline pill asks
+  // for a full reveal; the enter_world commit retracts it.
+  // 10-07: FOOTER_REST is the FLOOR, not 0 — the panel starts (and returns
+  // to) the resting fraction above: phones since 10-07, desktop since 10-09.
+  //
+  // 10-07 (2): no React state here any more. This used to be useState, so
+  // every touchmove frame re-rendered Hero → SiteFooter → ClientLogoTicker to
+  // recompute one inline transform and one `inert` — sixty subtree
+  // reconciliations a second beside the WebGL draw, which is the single
+  // largest per-frame cost on the page Nathan calls laggy. The panel paints
+  // itself imperatively from this one number now (paintDrivenFooter), the way
+  // scroll mode always has; the `progress` prop just seeds the resting pose.
+  const footerPRef = useRef(FOOTER_REST);
+  const footerWipeRef = useRef(null); // the pill's wipe tween — the user's delta kills it
+  const setFooterReveal = (v) => {
+    if (footerPRef.current === v) return;
+    footerPRef.current = v;
+    paintDrivenFooter(v);
+  };
+  // 10-31 (Nathan: the reveal is "very sudden and slightly jarring"): the
+  // wheel's deltas glide the panel, Lenis's way, and brake into the full
+  // reveal (createFooterDrive). One per island; its setter only touches refs.
+  const footerDriveRef = useRef(null);
+  footerDriveRef.current ??= createFooterDrive(setFooterReveal, FOOTER_REST);
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return undefined;
+    const drive = footerDriveRef.current;
+    const addDelta = (dy, wheel = false) => {
+      if (departingRef.current) return;
+      // Where the reveal is headed: a wheel glide's target, else the panel.
+      const p = drive.goal(footerPRef.current);
+      // A delta that cannot move the panel must not touch the pill's wipe:
+      // the kill used to run BEFORE this return, so one stray upward
+      // touchmove mid-wipe cancelled it and parked the panel partway.
+      if (dy <= 0 && p <= FOOTER_REST) return;
+      footerWipeRef.current?.kill();
+      if (PREFERS_REDUCED_MOTION) setFooterReveal(dy > 0 ? 1 : FOOTER_REST);
+      else if (wheel) drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current);
+      else {
+        // SQ-115: the finger rides the wheel's drive on its own lane, FOOTER_FINGER:
+        // the tail's tension (?footertouchbrake, symmetric, so up d px then down d px
+        // is a round trip) and the follow (?footertouchlerp, baked 0.35). Above 0, the
+        // default, the finger moves a TARGET and the ticker paints one even step a
+        // frame, whatever cadence iOS delivers the touchmoves at. At lerp 0 the finger
+        // owns the panel as before: the drive stops, steps from the painted progress
+        // and paints on the touchmove.
+        if (!(getFooterTouchLerp() > 0)) drive.stop();
+        drive.add(dy / SCROLL_TRIGGER_HOME_PX, footerPRef.current, FOOTER_FINGER);
+      }
+    };
+    const onWheel = (e) => {
+      e.preventDefault();
+      addDelta(e.deltaY, true);
+    };
+    let touchY = null;
+    let touchX = null;
+    // ── The release carry (10-07) ──
+    // Nathan's recorded curve is "no overshoot, steep launch carrying scroll
+    // momentum, smooth decel into rest", and addDelta is raw unfiltered
+    // per-frame delta: the panel stopped DEAD where the finger lifted, with
+    // no decel at all. So carry the gesture's last velocity one stall-gap
+    // further (RELEASE_MS, the house gap that already means "the finger has
+    // stopped") and settle it on the footerWipe curve — the SAME wipeReveal
+    // the pill and the close path ride, so the footer still has exactly one
+    // glide. A finger already at rest when it lifts gets no carry.
+    let vel = 0; // progress per ms, smoothed
+    let moveAt = 0;
+    const onTouchStart = (e) => {
+      touchY = e.touches[0].clientY;
+      touchX = e.touches[0].clientX;
+      vel = 0;
+      moveAt = 0;
+      // A new finger takes the panel from where it IS: a followed glide (still
+      // running toward its target) stops at the painted progress, no jump.
+      if (getFooterTouchLerp() > 0) drive.stop();
+    };
+    const onTouchMove = (e) => {
+      if (touchY === null) return;
+      const y = e.touches[0].clientY;
+      const x = e.touches[0].clientX;
+      // A mostly-horizontal move is the globe's drag, not a reveal — and the
+      // globe only drags where IS_MOBILE is false now (10-07: the globe's
+      // pointer listeners are not installed on phones at all, so there is no
+      // drag to protect there). The test is FOOTER_REST, not 0: under a
+      // resting floor the panel never sits at 0, so `<= 0` made this bail
+      // dead — and DragMomentum listens on pointer events with no pointerType
+      // filter, so on a touch laptop at desktop width one sideways swipe would
+      // spin the globe AND climb the panel.
+      if (
+        !IS_MOBILE &&
+        Math.abs(x - touchX) > Math.abs(y - touchY) &&
+        footerPRef.current <= FOOTER_REST
+      ) {
+        return;
+      }
+      // SQ-115: home's own finger gain (?footertouchgain, 2 since 11-17, Nathan);
+      // the house ?touchgain belongs to /work and /process and no longer reaches here.
+      const dy = (touchY - y) * getFooterTouchGain();
+      const now = performance.now();
+      if (moveAt) {
+        // dt floored at one frame so a two-event burst cannot read as an
+        // enormous velocity.
+        const dp = dy / SCROLL_TRIGGER_HOME_PX / Math.max(16, now - moveAt);
+        vel = vel === 0 ? dp : vel * 0.6 + dp * 0.4;
+      }
+      moveAt = now;
+      addDelta(dy);
+      touchY = y;
+      touchX = x;
+      e.preventDefault();
+    };
+    const onTouchEnd = () => {
+      touchY = null;
+      touchX = null;
+      // RM snaps progress 0↔1 with no in-betweens, so there is nothing to
+      // carry there (and a glide would contradict the preference).
+      if (PREFERS_REDUCED_MOTION || departingRef.current) return;
+      const stalled = !moveAt || performance.now() - moveAt > RELEASE_MS;
+      // ?footertouchlerp > 0: the panel is following a target, so the carry goes
+      // THERE (the drive's goal), through the same tension step, and the glide
+      // decelerates on the damp. Velocity-continuous where a fresh wipeReveal is
+      // not: the follower already moves at the finger's pace, and the carry only
+      // lengthens its lead in proportion to that pace (a slow release adds almost
+      // nothing). A wipe would restart from the glide curve's own steep launch,
+      // whatever the finger was doing. Lerp 0 keeps the wipe, as it was.
+      const follow = getFooterTouchLerp() > 0;
+      const p = follow ? drive.goal(footerPRef.current) : footerPRef.current;
+      const carry = vel * RELEASE_MS;
+      // The carry rides the same tension, so a flick cannot coast past it.
+      const to = footerTensionStep(p, carry, FOOTER_REST, getFooterTouchBrake());
+      vel = 0;
+      if (stalled || Math.abs(to - p) < 0.002) return;
+      footerWipeRef.current?.kill();
+      if (follow) {
+        drive.add(carry, footerPRef.current, FOOTER_FINGER);
+        return;
+      }
+      drive.stop();
+      footerWipeRef.current = wipeReveal(p, setFooterReveal, to);
+    };
+    const onReveal = () => {
+      if (departingRef.current) return;
+      footerWipeRef.current?.kill();
+      drive.stop();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal);
+    };
+    const onClose = () => {
+      footerWipeRef.current?.kill();
+      drive.stop();
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, FOOTER_REST);
+    };
+    // The CSS variant latch: global.css re-stacks the panel (blurb up top,
+    // logo band last), drops the tagline pill and holds F1 off for exactly as
+    // long as this floor is live. One attribute, one frozen fact — so the
+    // layout can never disagree with the number the gesture clamps to.
+    let inSafety = null;
+    if (FOOTER_REST) {
+      document.documentElement.setAttribute('data-footer-rest', '');
+      // The on-load entrance's hidden ground, set in the SAME frame as the
+      // variant latch so the blurb is never seen at full strength and then
+      // hidden. chromeBeat plays it; this is only the fail-open deadline for
+      // a beat that never comes.
+      // The slide is first-view only (Nathan: "doesn't have to slide up if the
+      // user has already been on the site recently"). introMode is ALREADY
+      // that answer — decideIntroMode's one sessionStorage flag, tab-scoped,
+      // the same mechanism the tagline's revisit skip uses — so this reuses it
+      // rather than minting a second key. 'replay' and 'rm' get the fade with
+      // no slide; ?intro=full forces it back for a look.
+      // (introMode is declared below this effect but read inside its callback,
+      // which React runs after the render body — and it is a render-once
+      // useState value, so the [] deps stay honest.)
+      if (armFooterEntrance(PREFERS_REDUCED_MOTION, introMode === 'full')) {
+        inSafety = setTimeout(() => playFooterEntrance(PREFERS_REDUCED_MOTION), FOOTER_IN_SAFETY_MS);
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    window.addEventListener(FOOTER_REVEAL_EVENT, onReveal);
+    window.addEventListener(FOOTER_CLOSE_EVENT, onClose);
+    return () => {
+      document.documentElement.removeAttribute('data-footer-rest');
+      // Every bail path ungrounds the entrance: absence means VISIBLE.
+      document.documentElement.removeAttribute('data-footer-in');
+      clearTimeout(inSafety);
+      resetFooterEntrance(); // a soft nav back to home runs it again
+      window.removeEventListener(FOOTER_CLOSE_EVENT, onClose);
+      footerWipeRef.current?.kill();
+      drive.stop();
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener(FOOTER_REVEAL_EVENT, onReveal);
+    };
+  }, []);
+  const strokeRef = useRef(null); // globe outer-stroke disc (tracks the overlay disc)
+
+  // enter_world button state — tap-only (08-30): the drag fill model reduced
+  // to one commit-pin flag; hover pours via ctaHover below.
+  const [ctaPinned, setCtaPinned] = useState(false);
+
+  const [ctaHover, setCtaHover] = useState(false);
+
+  // Camera rig + overlay bridge (home-hero rework, chunk 2). The scene fills
+  // rigRef with { rig, apply }; the overlay is created here (lazy ref init —
+  // pure, SSR-safe) so the ring/hit/labels can onFrame() before or after the
+  // scene mounts.
+  const rigRef = useRef(null);
+  const overlayRef = useRef(null);
+  if (overlayRef.current === null) overlayRef.current = createHeroOverlay();
+
+  // Scene api mirror ({ replayCascade, setBlueFill, setInk,
+  // releaseScheduler } — VideoGlobe aliases the hook's api ref here; the
+  // intro machine drives the chunk-5 pair) + the commit's blue surface.
+  const sceneApiRef = useRef(null);
+  const fillRef = useRef(null);
+  // Live commit teardown — kills the master timeline / overlay sub (or the
+  // dry-run return tween) if the island unmounts or a new commit starts
+  // while one is still settling.
+  const commitKillRef = useRef(null);
+  useEffect(() => () => commitKillRef.current?.(), []);
+
+  // Camera zoom proxy — the entrance settles and the envelopment glide
+  // continue from the same value (GSAP overwrite arbitration on one target;
+  // the drag gesture that used to share it retired 08-30).
+  const zoomRef = useRef({ v: 1 });
+  const applyZoom = () => {
+    const handle = rigRef.current;
+    if (!handle) return;
+    handle.rig.zoom = zoomRef.current.v;
+    handle.apply();
+  };
+
+  // ── Intro mode — decided ONCE at render (chunk 5) ──
+  // A state initializer, not an effect: VideoGlobe needs holdEntrance
+  // before the scene builds, and HeroIntro must be in the first commit so
+  // its layout effect seeds the glyph rig ahead of the scene's build.
+  const [introMode] = useState(decideIntroMode);
+  // HeroIntro mounts ONLY under the forced variants (?intro=a|c) — the
+  // default 'full' entrance is the arrive settle (no wordmark machine).
+  const [introOn, setIntroOn] = useState(introMode === 'full' && INTRO_FORCED_VARIANT);
+  const [introRun, setIntroRun] = useState(0); // bench replays remount by key
+  // The machine owns the rig (glyph pose → launch) until its handoff — the
+  // tuning effect defers to it; a bench write mid-intro lands at the stamp.
+  // The arrive/replay settles never own the pose (zoom rides the gesture
+  // proxy), so they count as "done" from the start.
+  const introDoneRef = useRef(!(introMode === 'full' && INTRO_FORCED_VARIANT));
+
+  // The chrome beat: arm the button, stamp the latch, broadcast — the
+  // labels reveal themselves off the event (they can mount after it fires),
+  // Hero fades what it owns directly (the CTA button wrap). Fired by the
+  // replay settle / RM path here, and by HeroIntro's machine in full mode.
+  const chromeBeat = (instant) => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    armedRef.current = true;
+    hero.dataset.chromed = '1';
+    // Dispatch OUTSIDE the caller's gsap context. A tween created
+    // synchronously inside a context-owned animation's callback is ADOPTED
+    // by that context (gsap 3.11 context inheritance) — SiteNav's reveal
+    // tween was adopted into this island's useGSAP context and REVERTED at
+    // unmount, re-hiding the nav after the commit swap (08-25 bug, caught
+    // by stack trap). One rAF breaks the adoption chain for every listener.
+    requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('swm:hero-chrome')));
+    // 08-30: the hero lockup (and its word-beat entrance) retired — the NAV
+    // carries the brand on home now. The done broadcast SiteTagline keys its
+    // one-time intro off still fires, straight from this beat (rAF-deferred,
+    // the 08-25 adoption doctrine).
+    requestAnimationFrame(() =>
+      window.dispatchEvent(new CustomEvent('swm:hero-lockup-done'))
     );
+    // 10-07 (Nathan): the RESTING footer's text arrives on this beat too —
+    // the one page-load beat the CTA, the nav and the tagline pill already
+    // share, so the footer joins the page's single arrival instead of
+    // deriving its own latch, one-shot listener and safety timer in a child
+    // effect (SiteNav.jsx:259-281's idiom, which also carries a
+    // child-before-parent ordering hazard and a 6s worst case). The panel is
+    // already OPEN at ?footerrest, so there is no reveal progress to gate on:
+    // the abruptness Nathan reported is STAGGER_ON (0.85) sitting above that
+    // floor, which nothing on load can cross. rAF-deferred like the two
+    // dispatches above — the 08-25 gsap-context adoption doctrine.
+    requestAnimationFrame(() => playFooterEntrance(PREFERS_REDUCED_MOTION));
+    const owned = hero.querySelectorAll('.hero__enter-wrap');
+    if (instant) gsap.set(owned, { autoAlpha: 1 });
+    else gsap.to(owned, { autoAlpha: 1, duration: 0.6, ease: 'power2.out' });
+  };
+
+  // Push the hero tuning (URL-seeded; the resting comp without params) onto
+  // the live rig, and re-push on any bench change. zoom is deliberately not
+  // written here — it's gesture-owned (zoomRef), never a bench value.
+  const stampTuning = () => {
+    const handle = rigRef.current;
+    if (!handle) return;
+    handle.rig.fill = HERO_TUNING.fill;
+    handle.rig.fitCover = HERO_TUNING.fitCover;
+    handle.rig.offsetX = HERO_TUNING.offsetX;
+    handle.rig.offsetY = HERO_TUNING.offsetY;
+    handle.rig.elevDeg = HERO_TUNING.elevDeg;
+    handle.rig.roll = HERO_TUNING.roll;
+    handle.apply();
+  };
+  // Push the globe's own tunables (pole cap / corner rounding, brand
+  // orientation, scroll pace) onto the live scene api. Independent of the
+  // camera rig AND the intro machine — the pole treatment applies during the
+  // intro too — so this is ungated. No-op until the globe api is up (VideoGlobe
+  // aliases it), and the values equal the baked defaults unless a URL/bench
+  // change moved them, so an untouched load is a no-op.
+  const stampGlobeTuning = () => {
+    const api = sceneApiRef.current;
+    if (!api) return;
+    api.setPoleTuning({
+      lift: HERO_TUNING.poleLift,
+      tip: HERO_TUNING.poleTip,
+      wide: HERO_TUNING.poleWide,
+      start: HERO_TUNING.poleStart,
+      cornerR: HERO_TUNING.cornerR,
+    });
+    api.setGlobeOrientation({
+      tiltDeg: HERO_TUNING.tiltDeg,
+      yawDeg: HERO_TUNING.yawDeg,
+      yawSpeed: HERO_TUNING.yawSpeed,
+    });
+    api.setCascadeSpeed(HERO_TUNING.cascadeSpeed);
+    api.setPoleCap(HERO_TUNING.poleCapDeg);
+    // 08-25: commit blue-fill surge shape (?bluesurge ?bluedipend ?bluedipdepth).
+    api.setBlueFillTuning?.({
+      surge: HERO_TUNING.blueSurge,
+      dipEnd: HERO_TUNING.blueDipEnd,
+      dipDepth: HERO_TUNING.blueDipDepth,
+    });
+  };
+  useEffect(() => {
+    const applyTuning = () => {
+      stampGlobeTuning(); // globe uniforms/orientation/pace — always, intro included
+      if (!introDoneRef.current) return; // the intro machine owns the camera rig
+      stampTuning();
+    };
+    applyTuning();
+    return subscribeHeroTune(applyTuning);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The machine's handoff: restore the device fit axis + TUNING pose (the
+  // launch ended on the contain-equivalent fill — the same fill·tanFit
+  // product, so the axis swap is seamless), then drop the wordmark layer.
+  const onIntroDone = () => {
+    introDoneRef.current = true;
+    stampTuning();
+    setIntroOn(false);
+  };
+
+  // Bench action (?herotune): re-run the entrance. Default path = the arrive
+  // settle (cascade replays; the live-video scheduler is already running and
+  // stays running — accepted, the bench note says so). Forced ?intro=a|c =
+  // remount the old machine by key (glyph rig re-seeds through the live
+  // handle).
+  const onReplayIntro = () => {
+    if (introMode === 'rm' || departingRef.current) return;
+    armedRef.current = false; // re-arms at the entrance's chrome beat
+    if (!INTRO_FORCED_VARIANT) {
+      runEntranceSettle(ARRIVE_SECONDS, ARRIVE_ZOOM_FROM, true);
+      return;
+    }
+    introDoneRef.current = false;
+    setIntroRun((n) => n + 1);
+    setIntroOn(true);
+  };
+
+  // Hero rig tuning bench — mount only AFTER hydration (SiteShell's
+  // LenisTunePanel convention): HERO_TUNE_ACTIVE reads the URL, which must
+  // not influence the first client render (SSR parity). Code-split on the same
+  // effect, so neither the bench nor its stylesheet (imported inside the panel)
+  // rides the shipped hero payload. The state holds the component, so the setter
+  // takes the UPDATER form — setHeroTunePanel(Component) would run a function
+  // value as a reducer instead of storing it.
+  // Typed commit-choreography panel (?committune=1) — same lazy-mount
+  // convention; number inputs instead of sliders (Nathan, 08-25).
+  const [CommitTunePanel, setCommitTunePanel] = useState(null);
+  useEffect(() => {
+    if (!COMMIT_TUNE_ACTIVE) return undefined;
+    let alive = true;
+    import('./hero/CommitTunePanel.jsx')
+      .then((m) => {
+        if (alive) setCommitTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const [HeroTunePanel, setHeroTunePanel] = useState(null);
+  useEffect(() => {
+    if (!HERO_TUNE_ACTIVE) return;
+    // `alive` guards the late resolve (a ClientRouter swap can unmount the hero
+    // before the chunk lands). StrictMode's dev double-invoke re-imports from
+    // the module cache and re-sets, so the second pass still mounts the panel.
+    let alive = true;
+    import('./hero/HeroTunePanel.jsx')
+      .then((m) => {
+        if (alive) setHeroTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Globe population bench (?poptune=1, docs/globe-worlds-plan.md) — the
+  // same post-hydration lazy mount as the hero bench above.
+  const [PopTunePanel, setPopTunePanel] = useState(null);
+  useEffect(() => {
+    if (!POP_TUNE_ACTIVE) return undefined;
+    let alive = true;
+    import('./hero/PopTunePanel.jsx')
+      .then((m) => {
+        if (alive) setPopTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Population worlds (?popmode): the world on the globe tints the home
+  // chrome — its projectColor rides the same <html> accent broadcast /work
+  // uses (navAccent), scoped by html.pop-tint (global.css); the commit's
+  // passage itself goes black (coverToWork) and hands the colour to /work. No world (off, or
+  // ?popcolor=0) eases back to brand blue. On a route swap the swap has
+  // already wiped <html> and RouteFill sets the next route's accent — only
+  // an unmount that leaves the tint in place clears it.
+  const worldRef = useRef(null); // { slug, color } — the world on the globe
+  useEffect(() => {
+    const api = sceneApiRef.current;
+    if (!api?.onWorldChange) return undefined;
+    const unsub = api.onWorldChange(({ slug, color, spectrum, animate }) => {
+      worldRef.current = { slug, color };
+      applyNavAccent(color || undefined, undefined, animate, { tint: 'pop-tint', spectrum });
+    });
+    return () => {
+      unsub();
+      if (document.documentElement.classList.contains('pop-tint')) clearNavAccent();
+    };
+  }, []);
+
+  // Enter the world you see (globe-worlds P3): right before each Enter World
+  // navigation, the world on the globe goes to /work as `swm:enterWorld` (its
+  // slug) and FeaturedProjects opens INSIDE it — a snap, no Turn from the
+  // first World. No world (off, ?popenter=0) clears the key so a stale one
+  // can never reopen a world later. Before the entrance has named its world,
+  // the director's focus stands in.
+  const handOffWorld = (world = worldRef.current) => {
+    const slug = POP_TUNING.enter
+      ? world?.slug || sceneApiRef.current?.getFocusProject?.() || null
+      : null;
+    try {
+      if (slug) sessionStorage.setItem('swm:enterWorld', slug);
+      else sessionStorage.removeItem('swm:enterWorld');
+    } catch {
+      /* storage unavailable — /work opens at the first World */
+    }
+  };
+
+  // Blob-tracking labels (chunk 6) — on by default now (TUNING.labels;
+  // ?herolabels=0 forces off) with RM's outer guard here (HeroLabels dual-
+  // guards inside). Same post-hydration gate — the URL-seeded flag must
+  // not touch the first client render — plus a live tune subscription so
+  // the bench toggle mounts/unmounts the layer and a labelMax change
+  // re-keys it (the slot count is a mount-time build).
+  const [labelsOn, setLabelsOn] = useState(false);
+  const [labelsMax, setLabelsMax] = useState(2);
+  useEffect(() => {
+    const sync = () => {
+      setLabelsOn(HERO_TUNING.labels && !PREFERS_REDUCED_MOTION);
+      setLabelsMax(HERO_TUNING.labelMax);
+    };
+    sync();
+    return subscribeHeroTune(sync);
+  }, []);
+
+  // Scene is mounting — release the Envelopment fill if this arrival came
+  // through it (/work first-World scroll-up home, FP-3 — the reverse passage
+  // under the persistent RouteFill, ADR-0002). No-op on direct loads: the
+  // fill is only ever up mid-passage.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('swm:fill-release'));
+    signalRouteReady(); // the globe canvas is mounted (child effects ran first): the nav menu's wipe may uncover (SQ-108)
+  }, []);
+
+  const beginEnvelopment = ({ dryRun = false } = {}) => {
+    if (departingRef.current) return;
+    departingRef.current = true;
+    armedRef.current = false;
+    commitKillRef.current?.(); // a dry-run return tween may still be settling
+    commitKillRef.current = null;
+
+    if (PREFERS_REDUCED_MOTION) {
+      // RM dual-guard: no theatrics — and nothing to rehearse on a dry run.
+      if (dryRun) {
+        departingRef.current = false;
+        armedRef.current = true;
+        return;
+      }
+      // The cover cuts in (10-06) — /work lets go once the entered card is up.
+      coverToWork({ duration: 0 });
+      handOffWorld();
+      navigate('/work'); // /work initializes already inside
+      return;
+    }
+
+    const handle = rigRef.current;
+    const sceneApi = sceneApiRef.current;
+    const fill = fillRef.current;
+    const chrome = heroRef.current.querySelectorAll(
+      '.hero__lead-col, .hero-labels'
+    );
+    // Commit-time snapshot of the bench knobs — the timeline is one shot;
+    // a mid-flight TUNING write waits for the next commit/dry-run.
+    const {
+      fillMode,
+      blueCascade,
+      blueStart,
+      blueEnd,
+      recenterStart,
+      recenterEnd,
+      zoomStart,
+      zoomEnd,
+      camPow,
+      envScale,
+      commitMs,
+    } = HERO_TUNING;
+
+    // Recenter/zoom starts — FROM wherever the live rig sits (the resting
+    // TUNING pose, a bench value, a mid-settle zoom), never from defaults.
+    // The master onUpdate owns the zoom proxy: kill any live settle tween
+    // instead of tweening over it (zoom is a remap of e like everything
+    // else).
+    gsap.killTweensOf(zoomRef.current);
+    const startX = handle ? handle.rig.offsetX : 0;
+    const startY = handle ? handle.rig.offsetY : 0;
+    const startElev = handle ? handle.rig.elevDeg : 0;
+    const startZoom = zoomRef.current.v;
+
+    // Latest overlay disc, cached per scene frame (hoisted once per commit;
+    // the stamp path allocates nothing per frame beyond the style string).
+    const disc = { cx: 0, cy: 0, r: 0, w: 1, h: 1 };
+    const unsub = overlayRef.current.onFrame((frame) => {
+      disc.cx = frame.disc.cx;
+      disc.cy = frame.disc.cy;
+      disc.r = frame.disc.r;
+      disc.w = frame.w;
+      disc.h = frame.h;
+    });
+
+    /* .hero__fill — the DOM surface the blue reaches the viewport through.
+       Its visibility flips ON only once its window opens (the fillOn latch),
+       and every state flip is an IMPERATIVE gsap.set fired from the running
+       timeline — NEVER tl.set: a set is itself a tween of the element, and
+       any killTweensOf on it would silently eat the scheduled flip (the
+       /process bgMorph stuck-clipped-circle bug commemorates this). */
+    let fillOn = false;
+    const coverRadius = () =>
+      Math.hypot(Math.max(disc.cx, disc.w - disc.cx), Math.max(disc.cy, disc.h - disc.cy));
+    const driveFill = (p) => {
+      // p is RAW timeline progress; the fill windows key off blueEnd (08-25:
+      // the blue paints DURING the camera motion over [blueStart, blueEnd])
+      // — the disc→corners spread takes over once the globe is painted.
+      if (!fill) return;
+      let radius;
+      const r0 = disc.r * FILL_DISC_PAD;
+      if (fillMode === 'circle') {
+        // circle: the disc blooms 0 → the silhouette over the blue window
+        // (this mode's "paint the globe" beat, in place of the panel
+        // cascade), then spreads disc → corners over [blueEnd, end].
+        const grow = seg(p, blueStart, blueEnd);
+        if (grow <= 0) return;
+        const spread = seg(p, blueEnd, SPREAD_CIRCLE_END);
+        radius = spread > 0 ? r0 + (coverRadius() - r0) * spread : r0 * grow;
+      } else {
+        // panels: the panels are field blue by blueEnd; the div takes over
+        // at the disc edge and carries the blue to the corners after it.
+        const spread = seg(p, blueEnd, SPREAD_PANELS_END);
+        if (spread <= 0) return;
+        radius = r0 + (coverRadius() - r0) * spread;
+      }
+      // Clip BEFORE the reveal — no unclipped first frame (bgMorph).
+      fill.style.clipPath = `circle(${radius.toFixed(1)}px at ${disc.cx.toFixed(1)}px ${disc.cy.toFixed(1)}px)`;
+      if (!fillOn) {
+        fillOn = true;
+        gsap.set(fill, { autoAlpha: 1 });
+      }
+    };
+
+    // e=1, real commit: the viewport is already solid blue — the persistent
+    // RouteFill snaps opaque under one beat and owns the cross-route frame;
+    // the hero island (fill div included) unmounts with the swap. The old
+    // t=0 `swm:envelop` dispatch is GONE — the hero owns the passage visual.
+    const handoff = () => {
+      unsub();
+      commitKillRef.current = null;
+      // loader: true — the home→/work passage shows the globe loader
+      // on the RouteFill while the World builds (08-25, the globe since
+      // SQ-32; the FP→detail passage opts in with loaderAfterCover).
+      coverToWork({ duration: HANDOFF_COVER_SECONDS, loader: true });
+      // The blue fill froze the director at its first beat — the world here
+      // is the one the commit swallowed.
+      handOffWorld();
+      navigate('/work');
+    };
+
+    // e=1, dry run (?herotune bench): same passage, then hand everything
+    // back — blue restored, fill cleared, rig eased home, chrome returns.
+    const releaseDryRun = () => {
+      unsub();
+      sceneApi?.setBlueFill(0); // full restore — uBlueMix 0, uPower 1
+      // Endpoint flip — imperative, never tl.set (see driveFill's note).
+      if (fill) gsap.set(fill, { autoAlpha: 0, clipPath: 'none' });
+      if (handle) {
+        // Back to the resting TUNING pose + zoom 1 — one proxy, one
+        // apply() per frame, expo.out (house release curve, no overshoot).
+        const fx = handle.rig.offsetX;
+        const fy = handle.rig.offsetY;
+        const fe = handle.rig.elevDeg;
+        const fz = zoomRef.current.v;
+        const back = { t: 0 };
+        const backTween = gsap.to(back, {
+          t: 1,
+          duration: DRYRUN_RETURN_SECONDS,
+          ease: 'expo.out',
+          onUpdate: () => {
+            handle.rig.offsetX = fx + (HERO_TUNING.offsetX - fx) * back.t;
+            handle.rig.offsetY = fy + (HERO_TUNING.offsetY - fy) * back.t;
+            handle.rig.elevDeg = fe + (HERO_TUNING.elevDeg - fe) * back.t;
+            zoomRef.current.v = fz + (1 - fz) * back.t;
+            handle.rig.zoom = zoomRef.current.v;
+            handle.apply();
+          },
+        });
+        commitKillRef.current = () => backTween.kill();
+      }
+      setCtaPinned(false);
+      gsap.to(chrome, { autoAlpha: 1, duration: 0.4, ease: 'power2.out', overwrite: true });
+      departingRef.current = false;
+      armedRef.current = true; // the button is live again
+    };
+
+    /* — ONE linear master timeline `raw.p` (see the beat map). Blue, recenter
+       and dolly each ease through their own window on it, fully concurrent
+       (08-25 — the blue-first hold and the shared Turn-curve remap both
+       retired; ?commitease and ?bluelead with them). `raw.p` is linear so
+       every window reads at any ?commitms; the only other clock is the 0.2s
+       real-time chrome exit (house-sanctioned exception). — */
+    const raw = { p: 0 };
+    const tl = gsap.timeline({ onComplete: dryRun ? releaseDryRun : handoff });
+    // 08-27 (4), Nathan: the loader (the globe, SQ-32) opens EARLY —
+    // ?loaderlead ms after the commit starts, over the spreading blue (it
+    // used to exist only between the handoff and /work's release, no time to
+    // run its charge). rAF-deferred dispatch so RouteFill's tweens are never
+    // adopted into this island's gsap context; dry runs stay bare.
+    if (!dryRun) {
+      gsap.delayedCall(Math.max(0, HERO_TUNING.loaderLeadMs) / 1000, () =>
+        requestAnimationFrame(() =>
+          window.dispatchEvent(new CustomEvent('swm:loader-start'))
+        )
+      );
+    }
+    // Chrome out — the button stays until the spreading blue swallows it.
+    tl.to(
+      chrome,
+      { autoAlpha: 0, duration: CHROME_OUT_SECONDS, ease: 'power2.out', overwrite: true },
+      0
+    );
+    tl.to(
+      raw,
+      {
+        p: 1,
+        duration: commitMs / 1000,
+        ease: 'none',
+        onUpdate: () => {
+          const p = raw.p;
+          // CONCURRENT CHANNELS (08-25, Nathan): the blue paints DURING the
+          // camera motion — panels surge to field blue over the blue window
+          // [blueStart, blueEnd] on the cascade's own stagger (circle mode
+          // blooms the disc instead — driveFill owns that below) WHILE each
+          // camera channel (recenter, dolly) rides its OWN power-inOut
+          // window on the same linear timeline. Everything overlaps as one
+          // cohesive motion; the windows are the choreography.
+          if (fillMode === 'panels') {
+            sceneApi?.setBlueFill(seg(p, blueStart, blueEnd), blueCascade);
+          }
+          driveFill(p);
+          if (handle) {
+            const rc = powInOut(seg(p, recenterStart, recenterEnd), camPow);
+            handle.rig.offsetX = startX * (1 - rc);
+            handle.rig.offsetY = startY * (1 - rc);
+            handle.rig.elevDeg = startElev * (1 - rc);
+            const z = powInOut(seg(p, zoomStart, zoomEnd), camPow);
+            zoomRef.current.v = startZoom + (envScale - startZoom) * z;
+            handle.rig.zoom = zoomRef.current.v;
+            handle.apply(); // ONE apply for every rig write this frame
+          }
+        },
+      },
+      0
+    );
+    commitKillRef.current = () => {
+      tl.kill();
+      unsub();
+    };
+  };
+
+  // Click/keyboard commit (the button) — THE way in (tap-only, 08-30).
+  // 08-30 (3), Nathan: the passage carries the FP→detail choreography —
+  // the RouteFill cover rises over ?enterms while the CAMERA dives on the
+  // enter-tune window model (the open-ended moveEnd-2 read: still steeply
+  // mid-rise at the handoff, never parked), then client-navigate. One
+  // gesture vocabulary across home→/work→detail. The old chunk-4 master
+  // timeline (blue cascade + recenter + fill spread) is retired from this
+  // path — the ?herotune bench's dry-run still rehearses it for reference.
+  // `arrive` is holdEntry('/work')'s commit: the /work entry was pushed in the
+  // tap itself (SQ-141), so the arrival replaces it, or is dropped after a Back.
+  const enterWorld = (arrive) => {
+    if (departingRef.current) return;
+    footerWipeRef.current?.kill();
+    footerDriveRef.current.stop();
+    // The footer never rides the Envelopment — it goes back to its resting
+    // floor, which is NOT 0 (either tier since 10-09): dropping it to nothing
+    // yanked the persistent footer off the screen under the dive. 11-03
+    // (Nathan: from a full reveal it "abruptly snaps back"): it GLIDES there
+    // now, below, on the house retract; only reduced motion still cuts.
+    setCtaPinned(true);
+    // The world you clicked is the world you land in: the change clock holds
+    // from here (no new world starts under the dive) and /work gets this one.
+    sceneApiRef.current?.popHold();
+    const entered = worldRef.current;
+    if (PREFERS_REDUCED_MOTION) {
+      setFooterReveal(FOOTER_REST);
+      // RM: plain navigation, no theatrics — but the cover CUTS in (RouteFill
+      // sets it, no fade) so /work's server-rendered first World never shows
+      // before the entered one; /work lets go once that card is up (10-06).
+      coverToWork({ duration: 0 });
+      handOffWorld(entered);
+      const opts = arrive();
+      if (opts) navigate('/work', opts);
+      return;
+    }
+    departingRef.current = true;
+    armedRef.current = false;
+    // The retract: wherever the scroll left the footer, it glides home on the
+    // footerWipe curve over the house glide × the distance (≈0.48s from a full
+    // desktop reveal, ≈0.33s on a phone) — done before the dive gathers pace
+    // and well inside the cover. --hero-lift rides the same channel, so the
+    // globe and the fading zoom_in come down WITH the panel. Set after
+    // departingRef, so no wheel or finger can kill it mid-glide.
+    if (footerPRef.current > FOOTER_REST + 0.001) {
+      footerWipeRef.current = wipeReveal(footerPRef.current, setFooterReveal, FOOTER_REST);
+    }
+    commitKillRef.current?.(); // a bench dry-run may still be settling
+    const { enterMs, scale, moveStart, moveEnd, pow } = ENTER_TUNABLES;
+    const coverS = enterMs / 1000;
+    // 10-06 (Nathan): the button leaves FIRST, quickly — the chrome exit's
+    // one real-time beat — and the loading bar waits until it is gone.
+    const chrome = heroRef.current?.querySelectorAll('.hero__lead-col, .hero-labels');
+    if (chrome?.length) {
+      gsap.to(chrome, { autoAlpha: 0, duration: CHROME_OUT_SECONDS, ease: 'power2.out', overwrite: true });
+    }
+    // The cover goes black (matching the nav bar); the world's colour comes
+    // back with /work's own accent when the cover lifts (coverToWork).
+    coverToWork({ duration: coverS });
+    // The loader (home→/work; the FP→detail passage opens its own from
+    // RouteFill) opens ?loaderlead ms AFTER the button is out, never under it. rAF-
+    // deferred so RouteFill's tweens are not adopted by this island's context.
+    const loaderAtMs = Math.min(
+      enterMs,
+      CHROME_OUT_SECONDS * 1000 + Math.max(0, HERO_TUNING.loaderLeadMs)
+    );
+    setTimeout(
+      () => requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('swm:loader-start'))),
+      loaderAtMs
+    );
+    // 08-31: the tagline's letters cut out in random order under the rising
+    // cover — the FP→detail letter-exit carried to this passage (the
+    // persistent SiteTagline island owns the cuts + the after-swap restore).
+    window.dispatchEvent(new CustomEvent('swm:tagline-exit'));
+    // The camera dive under the rising cover — rig.zoom rides the SAME
+    // window + pow the World's projection zoom rides in useWorldScene.
+    gsap.killTweensOf(zoomRef.current);
+    const startZoom = zoomRef.current.v;
+    const raw = { p: 0 };
+    // SQ-34: the FP→detail LENS deepen rides this same master p — the
+    // World's window + pow, x then 1.1 × on y. The scene routes its frames
+    // through the lens pass for the dive only; engaging it at lens 0 here
+    // makes frame 0 a texel-exact copy of the direct render. The full-ramp
+    // amount is HOME_LENS (Nathan's 11-08 bake, -0.22).
+    const lensFull = HOME_LENS;
+    sceneApiRef.current?.setEnterLens(0, 0);
+    const tl = gsap.to(raw, {
+      p: 1,
+      duration: coverS,
+      ease: 'none',
+      onUpdate: () => {
+        const z = enterPow(enterSeg(raw.p, moveStart, moveEnd), pow);
+        zoomRef.current.v = startZoom + (scale - startZoom) * z;
+        applyZoom();
+        const lx = enterLens(raw.p, ENTER_TUNABLES, lensFull);
+        sceneApiRef.current?.setEnterLens(lx, lx * ENTER_LENS_Y);
+      },
+    });
+    commitKillRef.current = () => tl.kill();
+    // setTimeout, not delayedCall — the island's gsap context dies with the
+    // swap and must not take the navigation with it (WorldCard's idiom).
+    setTimeout(() => {
+      const opts = arrive();
+      if (!opts) return; // a Back mid-dive: the router has re-rendered home
+      handOffWorld(entered);
+      navigate('/work', opts);
+    }, enterMs + 60);
+  };
+
+  // The button's handler. With the info drawer open (a phone's drawer leaves
+  // the button reachable) the tap closes the drawer on the drawer's own close
+  // tween, the home page riding back up with it, and the zoom starts when that
+  // lands — no snap, no zoom under a half-open drawer (SQ-70, Nathan 11-12).
+  // Closed, it runs at once. The guard covers a route swap in the gap.
+  // The /work entry is pushed here, in the tap (SQ-141): the drawer's close and
+  // the dive both run after it, past WebKit's ~1 s gesture carry.
+  const onEnterClick = () => {
+    if (departingRef.current) return;
+    const arrive = holdEntry('/work');
+    requestInfoClose(() => {
+      if (heroRef.current?.isConnected) enterWorld(arrive);
+    });
+  };
+
+  // Bench rehearsal (?herotune) — pin the fill like a real commit, then
+  // play the commit timeline with the dry-run release instead of the
+  // navigation.
+  const onCommitDryRun = () => {
+    setCtaPinned(true);
+    beginEnvelopment({ dryRun: true });
+  };
+
+  // ── Entrance dispatch — by the render-time intro mode (chunk 5) ──
+  // The scene api can lag the settle's early beats (three build + textures) —
+  // retry until it lands rather than dropping the beat (a missed cascade on a
+  // held entrance would leave the globe dark).
+  const withSceneApi = (fn) => {
+    const attempt = () => {
+      const api = sceneApiRef.current;
+      if (api) fn(api);
+      else gsap.delayedCall(0.15, attempt);
+    };
+    attempt();
+  };
+  // Shared settle: veil 1→0 + rig.zoom from→1 on the intro curve, straight
+  // into the resting comp (rig.zoom, not a DOM scale). zoom rides the gesture
+  // proxy so a drag mid-settle takes over cleanly (killTweensOf arbitration,
+  // one target). `arrive` adds the cascade + scheduler release (the held
+  // first-visit build); the replay scene cascades on its own at mount.
+  const runEntranceSettle = (secs, from, arrive) => {
+    const veil = veilRef.current;
+    zoomRef.current.v = from;
+    applyZoom();
+    const settleEase = CustomEase.create('swmHeroIntroSettle', HERO_INTRO_EASE_PATH);
+    gsap.set(veil, { opacity: 1 });
+    const tl = gsap.timeline();
+    tl.to(zoomRef.current, { v: 1, duration: secs, ease: settleEase, onUpdate: applyZoom }, 0);
+    tl.to(veil, { opacity: 0, duration: secs, ease: settleEase }, 0);
+    if (arrive) {
+      tl.add(() => withSceneApi((api) => api.replayCascade('sweep')), ARRIVE_CASCADE_AT);
+      tl.add(() => withSceneApi((api) => api.releaseScheduler()), secs * CHROME_BEAT_AT);
+    }
+    tl.add(() => chromeBeat(false), secs * CHROME_BEAT_AT);
+  };
+  useGSAP(
+    () => {
+      const veil = veilRef.current;
+
+      if (introMode === 'rm') {
+        // RM dual-guard's other half: no theatrics — the static resting
+        // comp, instant chrome, veil gone.
+        gsap.set(veil, { opacity: 0 });
+        chromeBeat(true);
+        return;
+      }
+
+      if (introMode === 'replay' || (introMode === 'full' && !INTRO_FORCED_VARIANT)) {
+        // Arrive (default first visit) / replay (revisit) settle. This
+        // layout effect runs BEFORE the scene's passive build — pre-seed
+        // the rig-carry so the very first rendered frame is already at the
+        // from-zoom (HeroIntro's pre-seed idiom; the resting pose comes
+        // from TUNING, which the tuning effect re-stamps identically).
+        const arrive = introMode === 'full';
+        const from = arrive ? ARRIVE_ZOOM_FROM : REPLAY_ZOOM_FROM;
+        if (!rigRef.current) {
+          rigRef.current = {
+            rig: {
+              fill: HERO_TUNING.fill,
+              fitCover: HERO_TUNING.fitCover,
+              offsetX: HERO_TUNING.offsetX,
+              offsetY: HERO_TUNING.offsetY,
+              elevDeg: HERO_TUNING.elevDeg,
+              roll: HERO_TUNING.roll,
+              zoom: from,
+            },
+            apply: () => {},
+          };
+        }
+        runEntranceSettle(arrive ? ARRIVE_SECONDS : REPLAY_SECONDS, from, arrive);
+        return;
+      }
+
+      // forced variant (?intro=a|c) — HeroIntro owns the entrance end to end
+      // (veil, glyph rig, cascade beat, chrome beat, scheduler release);
+      // nothing to conduct.
+    },
+    { scope: heroRef }
+  );
+
+  // ── (08-30) The disc-anchored column effect is RETIRED — the CTA column
+  // is viewport-centered by CSS on every breakpoint (no --lead-top /
+  // --cta-slide / --lockup-center-y writes). The overlay bridge stays warm
+  // through the globe-stroke subscriber below (and computes on demand for
+  // the commit's own subscription regardless). ──
+
+  // ── Globe outer stroke — track the live disc every frame ──
+  // Transform-only (a 200px base circle translated + scaled to the live
+  // diameter, just proud of the disc), so it's compositor-cheap despite running
+  // per frame. Hidden until the first real disc lands; sized proud so only a
+  // thin ring shows past the (opaque) globe silhouette — the lockup outer stroke
+  // that scales through the intro zoom / commit. Off entirely at ?globestroke=0.
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    const el = strokeRef.current;
+    if (!overlay || !el || GLOBE_STROKE_FRAC <= 0) return undefined;
+    const BASE = 200;
+    let shown = false;
+    const unframe = overlay.onFrame((frame) => {
+      const { cx, cy, r } = frame.disc;
+      if (!r) return;
+      const d = 2 * r * (1 + GLOBE_STROKE_FRAC);
+      el.style.transform = `translate(${(cx - d / 2).toFixed(1)}px, ${(cy - d / 2).toFixed(1)}px) scale(${(d / BASE).toFixed(4)})`;
+      if (!shown) {
+        shown = true;
+        el.style.visibility = 'visible';
+      }
+    });
+    return unframe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── (08-30) The wheel/touch scroll-fill accumulator is RETIRED —
+  // enter_world commits on tap/click/Enter only, on every breakpoint (the
+  // "tap to the next layer inward" mechanism). Drag lean, rubber-band
+  // release and the RouteFill pre-cover all went with it. ──
+
+  // ── enter_world button presentation vars — tap-only model (08-30): the
+  // pill rests STATIC on the brand-blue base (no pulse, SQ-24), hover pours WHITE over it,
+  // and a commit pins the poured state while the passage plays. No slide,
+  // no scaling — the button lives at the viewport center. ──
+  const ctaPct = ctaPinned || ctaHover ? 100 : 0;
+  const ctaColor = {
+    // 08-27 (4) redial (Nathan): the DEFAULT state is BRAND BLUE, held
+    // static (the pulse was removed, SQ-24). Hover and the scroll charge pour
+    // WHITE over the base, the label crossing
+    // to blue for legibility — the chip lands on /work already wearing that
+    // page's white enter_world skin. Under a population world (?popmode) the
+    // blue is the world's accent: the fill takes it, the label its readable
+    // ink, the hovered label its accent-as-text (html.pop-tint).
+    '--cta-bg': `color-mix(in srgb, var(--project-color, var(--color-electric-blue)), var(--color-white) ${ctaPct}%)`,
+    '--cta-fg': `color-mix(in srgb, var(--project-color-fg, var(--color-white)), var(--project-color-text, var(--color-electric-blue)) ${ctaPct}%)`,
+  };
+
+  return (
+    <section className="hero" ref={heroRef}>
+      {/* Black start-state over the gradient — the intro field: it paints
+          BELOW the canvas, so the wordmark phase gets black + live globe
+          for free. The machine (full) / settle (replay) thins it away. */}
+      <div className="hero__veil" ref={veilRef} aria-hidden="true" />
+      {/* Globe outer stroke — behind the canvas, tracks the disc (Hero effect). */}
+      {GLOBE_STROKE_FRAC > 0 && (
+        <div className="hero__globe-stroke" ref={strokeRef} aria-hidden="true" />
+      )}
+      <div className="hero__globe">
+        <VideoGlobe
+          assets={globeAssets}
+          rigRef={rigRef}
+          overlayRef={overlayRef}
+          sceneApiRef={sceneApiRef}
+          holdEntrance={introMode === 'full'}
+          cascadeSpeed={HERO_TUNING.cascadeSpeed}
+          tiltDeg={HERO_TUNING.tiltDeg}
+          cornerRadius={PANEL_CORNER_RADIUS}
+          worlds={globeWorlds}
+        />
+      </div>
+      {/* enter_world column — CENTERED in the viewport on every breakpoint
+          (08-30, the tap-only comp: the button floats at the centered
+          globe's heart — "tap to the next layer inward"). The hero lockup
+          and caret strip that used to share this band are RETIRED (the NAV
+          carries the brand on home now). Pointer-inert wrapper (drag-to-spin
+          reaches the canvas); only the button opts back in. Revealed on the
+          chrome beat, faded on the commit (.hero__lead-col in the chrome
+          NodeList). HeroText keeps the sr-only h1 (SEO/a11y). */}
+      <div className="hero__lead-col">
+        <HeroText />
+        <div className="hero__enter-wrap">
+          <button
+            type="button"
+            className="cta-primary hero__enter"
+            style={ctaColor}
+            onClick={onEnterClick}
+            onPointerEnter={() => setCtaHover(true)}
+            onPointerLeave={() => setCtaHover(false)}
+          >
+            zoom_in
+          </button>
+        </div>
+      </div>
+      {/* Blob-tracking labels (chunk 6) — on by default now (?herolabels=0
+          forces off); chips latch onto LIVE panels between the chrome beat
+          and a commit. Keyed by the
+          bench's max so a slot-count change rebuilds cleanly. Part of the
+          commit's chrome NodeList (.hero-labels) — the chrome-out fades
+          the layer and a dry-run restores it. */}
+      {labelsOn && (
+        <HeroLabels key={labelsMax} overlay={overlayRef.current} sceneApiRef={sceneApiRef} />
+      )}
+      {/* hero footer bar RETIRED (08-27, Nathan): the persistent SiteTagline
+          island (BaseLayout) owns the lower-left now — its one-time intro
+          keys off swm:hero-lockup-done above. */}
+      {/* Commit blue-fill — the envelopment surface (chunk 4). Starts hidden
+          (CSS opacity/visibility) on EVERY fresh mount — a reverse arrival
+          included — and only the commit timeline ever reveals it. */}
+      <div className="hero__fill" ref={fillRef} aria-hidden="true" />
+      {/* The logo→globe intro machine (chunk 5) — full mode only; the key
+          remounts it for bench replays. Sits after VideoGlobe in the tree
+          so its passive machine effect runs with the scene api live. */}
+      {introOn && (
+        <HeroIntro
+          key={introRun}
+          rigRef={rigRef}
+          sceneApiRef={sceneApiRef}
+          veilRef={veilRef}
+          onChromeBeat={() => chromeBeat(false)}
+          onDone={onIntroDone}
+        />
+      )}
+      {/* 09-08 (Nathan): the links footer + logo ticker, driven by the
+          post-hero wheel/touch delta above (the /work idiom). 10-07: it
+          rests OPEN at FOOTER_REST carrying the studio blurb (phones 10-07,
+          desktop 10-09) —
+          `rest` moves the peak broadcast's reset to that floor so the logo
+          band's hint read returns on every retreat. */}
+      {/* 10-07 (2): `progress` is the RESTING pose only — a constant. The
+          gesture moves the panel through paintDrivenFooter (one style write
+          per frame) instead of through this prop, so a touchmove no longer
+          re-renders this subtree sixty times a second. */}
+      <SiteFooter driven progress={FOOTER_REST} rest={FOOTER_REST} blurb={footerBlurb} />
+      {CommitTunePanel && <CommitTunePanel onDryRun={onCommitDryRun} />}
+      {HeroTunePanel && (
+        <HeroTunePanel rigRef={rigRef} onDryRun={onCommitDryRun} onReplayIntro={onReplayIntro} />
+      )}
+      {PopTunePanel && <PopTunePanel sceneApiRef={sceneApiRef} />}
+    </section>
+  );
 }

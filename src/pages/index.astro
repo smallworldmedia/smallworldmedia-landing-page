@@ -7,14 +7,42 @@
  * (Flip states, scroll→panel, overlay↔hero) requires
  * a unified React tree.
  *
+ * The hero background is the CMS video globe — its asset pool
+ * (curated globe picks + breadth-interleaved auto-fill) is
+ * fetched from Sanity at build time and passed through the island.
+ *
+ * The featured-project pools (FEATURED_WORLDS_QUERY — the same rows /work
+ * renders — through buildWorldPools) ride along for the globe's ?popmode
+ * population modes (docs/globe-worlds-plan.md); the default globe ignores them.
+ *
  * Static pages added in the full site build (case studies,
  * about, etc.) will be pure .astro with zero client JS.
  */
 import BaseLayout from '../layouts/BaseLayout.astro';
-import '../styles/global.css';
+import '../styles/video-globe.css';
+import { sanityFetch } from '../lib/sanityClient.js';
+import { GLOBE_ASSETS_QUERY, FEATURED_WORLDS_QUERY } from '../lib/queries.js';
+import buildAssetPool from '../components/globe/buildAssetPool.js';
+import buildWorldPools from '../components/globe/buildWorldPools.js';
 import LandingPage from '../components/LandingPage.jsx';
+// The footer blurb reaches SiteFooter through Hero, so this page needs the copy
+// too. Same memoized read BaseLayout does — one request for the build.
+import { getSiteCopy } from '../lib/siteCopy.js';
+import { getSpectrumDeal } from '../lib/spectrumDeal.js';
+
+const globeAssets = buildAssetPool(await sanityFetch(GLOBE_ASSETS_QUERY));
+const globeWorlds = buildWorldPools(await sanityFetch(FEATURED_WORLDS_QUERY), await getSpectrumDeal());
+const siteCopy = await getSiteCopy();
 ---
 
-<BaseLayout>
-  <LandingPage client:only="react" />
+<BaseLayout
+  title="Small World Media™ — Visual Worlds for the Music Industry"
+  description="Small World Media is a multidisciplinary creative studio specializing in visual identity, motion design, and digital experiences for the music industry."
+>
+  <LandingPage
+    client:only="react"
+    globeAssets={globeAssets}
+    globeWorlds={globeWorlds}
+    siteCopy={siteCopy}
+  />
 </BaseLayout>

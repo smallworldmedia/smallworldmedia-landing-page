@@ -1,0 +1,446 @@
+/**
+ * HeroLabels — blob-tracking labels on the home globe (home-hero rework,
+ * chunk 6; the /process S1 label idiom ported to the hero). Flag-gated OFF:
+ * Hero mounts this ONLY when TUNING.labels is on (?herolabels=1 or the
+ * bench toggle) and never under reduced motion — and the effect refuses to
+ * run under RM here too, the dual guard.
+ *
+ * A mono chip latches onto a LIVE panel that is IN THE VIEWPORT (note 3) —
+ * line 1 the client name, line 2 up to two BRACKETED service tags ([tag]) —
+ * scrambles in (the house scramble), holds ?labelhold, fades, and re-slots
+ * to another visible panel (round-robin, never the same panel back-to-back
+ * when an alternative exists). The chip sits OUTWARD from the globe disc
+ * center by ?labelstroke px (the tunable leader length); a 1px leader stroke
+ * connects the panel's center to the chip's nearest corner, with a 3px anchor
+ * dot on the panel; both live in ONE full-viewport SVG layer and ride the
+ * chip's own opacity (one gsap target list per slot — chip + stroke fade
+ * together).
+ *
+ * Live-panel truth arrives by EVENT, never by polling: the scene api's
+ * onLiveChange subscription (LivePanelScheduler announces 'live' when a
+ * promotion's crossfade completes, 'off' at demote start and on any slot
+ * release/teardown). Targeting is VIEWPORT-based, not a globe region: a
+ * candidate must be front-facing AND project on-screen; a labeled panel
+ * that turns away or cascades out of frame fades early and re-slots.
+ *
+ * Per frame (the overlay bridge cadence — no second rAF): each bound
+ * slot projects dirOf(panel)·RADIUS (a unit lead's unitCentre, else
+ * panel.centerDir; a chip fading after 'off' keeps what it anchored to
+ * then, its unit's centre or its own tile's, re-derived each frame so it
+ * rides the scroll) through globeGroup.localToWorld →
+ * project(camera) → px, then writes ONE chip transform (radial-outward by
+ * ?labelstroke) and the leader's four endpoints + dot center. Module
+ * scratch vectors, zero allocations beyond the write strings; the chip
+ * box is measured ONCE per content change (the text is pre-set at its
+ * final length — mono face, so the scramble never changes the box) and
+ * NEVER per frame.
+ *
+ * Chrome discipline: slots arm only at the chrome beat (data-chromed /
+ * swm:hero-chrome — the shared chrome-latch idiom); live events before the
+ * beat only accumulate the candidate set. At commit the layer's root is
+ * part of Hero's chrome NodeList, so the chrome-out fades it and a
+ * dry-run release restores it. Pointer-inert throughout.
+ */
+import { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { Vector3 } from 'three';
+import { scrambleTo } from '../../lib/scramble.js';
+import { TUNING } from './heroConfig.js';
+import { RADIUS, PREFERS_REDUCED_MOTION } from '../globe/globeConfig.js';
+
+const HOLD_ALPHA = 0.85; // the process-label resting opacity
+const FADE_IN_SECONDS = 0.2; // power2.out, process cadence
+const FADE_OUT_SECONDS = 0.3; // power2.in, process cadence
+/* Targeting is VIEWPORT-based (note 3): a panel is a candidate when it is
+   FRONT-FACING and its anchor projects ON-SCREEN — not when it sits in a
+   predetermined central region of the globe. With the globe huge and
+   off-right, most of it is off-screen; labels should latch onto whatever is
+   actually visible and let go as it cascades out of frame.
+   · FRONT_EPS: prominence (normal · view-axis) must exceed this — a sphere
+     projects back-facing panels onto the disc too, so a bare bounds test
+     isn't enough; this rejects the occluded hemisphere. Small (not a
+     region) — any panel actually turned toward the camera qualifies.
+   · Bind needs a margin INSIDE the viewport (so a chip doesn't bind to a
+     panel already at the very edge and fade the same frame); the per-frame
+     early-fade uses the fuller bounds — a small hysteresis band. */
+const FRONT_EPS = 0.05;
+const NDC_BIND = 0.9; // pick only panels comfortably on-screen (|ndc| < this)
+const NDC_KEEP = 1.02; // hold until the anchor actually leaves the frame
+const DOT_RADIUS = 1.5; // the 3px anchor dot
+
+/* Scratch space — the frame callback is synchronous and single-threaded
+   (heroOverlay's module-scratch convention). Never handed out. */
+const vAnchor = new Vector3();
+const vNormal = new Vector3();
+const vAxis = new Vector3();
+const vProj = new Vector3(); // pick-time visibility projection (never mid-onFrame)
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/* Service names in the process-vocabulary voice, BRACKETED so they read as
+   tags: lowercase snake_case ("Art Direction" → [art_direction]), two max,
+   space-separated. */
+const serviceLine = (services) =>
+  (services || [])
+    .slice(0, 2)
+    .map((s) =>
+      String(s?.name ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+    )
+    .filter(Boolean)
+    .map((t) => `[${t}]`)
+    .join(' ');
+
+export default function HeroLabels({ overlay, sceneApiRef }) {
+  const rootRef = useRef(null);
+  const svgRef = useRef(null);
+
+  useEffect(() => {
+    // RM dual guard — Hero never mounts this under reduced motion, and it
+    // still refuses to run here.
+    if (PREFERS_REDUCED_MOTION) return undefined;
+    const root = rootRef.current;
+    const svg = svgRef.current;
+    const api = sceneApiRef?.current;
+    if (!root || !svg || !overlay || !api?.onLiveChange) return undefined;
+    let disposed = false;
+
+    /* — Candidate set: live panels in announcement order. Filled by the
+       scheduler's events from mount (so a pre-beat promotion is ready the
+       moment the chrome arms), consumed round-robin by the slots. — */
+    const live = [];
+    let cursor = 0;
+    let armed = false;
+
+    /* — Latest overlay frame — held so event-time picks can read the same
+       matrices the frame loop does (the frame object is mutated in place,
+       heroOverlay; single-threaded, so the scratch vectors are safe from
+       both cadences). — */
+    let lastFrame = null;
+    const dirOf = (p) => p.unitCentre || p.centerDir; // a unit's chip anchors at the unit's centre (PopulationDirector.place)
+    // Front-facing test: panel normal · (globe→camera) axis. >0 faces the
+    // camera; a sphere projects the BACK hemisphere onto the disc too, so this
+    // is what a bare on-screen bounds test can't do alone.
+    const prominenceIn = (panel, f) => {
+      vAnchor.setFromMatrixPosition(f.globeGroup.matrixWorld);
+      vAxis.setFromMatrixPosition(f.camera.matrixWorld).sub(vAnchor).normalize();
+      vNormal.copy(dirOf(panel)).transformDirection(f.globeGroup.matrixWorld);
+      return vNormal.dot(vAxis);
+    };
+    // Pick-time visibility (note 3): front-facing AND the anchor projects
+    // comfortably on-screen (|ndc| < NDC_BIND). Uses vProj so it never touches
+    // the onFrame anchor scratch.
+    const visibleAtPick = (panel) => {
+      if (!lastFrame) return true; // no frame yet — accept; the tick guard corrects
+      if (prominenceIn(panel, lastFrame) < FRONT_EPS) return false;
+      vProj.copy(dirOf(panel)).multiplyScalar(RADIUS);
+      lastFrame.globeGroup.localToWorld(vProj);
+      vProj.project(lastFrame.camera);
+      return vProj.z <= 1 && Math.abs(vProj.x) < NDC_BIND && Math.abs(vProj.y) < NDC_BIND;
+    };
+
+    /* — Slots: chip span (two lines) + stroke group (line + dot) in the
+       shared SVG. One gsap target pair per slot so chip and leader always
+       share an opacity. Count fixed at mount — Hero re-keys the layer on a
+       bench labelMax change. — */
+    const max = Math.max(1, Math.round(TUNING.labelMax) || 1);
+    const slots = [];
+    for (let i = 0; i < max; i += 1) {
+      const el = document.createElement('span');
+      el.className = 'hero-label';
+      const l1 = document.createElement('span');
+      l1.className = 'hero-label__line';
+      const l2 = document.createElement('span');
+      l2.className = 'hero-label__line';
+      el.append(l1, l2);
+      root.appendChild(el);
+
+      const g = document.createElementNS(SVG_NS, 'g');
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('class', 'hero-labels__leader');
+      const dot = document.createElementNS(SVG_NS, 'circle');
+      dot.setAttribute('class', 'hero-labels__dot');
+      dot.setAttribute('r', String(DOT_RADIUS));
+      g.append(line, dot);
+      svg.appendChild(g);
+      gsap.set([el, g], { autoAlpha: 0 });
+
+      slots.push({
+        el,
+        l1,
+        l2,
+        g,
+        line,
+        dot,
+        panel: null, // the live panel this chip tracks
+        last: null, // back-to-back repeat guard
+        tl: null, // the cycle timeline (scramble in → hold → fade)
+        dc: null, // the re-slot breath (delayedCall)
+        fading: false, // early fade in flight — the behind-guard's one-shot
+        held: { centerDir: new Vector3() }, // a stand-in panel: a fading chip's anchor after 'off' (allocated once per slot)
+        heldMembers: null, // the unit whose centre `held` re-derives each frame; null = the chip's own tile
+        latched: false, // a fading chip anchors at `held`; set once per bind, on 'off'
+        w: 0, // chip box, cached at content change ONLY
+        h: 0,
+      });
+    }
+
+    /* — Round-robin pick: the next front-enough live panel with a
+       clientName that no slot holds, preferring not to repeat this slot's
+       previous panel — the repeat is the fallback, taken only when it's
+       the sole option. — */
+    const candidate = (slot) => {
+      const n = live.length;
+      let fallback = null;
+      for (let k = 0; k < n; k += 1) {
+        const idx = (cursor + k) % n;
+        const panel = live[idx];
+        if (!panel.asset?.clientName) continue;
+        if (slots.some((s) => s.panel === panel)) continue;
+        if (!visibleAtPick(panel)) continue; // must be front-facing + on-screen
+        if (panel === slot.last) {
+          fallback = fallback ?? panel;
+          continue;
+        }
+        cursor = (idx + 1) % n;
+        return panel;
+      }
+      return fallback;
+    };
+
+    /* — Bind: pre-set BOTH lines to their final text (mono face — the box
+       is already final-size, and the chip is at alpha 0 so nothing shows),
+       cache the box (the ONLY layout read, content-change cadence), then
+       run the process cycle: scramble in → hold ?labelhold → fade out →
+       release + re-slot. — */
+    const bind = (slot, panel) => {
+      slot.panel = panel;
+      slot.fading = false;
+      slot.latched = false;
+      slot.heldMembers = null;
+      const name = panel.asset.clientName;
+      const tags = serviceLine(panel.asset.services);
+      // An early-fade re-bind can arrive inside the previous scramble's
+      // 1.4s window — kill the line tweens before they fight the new text.
+      gsap.killTweensOf([slot.l1, slot.l2]);
+      slot.l1.textContent = name;
+      slot.l2.textContent = tags;
+      const box = slot.el.getBoundingClientRect();
+      slot.w = box.width;
+      slot.h = box.height;
+      const hold = Math.max(0.3, TUNING.labelHold);
+      slot.tl?.kill();
+      // Imperative reset, never tl.set (the bgMorph killTweensOf trap) —
+      // redundant on every path today (the chip only binds faded-out), but
+      // the start state must not depend on that staying true.
+      gsap.set([slot.el, slot.g], { autoAlpha: 0 });
+      slot.tl = gsap
+        .timeline({ onComplete: () => release(slot) })
+        .call(
+          () => {
+            scrambleTo(slot.l1, name);
+            if (tags) scrambleTo(slot.l2, tags);
+          },
+          null,
+          0.01
+        )
+        .to(
+          [slot.el, slot.g],
+          { autoAlpha: HOLD_ALPHA, duration: FADE_IN_SECONDS, ease: 'power2.out' },
+          0.01
+        )
+        .to(
+          [slot.el, slot.g],
+          { autoAlpha: 0, duration: FADE_OUT_SECONDS, ease: 'power2.in' },
+          0.01 + FADE_IN_SECONDS + hold
+        );
+    };
+
+    /* — Release: unbind, then re-slot after a small breath (the process
+       0.2–0.8s cadence) if the chrome is still up and candidates exist. — */
+    const release = (slot) => {
+      slot.last = slot.panel;
+      slot.panel = null;
+      slot.fading = false;
+      if (disposed || !armed) return;
+      slot.dc?.kill();
+      slot.dc = gsap.delayedCall(0.2 + Math.random() * 0.6, () => {
+        slot.dc = null;
+        if (disposed || !armed || slot.panel) return;
+        const next = candidate(slot);
+        if (next) bind(slot, next);
+        // no candidate — the slot idles; the next 'live' event fills it
+      });
+    };
+
+    /* — Early fade: demoted or carried behind mid-hold — kill the cycle,
+       fade out on the same curve, then re-slot. The chip keeps tracking
+       its anchor through the fade (fading latch stops re-triggers). — */
+    const earlyFade = (slot) => {
+      if (slot.fading) return;
+      slot.fading = true;
+      slot.tl?.kill();
+      slot.tl = null;
+      gsap.to([slot.el, slot.g], {
+        autoAlpha: 0,
+        duration: FADE_OUT_SECONDS,
+        ease: 'power2.in',
+        overwrite: 'auto',
+        onComplete: () => {
+          if (!disposed) release(slot);
+        },
+      });
+    };
+
+    // Fill every idle slot from the candidate set (chrome beat, and each
+    // 'live' arrival). Slots mid-breath (dc pending) keep their own timing.
+    const fillIdleSlots = () => {
+      if (!armed) return;
+      for (const slot of slots) {
+        if (slot.panel || slot.dc) continue;
+        const next = candidate(slot);
+        if (next) bind(slot, next);
+      }
+    };
+
+    /* — Live-panel events (the scheduler's announcements, via the scene
+       api's subscription — panels arrive as objects; we read asset text at
+       bind time and dirOf(panel) — centerDir, or a unit's centre — per
+       frame, nothing else). — */
+    const unsubLive = api.onLiveChange((panel, state) => {
+      if (disposed) return;
+      if (state === 'live') {
+        if (!live.includes(panel)) live.push(panel);
+        fillIdleSlots();
+      } else {
+        const i = live.indexOf(panel);
+        if (i !== -1) {
+          live.splice(i, 1);
+          if (i < cursor) cursor -= 1;
+          if (live.length) cursor %= live.length;
+          else cursor = 0;
+        }
+        const slot = slots.find((s) => s.panel === panel);
+        if (slot) {
+          // Fade where it was, latched once per bind: the panel may be re-dealt
+          // mid-fade (a single as a new unit's lead, a lead as a single), and
+          // dirOf would jump. A unit lead's chip keeps its unit's centre, any
+          // other chip its own tile's (with units off, every chip).
+          if (!slot.latched) {
+            slot.heldMembers = panel.unitCentre ? panel.shownAsset.place.members : null;
+            slot.latched = true;
+          }
+          earlyFade(slot); // demoted mid-hold → fade early, re-slot
+        }
+      }
+    });
+
+    /* — Arm at the chrome beat (data-chromed covers a mount racing the
+       event — the shared chrome-latch idiom). Before the beat, events only
+       build the candidate set. — */
+    let onChrome = null;
+    const arm = () => {
+      if (armed || disposed) return;
+      armed = true;
+      fillIdleSlots();
+    };
+    if (root.closest('.hero')?.dataset.chromed === '1') {
+      arm();
+    } else {
+      onChrome = () => arm();
+      window.addEventListener('swm:hero-chrome', onChrome, { once: true });
+    }
+
+    /* — Per frame (overlay cadence): project each bound anchor, write the
+       chip transform + leader endpoints. Zero allocations beyond the
+       write strings (the overlay-consumer budget); zero layout reads — the
+       chip box comes from the bind-time cache. — */
+    const onFrame = (frame) => {
+      lastFrame = frame; // event-time picks read the same matrices
+      for (let i = 0; i < slots.length; i += 1) {
+        const slot = slots[i];
+        if (!slot.panel) continue;
+        // A chip fading after 'off' keeps what it anchored to then, from live
+        // poses so it rides the scroll: its unit's centre (place()'s sum over
+        // the members), else its own tile's centre. Its panel may be re-dealt
+        // mid-fade, so dirOf(slot.panel) would jump.
+        if (slot.latched) {
+          const c = slot.held.centerDir;
+          const M = slot.heldMembers;
+          if (M) {
+            c.set(0, 0, 0);
+            for (let k = 0; k < M.length; k += 1) c.add(M[k].centerDir);
+            c.normalize();
+          } else c.copy(slot.panel.centerDir);
+        }
+        const panel = slot.latched ? slot.held : slot.panel;
+        // Front-facing test (a back-hemisphere panel still projects onto the
+        // disc, so bounds alone can't reject it).
+        const prominence = prominenceIn(panel, frame);
+        // Anchor: the panel center at the surface, globe-local → world →
+        // NDC (post-render matrices, heroOverlay's guarantee).
+        vAnchor.copy(dirOf(panel)).multiplyScalar(RADIUS);
+        frame.globeGroup.localToWorld(vAnchor);
+        vAnchor.project(frame.camera);
+        // Viewport-based hold (note 3): let go when the anchor turns away or
+        // leaves the frame (NDC_KEEP margin past the edge), not on a region
+        // threshold — the label rides its panel down the cascade and releases
+        // as it exits, freeing the slot for a freshly-visible panel.
+        const gone =
+          vAnchor.z > 1 ||
+          prominence < FRONT_EPS ||
+          Math.abs(vAnchor.x) > NDC_KEEP ||
+          Math.abs(vAnchor.y) > NDC_KEEP;
+        if (gone && !slot.fading) earlyFade(slot);
+        const ax = (vAnchor.x * 0.5 + 0.5) * frame.w;
+        const ay = (vAnchor.y * -0.5 + 0.5) * frame.h; // NDC y-up → CSS y-down
+        // Chip sits OUTWARD from the globe disc center by ?labelstroke px (the
+        // leader length), centered on that point so it clears the sphere; the
+        // leader connects the panel anchor to the chip's nearest corner.
+        const stroke = Math.max(0, TUNING.labelStroke);
+        let ox = ax - frame.disc.cx;
+        let oy = ay - frame.disc.cy;
+        const od = Math.hypot(ox, oy) || 1;
+        ox /= od;
+        oy /= od;
+        const cx = ax + ox * stroke - slot.w / 2;
+        const cy = ay + oy * stroke - slot.h / 2;
+        slot.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px)`;
+        // Leader: the chip corner nearest the anchor → the anchor.
+        const x1 = ax < cx + slot.w / 2 ? cx : cx + slot.w;
+        const y1 = ay < cy + slot.h / 2 ? cy : cy + slot.h;
+        slot.line.setAttribute('x1', x1.toFixed(1));
+        slot.line.setAttribute('y1', y1.toFixed(1));
+        slot.line.setAttribute('x2', ax.toFixed(1));
+        slot.line.setAttribute('y2', ay.toFixed(1));
+        slot.dot.setAttribute('cx', ax.toFixed(1));
+        slot.dot.setAttribute('cy', ay.toFixed(1));
+      }
+    };
+    const unsubFrame = overlay.onFrame(onFrame);
+
+    return () => {
+      disposed = true;
+      unsubFrame();
+      unsubLive();
+      if (onChrome) window.removeEventListener('swm:hero-chrome', onChrome);
+      slots.forEach((slot) => {
+        slot.tl?.kill();
+        slot.dc?.kill();
+        gsap.killTweensOf([slot.el, slot.g]);
+        gsap.killTweensOf([slot.l1, slot.l2]); // live scrambles
+        slot.el.remove();
+        slot.g.remove();
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="hero-labels" ref={rootRef} aria-hidden="true">
+      <svg className="hero-labels__svg" ref={svgRef} focusable="false" />
+    </div>
+  );
+}

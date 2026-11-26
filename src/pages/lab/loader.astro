@@ -1,0 +1,20 @@
+---
+/**
+ * /lab/loader — review page for the globe loader (SQ-31, hidden, unlinked).
+ *
+ * The loader centred on black, nothing wired to a real loading flow. Tap to
+ * replay; ?loaderreplay[=s] loops it; the ?loader… dials are in
+ * docs/tunables-guide.md. client:only, because the dials are URL params and
+ * the build is static (the server never sees them).
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/globe-loader.css';
+import { GlobeLoaderStage } from '../../components/ui/GlobeLoader.jsx';
+---
+
+<BaseLayout
+  title="Lab / Globe Loader — Small World Media™"
+  description="Internal review page for the globe loader."
+>
+  <GlobeLoaderStage client:only="react" />
+</BaseLayout>

@@ -1,0 +1,267 @@
+/**
+ * motion.js — the house motion authority (refinements master plan, Phase A).
+ *
+ * One home for cross-surface motion primitives so GSAP, CSS, and the Three.js
+ * scenes read the same values. Two things live here:
+ *
+ * 1. The house SLOW PULSE — a slow-swell envelope (soft S-attack to a peak
+ *    just past mid-hit, then an eased S-fall that lingers high before easing
+ *    into rest) that loops with a shorter rest between hits. The CustomEase
+ *    path below is the source of truth; `--ease-pulse` / `--duration-pulse` /
+ *    `@keyframes house-pulse` in global.css are its hand-matched CSS
+ *    approximation (stops sampled from this curve). Polarity is per-consumer
+ *    and deliberate: enter_world DIMS (bright → dip → return), the inquiry
+ *    next-field BRIGHTENS (dim → lift → return). Curve dialed by Nathan
+ *    2026-07-17 via the ?fp1tune bench.
+ *
+ * 2. The house scroll-gesture constants — the wheel/touch accumulator idiom
+ *    shared by the home Envelopment, the /work World Turn, the detail
+ *    next-project band, and the /process quantizer: trigger 500px and the
+ *    800ms commit glide (Nathan's 2026-07-16 dial), gain and release —
+ *    all living here once.
+ *
+ * (The World Turn curve itself — TURN_EASE_PATH — stays in worldConfig.js
+ * with its ?ease override; this module is for NEW cross-surface primitives.)
+ */
+import { CustomEase } from 'gsap/CustomEase';
+
+/* ── House slow pulse ─────────────────────────────────────────────────────
+   Envelope, normalized to one HIT (not the full cycle) — Nathan's 2026-07-17
+   dial (?fp1tune bench):
+     attack  0 → 45%    soft S-ramp swelling to the peak (no hard snap)
+     peak      45%      crest (zero-length hold)
+     fall   45 → 100%   eased S — lingers high, then eases down into rest
+   The loop then rests for (1 − HOUSE_PULSE_ON_RATIO) of the period. Author/
+   visualize: https://gsap.com/docs/v3/Eases/CustomEase */
+export const HOUSE_PULSE_PATH =
+  'M0,0 C0.12,0 0.27,1 0.45,1 L0.45,1 C0.6929,0.8833 0.7571,0.1167 1,0';
+
+export const HOUSE_PULSE_EASE = 'housePulse'; // canonical registered name
+export const HOUSE_PULSE_PERIOD_S = 2.3; // full cycle: hit + rest
+export const HOUSE_PULSE_ON_RATIO = 0.75; // hit occupies 3/4 of the period
+
+/** Register the canonical ease once; returns the ease name for tween vars. */
+export function ensureHousePulse() {
+  if (!CustomEase.get(HOUSE_PULSE_EASE)) {
+    CustomEase.create(HOUSE_PULSE_EASE, HOUSE_PULSE_PATH);
+  }
+  return HOUSE_PULSE_EASE;
+}
+
+/**
+ * The canonical pulse loop: tweens `prop` from its current value to `peak`
+ * and back along the envelope, resting an equal interval between hits.
+ * Returns the timeline (kill it on teardown). Callers own reduced-motion
+ * gating — do not start a loop under prefers-reduced-motion.
+ *
+ *   housePulseLoop(gsap, el, { opacity: 0.62 })          // dim polarity
+ *   housePulseLoop(gsap, label, { '--pulse-lift': 1 })   // brighten via var
+ */
+export function housePulseLoop(gsap, target, peakVars, periodS = HOUSE_PULSE_PERIOD_S) {
+  const on = periodS * HOUSE_PULSE_ON_RATIO;
+  const tl = gsap.timeline({ repeat: -1, repeatDelay: periodS - on }).to(target, {
+    ...peakVars,
+    duration: on,
+    ease: ensureHousePulse(),
+  });
+  // House METRONOME (09-04, Nathan): every pulse loop is phase-locked to
+  // the shared wall clock, so surfaces that arm at different moments
+  // (enter_world, the pager's number cell + select_project hint, the
+  // inquiry next-field) beat TOGETHER instead of drifting per arm time.
+  // GraticulePager's rest pulse keeps the beat on the compositor instead
+  // (housePulseStartMs).
+  tl.totalTime((performance.now() / 1000) % periodS);
+  return tl;
+}
+
+/**
+ * The house pulse as WEB ANIMATIONS keyframes (SQ-124): the envelope the GSAP
+ * loop tweens, sampled off the registered ease, for a pulse that must beat at
+ * rest without waking the main thread (GraticulePager's rest pulse). One
+ * cycle: the hit (HOUSE_PULSE_ON_RATIO of it) walks `from` → `to` → `from` on
+ * `ease`, then holds `from` for the rest. Run it as
+ *   el.animate(housePulseKeyframes(ease, 0, 1),
+ *     { duration: periodMs, iterations: Infinity, easing: 'linear' })
+ * (the ease is already in the keyframes, so the segments between them are
+ * linear). `ease` is the progress → value function, e.g.
+ * gsap.parseEase(ensureHousePulse()). 60 steps put a sample on the 0.45 crest
+ * (27/60) and keep a segment under 1/60 of a hit, so the straight-line error
+ * against the curve stays under the 8-bit opacity step.
+ */
+export const HOUSE_PULSE_STEPS = 60;
+export function housePulseKeyframes(ease, from, to, steps = HOUSE_PULSE_STEPS) {
+  const frames = [];
+  for (let i = 0; i <= steps; i++) {
+    const x = i / steps;
+    frames.push({ offset: x * HOUSE_PULSE_ON_RATIO, opacity: from + (to - from) * ease(x) });
+  }
+  frames.push({ offset: 1, opacity: from }); // the rest, held
+  return frames;
+}
+
+/**
+ * The startTime (ms on the document timeline) that puts a compositor pulse ON
+ * the metronome. The GSAP loops seek performance.now() mod the period; the
+ * document timeline counts from the same origin, so an animation whose
+ * startTime is 0 is at that phase by construction and stays there (no seek, no
+ * drift). In the rest span the target sits at its rest value, so it plays now
+ * (0). Inside a hit that would join mid-swell and jump, so it starts at the
+ * next downbeat instead (the rule joinHousePulse kept, 11-03).
+ */
+export function housePulseStartMs(nowMs, periodMs, hitMs) {
+  const phase = nowMs % periodMs;
+  return phase >= hitMs ? 0 : nowMs - phase + periodMs;
+}
+
+/* ── Stall-proof CSS transition ───────────────────────────────────────────
+   SQ-142: a CSS transition runs on wall-clock time from the frame it starts,
+   so a main-thread long task right after it starts (a phone's World Turn
+   landing on the next world) lets it finish unseen: the next painted frame
+   is already the end value, a one-frame cut. playTransitionThroughStalls
+   keeps the CSS (look, duration, easing) and only owns the CLOCK: it pauses
+   the element's running transition of `property` and advances it each
+   animation frame by the frame's dt, capped at TRANSITION_STEP_CAP_MS, so a
+   stall costs at most one capped step (GSAP's lagSmoothing idea). Smooth
+   frames (dt under the cap) play exactly as before. `onDone` runs once the
+   transition has reached its end; with no transition to drive (none
+   declared, no getAnimations) it runs after `fallbackMs`. Returns a kill
+   (no onDone). */
+export const TRANSITION_STEP_CAP_MS = 50;
+
+export const capTransitionStep = (currentMs, dtMs, durationMs, capMs = TRANSITION_STEP_CAP_MS) =>
+  Math.min(durationMs, currentMs + Math.min(Math.max(0, dtMs), capMs));
+
+export function playTransitionThroughStalls(el, property, onDone, fallbackMs) {
+  const anim = el.getAnimations?.().find((a) => a.transitionProperty === property);
+  const duration = anim ? Number(anim.effect?.getComputedTiming().duration) : 0;
+  if (!anim || !(duration > 0)) {
+    const id = setTimeout(onDone, fallbackMs);
+    return () => clearTimeout(id);
+  }
+  anim.pause();
+  let last = performance.now();
+  let raf = requestAnimationFrame(function step(t) {
+    const next = capTransitionStep(Number(anim.currentTime) || 0, t - last, duration);
+    last = t;
+    if (next >= duration) {
+      anim.finish();
+      onDone();
+      return;
+    }
+    anim.currentTime = next;
+    raf = requestAnimationFrame(step);
+  });
+  return () => cancelAnimationFrame(raf);
+}
+
+/* ── House scroll gesture ─────────────────────────────────────────────────
+   The accumulator idiom: wheel/touch px fill toward a commit threshold,
+   touch deltas gain ×TOUCH_GAIN, and a stall of RELEASE_MS rubber-bands
+   back to rest. Surfaces read their own trigger (live-tunable via ?scroll;
+   /process gets its own param at rebase so surfaces dial independently).
+   TOUCH_GAIN / RELEASE_MS are shared: their live dials (?touchgain /
+   ?releasems, 11-03) resolve in lib/touchTune.js, which every surface
+   imports instead of the two below. Bake here. */
+export const SCROLL_TRIGGER_WORK_PX = 500; // /work World Turn + detail next-project band
+export const SCROLL_TRIGGER_PROCESS_PX = 400; // /process quantizer (Nathan's 11-03 phone dial, ?swipepx=400)
+export const SCROLL_TRIGGER_HOME_PX = 500; // / — post-hero delta drives the footer reveal (09-08)
+// ^ unified at 500 per Nathan's 2026-07-16 dial (was 600/600/700) — the
+//   Notion "takes too much scroll power" note, answered. Per-surface
+//   exports stay so a future dial can split them again; /process split off
+//   at 400 on 11-03. (The HOME trigger retired 08-30 — the hero's
+//   enter_world is tap-only now.)
+// The pair below is Nathan's 11-03 phone dial (/work?touchgain=5&releasems=240,
+// "much better"; was 2 / 160). At gain 5 a 500px trigger is 100px of finger.
+export const TOUCH_GAIN = 5; // touch deltas 5×
+export const RELEASE_MS = 240; // stall gap before the rubber-band release (wheel too)
+
+/* The rubber band's two lanes — what a dragged, uncommitted gesture rides
+   (11-03: one home for the /work CTAs' CSS lanes and the touch drag-follow's
+   GSAP ones). TRACK follows the finger; RELEASE springs back to rest —
+   CSS cubic-bezier(0.16, 1, 0.3, 1) is the expo-out twin. */
+export const DRAG_TRACK_S = 0.12; // CSS: ease-out
+export const RELEASE_GLIDE_S = 0.4;
+export const RELEASE_EASE = 'expo.out';
+export const RELEASE_EASE_CSS = 'cubic-bezier(0.16, 1, 0.3, 1)';
+
+/* The house commit GLIDE — what a threshold-crossing gesture settles
+   into (Nathan's 2026-07-16 dial, baked from the /process ?swipems):
+   the /process section glide, the hero Envelopment, and the detail
+   next-project band all ride it. (The /work World-to-World TURN_DURATION
+   is a scene transition, not a commit glide — it keeps its own 1700ms
+   dial in worldConfig.js.) */
+export const GLIDE_MS = 800;
+export const GLIDE_SECONDS = GLIDE_MS / 1000;
+
+/* ── FP pager gesture (08-31 rework, docs/fp-pager-rework-approaches.md) ──
+   The press-hold-slide-release wheel shared by every ?pager= variant.
+   Wheeling is a pure-DOM scrub — the scene never turns mid-gesture; release
+   commits exactly ONE goTo. Plain exports only: this module runs during SSR,
+   so the ?detent/?wheeldetent live overrides resolve in the component via
+   the PARAM helper, never here. */
+export const PAGER_HOLD_MS = 200; // press-and-hold engage threshold (tap below it = peek)
+export const PAGER_SLOP_PX = 8; // vertical travel that promotes a press to engage before the timer
+export const PAGER_DETENT_TOUCH_PX = 56; // finger travel per station (live ?detent)
+export const PAGER_DETENT_WHEEL_PX = 90; // desktop wheel deltaY per station (live ?wheeldetent)
+export const PAGER_STALL_COMMIT_MS = 450; // desktop wheel silence before the landing commits
+export const PAGER_PEEK_MS = 900; // tap-peek hold before auto-retract
+export const PAGER_FLICK_CARRY_S = 0.12; // release velocity carry (80ms sample window, ±2 detents cap)
+export const PAGER_TAU_SCRUB = 0.05; // dt-invariant damper while the finger owns the tape
+export const PAGER_TAU_GLIDE = 0.27; // rest-follow of an external Turn (the marker's glide τ)
+export const PAGER_END_RESIST = 0.3; // beyond-range travel compression (cap 0.35 detent)
+export const PAGER_KEY_COMMIT_MS = 400; // keyboard arrow-run debounce into one commit
+/* ?pager=scale — the graticule's own dials (approach B). The pitch is the
+   station spacing AND the finger's px-per-detent (1:1, magnet off), and
+   THIS is its single source of truth: the skin resolves detentPx from
+   these (or ?detent, floored at 8px) and writes it back as the inline
+   --scale-pitch, so the scale and the finger can never drift apart. The
+   global.css --scale-pitch token is the pre-hydration fallback only —
+   keep it equal per tier so the SSR base transform lays out right. */
+export const SCALE_PITCH_PX = 48; // desktop station pitch = touch detent (live ?detent) — 09-04 r8 vertical-space bump (was 44)
+export const SCALE_PITCH_MOBILE_PX = 48; // <=768px tier pitch — HOLDS at 48 (the 667px-phone window check bounds it; see global.css --scale-rows)
+export const SCALE_WHEEL_DETENT_PX = 100; // desktop wheel deltaY per station (live ?wheeldetent)
+export const SCALE_END_RESIST = 0.2; // beyond-range compression — stiffer than the tape's 0.3
+/* No stall-commit on this arm (09-03 round 6): a desktop wheel settle is a
+   PREVIEW — the Turn evaluates only at disengage (mouse-out / touch release
+   / keyboard), so settling on stations in sequence can never stack frozen
+   Turns behind the pause scrim. The skin passes stallMs: Infinity. */
+export const SCALE_MAGNET_EXP = 4; // magnet curve exponent (live ?magnet) — Nathan's 09-05 r11f bake (r6 was 2.2, original 4)
+export const SCALE_FLIP_TAU_S = 0.1; // flipper spring τ — box AND pointer since r11f (live ?fliptau) — Nathan's 09-05 r11f bake (r6 0.005, original 0.06)
+/* (?pager=tuner's TUNER_* dials deleted 09-05 with the arm.) */
+
+/* ── Lenis tuning ─────────────────────────────────────────────────────────
+   Spread into the Lenis constructor by smoothScroll.js. BAKED from the A2b
+   dial session (2026-07-17): lerp 0.165 (tighter/faster settle than the 0.1
+   library default) + wheelMultiplier 1.25 (less wheel effort per distance).
+   Re-dial live any time on a detail page via ?lenistune=1 (LenisTunePanel), or
+   the raw ?lerp/?wheelmult/?lenisdur params. Lenis feeds Grid Socket parallax +
+   the orbit scroll-kick, so retunes need a regression pass on document-scroll
+   routes.
+   ⚠ This bake MOVED lerp (0.1→0.165) + wheelMultiplier (1→1.25), so the two
+   calibration caveats below are now LIVE follow-ups, not hypotheticals.
+
+   A2b LIVE DIAL (smoothScroll.js start() + ?lenistune=1 bench) — URL params
+   override this bake on every Lenis document-scroll route; blessed values get
+   baked HERE:
+     ?lerp=0.1       Lenis lerp (library default 0.1 — smoothing per frame)
+     ?wheelmult=1    wheelMultiplier (library default 1)
+     ?lenisdur=0.9   duration in SECONDS — switches Lenis to duration mode,
+                     which OVERRIDES lerp (pair with an easing at bake time)
+   Candidate starting points for the dial session:
+     lerp 0.14       tighter / faster settle
+     lerp 0.075      heavier glide
+     wheelmult 1.2   less wheel effort per scroll distance
+     lenisdur ~0.9   fixed-length settle (+ easing) instead of lerp inertia
+   Calibration caveats:
+   - NextProjectBand's NP_ARM_MS=250 (?nparm) is tuned to the default
+     lerp-0.1 inertia tail — re-check flick tails at the band if lerp moves.
+   - TOUCH_GAIN above is Nathan's phone dial (5 since 11-03) — if the
+     Lenis bake shifts the touch feel (touchMultiplier default 1), re-dial it.
+   - The spec'd-but-dormant orbit scroll-kick (momentum.js kick(), zero
+     importers today) will read getLenis().velocity, whose magnitude scales
+     with lerp/wheelMultiplier — record the baked values so ?orbitkick gets
+     dialed against them. */
+export const LENIS_TUNING = {
+  lerp: 0.165,
+  wheelMultiplier: 1.25,
+};

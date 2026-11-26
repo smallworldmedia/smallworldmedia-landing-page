@@ -1,0 +1,149 @@
+/* ============================================
+   DETAIL GRID — Flush tessellating tile system
+   ============================================
+   Placement is computed server-side by computeFlushGrid()
+   in FeaturedProjectDetail.jsx. Each item receives explicit
+   grid-column and grid-row inline styles.
+
+   The JS algorithm:
+     1. Simulates dense auto-flow placement
+     2. Stretches bottom items to the global max row
+     → Flush bottom edge, zero gaps.
+
+   THREE TILE TYPES (data-tile attribute), in squares:
+     portrait  (ratio < 0.9):   1 col × 2 squares
+     square    (0.9–1.2):       1 col × 1 square
+     landscape (ratio ≥ 1.2):   2 cols × 1 square
+   A square's row span comes from the measured column width, so
+   tiles hold their shape at every window width (10-27, 1:1 —
+   TILE_SHAPE in tileGrid.js, ?tileshape to re-dial).
+   ============================================ */
+.masonry-grid--detail {
+  line-height: normal;
+  display: grid;
+  /* 5 columns, the Project Directory's desktop count (Nathan 11-14; tileGrid.js
+     GRID_COLS.desktop). FeaturedProjectDetail sets --grid-cols from the
+     measured tier (SQ-74: GRID_LARGE_PX in tileGrid.js, 6 from 1920px,
+     ?detaillargecols). The large tier is not a media query here: the server
+     render's placement is 5 columns, so a CSS step would leave a hole until
+     the tier is measured. The ≤1024 / ≤768 rules below stay literal. */
+  grid-template-columns: repeat(var(--grid-cols, 5), 1fr);
+  grid-auto-rows: 10px; /* fine row unit — items span multiples */
+  gap: var(--space-1);
+}
+
+/* ── Tile reset ── */
+.masonry-grid--detail > * {
+  display: block;
+  overflow: hidden;
+}
+
+/* ── Media slot overrides inside detail grid ──
+   Grid cell height controls sizing, not aspect-ratio.
+   Higher specificity to override media-slot.css rules. */
+.masonry-grid--detail > .media-slot,
+.masonry-grid--detail > .media-slot[data-portrait] {
+  aspect-ratio: unset;
+  width: 100%;
+  height: 100%;
+  background: var(--color-near-black);
+}
+
+.masonry-grid--detail .media-slot__media {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}
+
+/* ============================================
+   GRID SOCKET — reserved-region layer
+   ============================================
+   A socket is a grid child pinned to a flushGrid reserved region
+   (explicit grid-column/row inline styles, like tiles). The inner
+   layer floats the composite occupant (AlbumArtOrbit /
+   BrandDeckViewer) above the tiles and sits still: the scroll drift
+   is off (Nathan 11-12, it opened a gap at the wall's edges).
+   Occupants may overhang neighboring tiles — bounded — hence
+   overflow: visible.
+   ============================================ */
+.masonry-grid--detail > .grid-socket {
+  display: block;
+  position: relative;
+  overflow: visible;
+  z-index: 2;
+}
+
+.grid-socket__layer {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .masonry-grid--detail {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Sockets degrade to plain full-width bands: explicit placement dies
+     at this width (span overrides below), so the overlap goes with
+     it. Rows are 10px implicit tracks,
+     so `auto` would collapse to one track; a fixed span (like every
+     mobile tile) gives the anchor real height and the occupant keeps
+     filling it. */
+  .masonry-grid--detail > .grid-socket {
+    grid-column: 1 / -1 !important;
+    grid-row: span 26 !important;
+  }
+  /* Banner walls (09-10): 1.5 banners tall at THIS width — the rows are
+     measured in FeaturedProjectDetail and handed down as --socket-rows.
+     Admat walls (11-10) the same: 1.5 flyers tall at THIS width (11-11);
+     carousel strips (11-11): one slide tall. Visuals walls and
+     live-footage grids (US-4) likewise. */
+  .masonry-grid--detail > .grid-socket[data-socket^="banner:"],
+  .masonry-grid--detail > .grid-socket[data-socket^="admat:"],
+  .masonry-grid--detail > .grid-socket[data-socket^="carousel:"],
+  .masonry-grid--detail > .grid-socket[data-socket^="visuals:"],
+  .masonry-grid--detail > .grid-socket[data-socket^="mockups:"],
+  .masonry-grid--detail > .grid-socket[data-socket^="footage:"] {
+    grid-row: span var(--socket-rows, 12) !important;
+  }
+  /* The cover wall (11-11): 1.5x the 26-row band. */
+  .masonry-grid--detail > .grid-socket[data-socket="orbit"] {
+    grid-row: span 39 !important;
+  }
+  /* Landscape tiles: clamp to available cols. Row spans are measured in
+     FeaturedProjectDetail and handed down as --tile-*-rows; the fallbacks
+     hold the square shape on a ~900px two-column window until then. */
+  .masonry-grid--detail > [data-tile="landscape"] {
+    grid-column: span 2 !important;
+    grid-row: span var(--tile-ls-rows, 38) !important;
+  }
+  .masonry-grid--detail > [data-tile="portrait"] {
+    grid-column: span 1 !important;
+    grid-row: span var(--tile-pt-rows, 76) !important;
+  }
+  .masonry-grid--detail > [data-tile="square"] {
+    grid-column: span 1 !important;
+    grid-row: span var(--tile-sq-rows, 38) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .masonry-grid--detail {
+    grid-template-columns: 1fr;
+  }
+  /* Single column — reset all explicit placements; measured spans as
+     above, fallbacks = a 390px phone. */
+  .masonry-grid--detail > [data-tile] {
+    grid-column: 1 / -1 !important;
+  }
+  .masonry-grid--detail > [data-tile="portrait"] {
+    grid-row: span var(--tile-pt-rows, 66) !important;
+  }
+  .masonry-grid--detail > [data-tile="square"] {
+    grid-row: span var(--tile-sq-rows, 33) !important;
+  }
+  .masonry-grid--detail > [data-tile="landscape"] {
+    grid-row: span var(--tile-ls-rows, 16) !important;
+  }
+}

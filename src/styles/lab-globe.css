@@ -1,0 +1,15 @@
+/* ============================================
+   LAB / VIDEO GLOBE — /lab/globe tuning sandbox
+   Page shell only — the globe itself is the
+   shared VideoGlobe component (video-globe.css).
+   ============================================ */
+
+.lab-globe-page {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: clip;
+  background: linear-gradient(to top,
+      var(--color-electric-blue) 0%,
+      var(--color-black) 40%);
+}

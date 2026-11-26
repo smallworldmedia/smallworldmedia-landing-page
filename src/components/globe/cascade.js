@@ -1,0 +1,82 @@
+/**
+ * cascade.js — "Power-on" entrance timelines for the globe panels.
+ *
+ * One timeline, three sequencing variants — same flicker keyframes, different
+ * stagger key (gsap-swm cascade family). Panels flicker like screens warming
+ * up: dim pulse → dip → overshoot → settle. The chassis (lines) is always
+ * visible; only the "screens" power on.
+ *
+ * Rows run 0 (top pole wedges) … totalRows-1 (bottom pole wedges).
+ *
+ * Variants:
+ *  - rows:  top → bottom waterfall
+ *  - poles: both pole rings first, meeting at the equator
+ *  - sweep: longitude scan around the sphere
+ */
+import gsap from 'gsap';
+
+export const CASCADE_VARIANTS = ['rows', 'poles', 'sweep'];
+/* Every ordering panelDelay's switch actually implements. CASCADE_VARIANTS is
+   the subset the entrance cascade offers (no 'random' — a random entrance reads
+   as a fault); heroConfig's BLUE_CASCADES is the same four for the commit fill.
+   The spans tests iterate THIS (T5), so every ordering the switch implements
+   is held to the entrance window. */
+export const DELAY_ORDERS = ['sweep', 'rows', 'poles', 'random'];
+export const DEFAULT_CASCADE_VARIANT = 'sweep'; // Nathan's pick
+
+// CRT flicker: uPower 0 → pulse → dip → overshoot (>1 over-brightens) → settle
+const FLICKER_KEYFRAMES = [
+  { value: 0.55, duration: 0.08, ease: 'power1.in' },
+  { value: 0.18, duration: 0.07, ease: 'none' },
+  { value: 1.12, duration: 0.22, ease: 'power2.out' },
+  { value: 1.0, duration: 0.18, ease: 'sine.out' },
+];
+
+/**
+ * The cascade family's delay model — exported as the sequencing reference
+ * for the process scene's Stage 3–5 beats (spec §3), which ride the same
+ * orderings with their own tweens.
+ */
+export function panelDelay(panel, variant, totalRows) {
+  const jitter = Math.random() * 0.05; // controlled chaos — breaks mechanical lockstep
+  switch (variant) {
+    case 'poles': {
+      const ring = Math.min(panel.row, totalRows - 1 - panel.row);
+      return ring * 0.22 + panel.lonIndex * 0.015 + jitter;
+    }
+    case 'sweep':
+      return panel.lonIndex * 0.07 + panel.row * 0.03 + jitter;
+    case 'random':
+      // 08-31, Nathan: fully random order (the textExit letter-cut reading
+      // for the video→blue fill) — every panel draws an independent slot
+      // across a spread comparable to sweep's total run. Computed ONCE per
+      // cascade like every variant: zero added per-frame cost.
+      return Math.random() * 1.2;
+    case 'rows':
+    default:
+      return panel.row * 0.16 + panel.lonIndex * 0.02 + jitter;
+  }
+}
+
+/** Media spans: the panel whose stagger delay a panel takes, its unit's lead
+ *  (place.members[0]), so a unit powers on and fills blue as one picture. */
+export const delayOwner = (panel) => panel.asset?.place?.members[0] ?? panel;
+
+/**
+ * @param {Array} panels - panel records carrying { mesh, lonIndex, row }
+ * @param {string} variant - one of CASCADE_VARIANTS
+ * @param {number} totalRows - latBands + 2 (pole wedge rings included)
+ * @returns {gsap.core.Timeline}
+ */
+export default function buildCascadeTimeline(panels, variant, totalRows) {
+  const tl = gsap.timeline();
+  const delays = new Map(); // owner panel → its ONE delay (units off: every panel is its own owner)
+  panels.forEach((panel) => {
+    const owner = delayOwner(panel);
+    if (!delays.has(owner)) delays.set(owner, panelDelay(owner, variant, totalRows));
+    const uPower = panel.mesh.material.uniforms.uPower;
+    tl.set(uPower, { value: 0 }, 0);
+    tl.to(uPower, { keyframes: FLICKER_KEYFRAMES }, delays.get(owner));
+  });
+  return tl;
+}

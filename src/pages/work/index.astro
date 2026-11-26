@@ -1,0 +1,146 @@
+---
+/**
+ * /work — Featured Projects experience (primary work destination).
+ *
+ * Project-doc-first immersive sphere experience. See CONTEXT.md §
+ * "Featured Projects Preview — concepts" and docs/featured-projects-preview-plan.md.
+ *
+ * P1: a data-driven, vertical-paging skeleton (real DOM, crawlable). The WebGL
+ * WorldScene replaces the placeholder media field in P2.
+ *
+ * The project directory (every asset) lives at /work/directory.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/featured-projects.css';
+// FP-1 house-pulse tuning bench styles — only the .fp1-tune tree, which renders
+// solely under ?fp1tune=1; inert on the shipped surface. Stays here rather than
+// inside the code-split Fp1TunePanel: Astro re-attributes a lazy chunk's CSS
+// back to the importing page regardless (see BaseLayout for the mechanism), so
+// moving it measured as a pure no-op — this route's stylesheet came out
+// byte-for-byte identical, same content hash.
+import '../../styles/fp1-tune.css';
+import '../../styles/scrim-tune.css';
+import { sanityFetch } from '../../lib/sanityClient.js';
+import { FEATURED_WORLDS_QUERY } from '../../lib/queries.js';
+import {
+  buildContentFlow,
+  groupTypeOf,
+  ratioOf,
+} from '../../components/work/detail/buildContentFlow.js';
+import { toProjectSlug } from '../../lib/projectSlug.js';
+import { getSpectrumDeal } from '../../lib/spectrumDeal.js';
+import FeaturedProjects from '../../components/work/FeaturedProjects.jsx';
+
+const projects = await sanityFetch(FEATURED_WORLDS_QUERY);
+const spectrumDeal = await getSpectrumDeal();
+
+// Composite-band page shape (the World mount needs only art + aspect).
+// 08-27: raised 5 → 12 for the DRUM wall plates (fpDrumWall cycles up to
+// WALL_MAX_PAGES pages, and a scrolling wall reads best with the fuller set).
+// The legacy/ATLAS register-plate paths still slice BAND_MAX_PAGES (5)
+// client-side, so they are unaffected.
+const BAND_PAGE_CAP = 12; // matches WALL_MAX_PAGES client-side
+const bandPage = (a) => ({
+  _id: a._id,
+  title: a.title || null,
+  imageUrl: a.imageUrl || null,
+  playbackId: a.playbackId || null,
+  ratio: ratioOf(a),
+});
+
+// Build one "World" per featured project: partition its media via the same
+// Content Population Hierarchy the detail page uses, then hand the orchestrator
+// just what it renders (hero, showcase Tiles, socket presence, card copy).
+const worlds = projects
+  .filter((p) => p.clientSlug && p.collection) // skip projects without a linked client or collection
+  .map((p) => {
+  const assets = p.assets || [];
+  const hero = assets[0] || null;
+  const flow = buildContentFlow(assets, { surface: 'work' });
+
+  // Wall-deck order: buildContentFlow's group order is first appearance by
+  // orderRank with the hero SKIPPED — so a hero that is itself a deck page
+  // (bedouin: saga p.01) swallows its group's first appearance and the wrong
+  // deck leads the walls. Re-lead with the hero's own deck when it has one;
+  // detail pages keep the flow's native order. Carousels (US-3: "show the
+  // slides as a scrolling wall, the way deck pages show today") follow the
+  // decks as walls of the same {group, pages} shape, marked axis 'x' (US-4:
+  // carousels read like socials — the plate runs horizontally); admats and
+  // banners never reach this surface (the group-type table).
+  const heroDeckGroup =
+    hero && groupTypeOf(hero) === 'deck' ? (hero.displayGroup ?? 'deck') : null;
+  const deckWalls = heroDeckGroup
+    ? [
+        ...flow.brandDecks.filter((d) => d.group === heroDeckGroup),
+        ...flow.brandDecks.filter((d) => d.group !== heroDeckGroup),
+      ]
+    : flow.brandDecks;
+  const wallDecks = [
+    ...deckWalls.map((d) => ({ ...d, axis: 'y' })),
+    ...flow.carousels.map((c) => ({ ...c, axis: 'x' })),
+  ];
+
+  const showcase = flow.showcase.map((a) => ({
+    _id: a._id,
+    title: a.title,
+    mediaType: a.mediaType,
+    playbackId: a.playbackId || null,
+    imageUrl: a.imageUrl || null,
+    ratio: ratioOf(a),
+    // A sequence (src/lib/mediaSequence.js): the plate cuts through these.
+    ...(a.frames && {
+      frames: a.frames.map((f) => ({ imageUrl: f.imageUrl, alpha: !!f.imageHasAlpha })),
+    }),
+  }));
+
+  // Authored doc slug is the route (Studio-editable, merge-proof);
+  // toProjectSlug stays as the fallback for docs without one.
+  const slug = p.slug || toProjectSlug(p.clientSlug, p.collection);
+
+  return {
+    slug,
+    clientName: p.clientName,
+    title: p.title || null,
+    // S2: optional per-project accent palette (blank → brand-blue fallback
+    // everywhere the surfaces resolve --project-color).
+    projectColor: p.projectColor || null,
+    projectColorSecondary: p.projectColorSecondary || null,
+    // US-7: the spectrum scheme's palette key, dealt once per build by position in
+    // this very order (lib/spectrumDeal.js). It reaches the DOM as data-spectrum.
+    spectrum: spectrumDeal[slug] ?? null,
+    // The union of the project's media tags (queries.js PROJECT_SERVICES).
+    services: p.services || [],
+    hero: hero
+      ? {
+          _id: hero._id,
+          playbackId: hero.playbackId || null,
+          imageUrl: hero.imageUrl || null,
+        }
+      : null,
+    showcase,
+    // World-side composite bands (ADR-0003): the lead deck's pages + the
+    // album-art covers, capped — display bodies among the Tiles. Empty
+    // arrays = no band (the ORBIT_MIN gate already ran in buildContentFlow).
+    brandDecks: wallDecks.length
+      ? wallDecks[0].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
+      : [],
+    brandDecksAxis: wallDecks[0]?.axis || 'y',
+    // 08-28 (Nathan): deck-heavy Worlds get a SECOND deck wall — the next
+    // deck group rides the album-art anchor when no album art claims it
+    // (bedouin: saga guidelines + brand guidelines).
+    brandDecks2:
+      wallDecks.length > 1
+        ? wallDecks[1].pages.slice(0, BAND_PAGE_CAP).map(bandPage)
+        : [],
+    brandDecks2Axis: wallDecks[1]?.axis || 'y',
+    albumArt: flow.albumArt.slice(0, BAND_PAGE_CAP).map(bandPage),
+  };
+});
+---
+
+<BaseLayout
+  title="Featured Projects — Small World Media™"
+  description="Step inside Small World Media's featured projects — immersive worlds of branding, motion design, live visuals, and release artwork for the music industry."
+>
+  <FeaturedProjects client:load worlds={worlds} />
+</BaseLayout>

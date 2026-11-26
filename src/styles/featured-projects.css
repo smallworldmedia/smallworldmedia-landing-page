@@ -1,0 +1,873 @@
+/* featured-projects.css — /work Featured Projects experience (P1 skeleton).
+   The WebGL WorldScene replaces `.fp-world__field` in P2; the World Turn
+   replaces native scroll-snap in P3. Colours from global.css tokens. */
+
+/* 08-28 (Nathan): while /work is mounted the ROOT paints black — macOS
+   fills newly exposed window area with the html/body background during a
+   scale-UP before layout catches up, and the site-wide electric blue read
+   as a blue flash against this page's black field. :has() scopes it to the
+   route with no navigation leak. */
+html:has(.fp),
+body:has(.fp) {
+  background: var(--color-black);
+}
+
+.fp {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  /* paging is CTA/scroll-driven, not native scroll */
+  background: var(--color-cream);
+  /* fallback under the WebGL canvas */
+  color: var(--color-black);
+}
+
+/* Centred card stage (the active World's card sits here). */
+.fp-stage {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+/* Screen-reader/crawler fallback list of all featured projects
+   uses the global .sr-only utility (global.css). */
+
+/* WebGL World canvas — fixed behind the scrolling cards. The canvas itself
+   renders transparent; this layer carries the black→blue gradient backdrop
+   (matching the home hero) so the grid + tiles composite over a clean gradient. */
+.fp-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* S2: the gradient's base stop ingests the focused project's accent
+     (--project-color, broadcast on the .fp root that contains this element);
+     blank → brand blue. Recolours on the World Turn as the active project
+     changes.
+     08-25 (Nathan): the fade is dimmed + dialable — WorldScene stamps
+     --fp-fade (accent % mixed over black; 100 = the old solid stop) and
+     --fp-fade-h (the height the fade climbs). The @property accent still
+     interpolates inside the color-mix, so the Turn recolour is unchanged. */
+  background: linear-gradient(to top,
+      color-mix(in srgb,
+        var(--color-black),
+        var(--project-color, var(--color-electric-blue)) calc(var(--fp-fade, 65) * 1%)) 0%,
+      var(--color-black) var(--fp-fade-h, 40%));
+}
+
+.fp-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Hidden HLS slot pool for the live Near tier (VideoSlotPool reuse — same
+   rules as video-globe.css: near-invisible offscreen positioning, NOT
+   display:none, which makes Safari throttle decoding). */
+.video-globe-pool {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 2px;
+  height: 2px;
+  overflow: hidden;
+  opacity: 0.01;
+  pointer-events: none;
+}
+
+.video-globe-pool video {
+  width: 2px;
+  height: 2px;
+}
+
+.fp-empty {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--color-black);
+  color: var(--color-cream);
+}
+
+/* Vertical paging via native scroll-snap (the World Turn lands in P3). */
+.fp-scroller {
+  position: relative;
+  z-index: 1;
+  height: 100vh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+}
+
+.fp-world {
+  position: relative;
+  height: 100vh;
+  scroll-snap-align: start;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Card wrapper — holds the PROJECT_# tab above the card panel. The GSAP
+   entrance (WorldCard) drives the OS-window reveal + the ride in/out. Incoming
+   and outgoing cards share the stage cell (grid-area 1/1) so they overlap
+   during a Turn; the incoming sits above. */
+.fp-card-wrap {
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: center;
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.fp-card-wrap[data-phase='exit'] {
+  z-index: 1;
+}
+
+/* SplitText line masks (type:lines, mask:lines) for the top→bottom text reveal. */
+.fp-card .fp-line {
+  display: block;
+}
+
+/* PROJECT_## tab — a small solid-blue rectangle at the card's top-left edge. */
+.fp-card__tab {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  /* S2: readable ink on the accent-filled chip (dark on light accents). */
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: per-project accent (set on .fp-card-wrap); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
+  padding: var(--space-2) var(--space-4);
+}
+
+/* Identity card — the "middle text container". Transparent: the text + CTA +
+   tags sit directly over the World, with the media spacing the layout. (A blue
+   tone/gradient-map backdrop was tried here but read better fully transparent.) */
+.fp-card {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  color: var(--color-white);
+  padding: clamp(1rem, 3vw, 1rem);
+  max-width: min(90vw, 400px);
+  min-width: 400px;
+  text-align: center;
+}
+
+.fp-card__index {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  opacity: 1.0;
+  margin: 0 0 0.5rem;
+}
+
+.fp-card__client {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-tight);
+  /* ?cardname (09-04 r8): px override for the mobile dial pass (inline
+     --fp-card-name-size on .fp); the clamp is the shipped size. */
+  font-size: var(--fp-card-name-size, clamp(2.5rem, 7vw, 8rem));
+  line-height: .8;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.fp-card__meta {
+  font-family: var(--font-body);
+  letter-spacing: -0.03rem;
+  line-height: var(--lh-body);
+  font-size: clamp(1rem, 2vw, 3rem);
+  margin: 0.5rem 0 1.25rem;
+  opacity: 1.0;
+}
+
+/* enter_world skin now comes from the shared PRIMARY button component
+   (.cta-primary in global.css — white/blue → hover blue/white, borderless);
+   .fp-card__cta remains as the card's layout/GSAP hook only.
+   The card's CTA opts out of the shared 0.2s fill transition (the pulse that
+   needed this is gone, SQ-24; the opt-out stays so hover keeps its snap). */
+.fp-card__cta.cta-primary {
+  transition: none;
+}
+
+.fp-card__tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  /* ?taggap (09-04 r8): the mobile dial for pill spacing. */
+  gap: var(--fp-tag-gap, var(--space-4));
+  padding: 0;
+  margin: 1rem 1rem 1rem;
+}
+
+.fp-tag {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  /* ?tagtext / ?tagpad / ?tagpadx (09-04 r8): the mobile dial set —
+     FeaturedProjects writes the --fp-tag-* overrides inline on .fp;
+     absent, the shipped tokens hold. */
+  font-size: var(--fp-tag-size, var(--text-mono));
+  letter-spacing: var(--tracking-normal);
+  text-transform: uppercase;
+  /* Accent-filled pill; ink = the PAIRED -fg token (09-04 r8, Nathan) so
+     a light accent flips the text black — matching every other
+     project-color-dependent text element (the chip rows' idiom). The old
+     hard white ink vanished on light accents. */
+  color: var(--project-color-fg, var(--color-white));
+  background: var(--project-color);
+  border-radius: var(--radius-capsule);
+  padding: var(--fp-tag-pad-y, var(--space-2)) var(--fp-tag-pad-x, var(--space-5));
+}
+
+/* Pager */
+.fp-pager {
+  position: fixed;
+  left: clamp(0.75rem, 2vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  align-items: start;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0rem;
+}
+
+.fp-pager__dot {
+  position: relative;
+  background: var(--color-white);
+  align-items: start;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-black);
+  opacity: 1.0;
+  padding: 0.3rem 0.35rem;
+  /* font-size glides on --pager-dur/--pager-ease so a committing Turn moves the
+     active number in sync with the CTA scaling back to rest. bg/colour stay on
+     the short 0.16s: at commit --pager-dur balloons to the 1.7s Turn window,
+     and since the chip's accent already cross-fades via the inherited @property
+     var, a 1.7s self-transition low-passed a moving target — the chip landed
+     late. Pinning bg/colour to 0.16s keeps it in step with the rest of the nav. */
+  transition:
+    font-size var(--pager-dur, 0.16s) var(--pager-ease, ease-out),
+    background 0.16s var(--pager-ease, ease-out),
+    color 0.16s var(--pager-ease, ease-out),
+    opacity 0.2s cubic-bezier(0.2, 0.5, 0.35, 1);
+}
+
+.fp-pager__dot.is-active {
+  opacity: 1;
+  /* S2: readable ink on the accent-filled chip (dark on light accents). */
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: focused-project accent (broadcast on .fp root); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* Hover effector — strongest state: inverts to white-on-black. */
+.fp-pager__dot:hover {
+  color: var(--color-white);
+  background: var(--color-black);
+}
+
+/* Click/tap: `active` moves to the clicked number immediately (goTo sets
+   it synchronously), and its blue must win over the hover black while the
+   cursor is still parked on it. */
+.fp-pager__dot.is-active:hover {
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: focused-project accent (broadcast on .fp root); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* Client-name token — fixed-size mono tag right of the scaling number, so
+   visitors can read what client each featured project is for. The absolute
+   position keeps it out of the button's box (fisheye + marker unaffected);
+   the explicit font-size breaks the inherited fisheye scale.
+
+   Choreography: at rest only the current project's token shows (varied
+   name lengths read as clutter). Hover/tap/focus over the rail slides
+   the rest in from the left, trailing the number scale-up by 70ms; on
+   leave the scale snaps back in sync while the tokens ease out on the
+   same 70ms lag (the one transition declaration governs both ways). */
+.fp-pager__label {
+  position: absolute;
+  left: calc(100% + 0.5rem);
+  top: 50%;
+  transform: translate(-0.5rem, -50%);
+  opacity: 0;
+  padding: 0.071rem 0.429rem;
+  background: var(--color-near-black);
+  font-family: var(--font-body);
+  font-size: var(--text-mono);
+  font-weight: 500;
+  text-transform: uppercase;
+  line-height: 1.4;
+  color: var(--color-white);
+  white-space: nowrap;
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease-out 0.05s,
+    transform 0.4s ease-out 0.1s,
+    background 0.16s var(--pager-ease, ease-out);
+}
+
+.fp-pager.is-hovered .fp-pager__label {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+/* The current project's token stays readable at rest */
+.fp-pager__dot.is-active .fp-pager__label {
+  opacity: 1;
+  transform: translate(0, -50%);
+  color: var(--project-color-fg, var(--color-white));
+  /* S2: focused-project accent (broadcast on .fp root); blank → brand blue. */
+  background: var(--project-color, var(--color-electric-blue));
+}
+
+/* White marker triangle, pointing right toward the numbers. It's a single
+   standalone element (not a per-dot ::before) so it can slide/ease between
+   numbers — JS sets its translateY to the active dot's centre each frame. */
+.fp-pager__marker {
+  position: absolute;
+  /* em sizes are relative to this; matching the active number's resting scale
+     (1 + PAGER_BASE_GAIN) restores the triangle to its old ::before size. */
+  font-size: calc(var(--text-mono) * 2.6);
+  left: -0.35em;
+  top: 0;
+  margin-top: -0.28em;
+  width: 0;
+  height: 0;
+  border-top: 0.28em solid transparent;
+  border-bottom: 0.28em solid transparent;
+  border-left: 0.4em solid var(--color-white);
+  pointer-events: none;
+  z-index: 6;
+  will-change: transform;
+}
+
+/* Engaged tell: the stage recedes — the scene is NOT turning while the
+   pager owns the gesture. Class toggled imperatively by the island.
+   .fp-stage carries no inline styles or GSAP writes; dimming the card
+   wraps instead would fight WorldCard's inline autoAlpha. */
+.fp .fp-stage {
+  transition: opacity var(--duration-micro) var(--ease-micro);
+}
+
+.fp.is-pager-engaged .fp-stage {
+  opacity: var(--pager-stage-dim);
+}
+
+/* 09-02 (Nathan, scale arm): the engaged tell is a full-viewport SCRIM —
+   black over every page element EXCEPT the pager, nav lockup included, so
+   the selection owns the eye — replacing the stage-opacity dim for
+   ?pager=scale only (the island stamps data-pager with the resolved
+   variant). The scrim is a fixed ::before riding z-110, over the site nav
+   shell (z-100) and under the skip link (z-200); .fp creates no stacking
+   context and no ancestor contains fixed, so the pseudo escapes the .fp
+   overflow clip and covers the true viewport. The engaged pager itself
+   rides UP to z-120 — and holds there through the scrim's fade-out (the
+   0s z-index transition delayed by --pager-scrim-ms), so the chip never
+   dips beneath the scrim mid-fade. At rest it returns to z-5, back under
+   the inquiry overlay (z-50). */
+.fp[data-pager='scale'].is-pager-engaged .fp-stage {
+  opacity: 1;
+}
+
+/* The engaged SCRIM — plain --color-black on EVERY tier, like .mobile-menu
+   (11-13, Nathan: the black pager on desktop too): opaque (--pager-scrim 1,
+   global.css), no project tint, no backdrop blur, no grain. Rows far from
+   the lens recede into it through their feather + ink falloff. Nothing is
+   declared on .fp: the ::before's own fallbacks (tint 0, blur none, noise
+   none, grain driver none) ARE the shipped recipe, and the ?scrimtune bench
+   (and the ?grain* / ?scrimblur URL dials) write inline custom props that
+   override them. The 09-04 grain/tint/blur bake (depth 0.4, 75% tint, 7.5px
+   blur, RGB turbulence on a 184px tile) was retired with this. */
+.fp[data-pager='scale']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  /* The BLUR FIX (09-04): the fade lives on opacity 0↔1 while the
+     DARKNESS lives in the background-color's alpha (--pager-scrim, same
+     0–1 token) — an element with opacity < 1 composites its
+     backdrop-filter RESULT at that opacity over the SHARP original, so a
+     0.65-opacity scrim leaked 35% crisp stage through every blur ("blur
+     px does nothing"). At steady opacity 1 the filter owns the backdrop.
+     --scrim-tint mixes the live --project-color into the flood before
+     the alpha (0 = pure black). */
+  background-color: color-mix(
+    in srgb,
+    color-mix(
+        in srgb,
+        var(--project-color, var(--color-black)) calc(var(--scrim-tint, 0) * 100%),
+        var(--color-black)
+      )
+      calc(var(--pager-scrim) * 100%),
+    transparent
+  );
+  /* ?scrimtune hooks (09-04 round 7): the bench writes these inline on
+     .fp — a tiled feTurbulence data-URI (grain), its display size, a
+     per-frame jitter offset (the grain "fps"), a backdrop blur, and the
+     tint above. All default to no-ops (plain black), so the shipped scrim
+     is identical until a dial moves; blessed values get baked here. */
+  background-image: var(--scrim-noise, none);
+  background-size: var(--scrim-noise-size, 184px); /* scrimNoise.js SCRIM_GRAIN.size */
+  background-position: var(--scrim-noise-pos, 0 0);
+  background-repeat: repeat;
+  -webkit-backdrop-filter: var(--scrim-bf, none);
+  backdrop-filter: var(--scrim-bf, none);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--pager-scrim-ms) var(--ease-micro);
+}
+
+.fp[data-pager='scale'].is-pager-engaged::before,
+.fp[data-pager='scale'].is-scrimtune-hold::before {
+  opacity: 1;
+  /* The grain driver — OFF by default (the scrim is plain black, so there
+     is nothing to dance): ?grainfps writes --scrim-grain-anim to run the
+     8 held frames of fp-scrim-grain below over 8/fps (keyframed
+     background-position outranks the base var while active). Runs only
+     while the scrim shows; deliberately NOT stilled by the pause freeze —
+     the grain belongs to the scrim, not the page (the projector idiom).
+     The bench sets --scrim-grain-anim: none and drives its own interval. */
+  animation: var(--scrim-grain-anim, none);
+}
+
+@keyframes fp-scrim-grain {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+
+  12.5% {
+    background-position: 137px 61px;
+  }
+
+  25% {
+    background-position: 33px 199px;
+  }
+
+  37.5% {
+    background-position: 208px 118px;
+  }
+
+  50% {
+    background-position: 88px 22px;
+  }
+
+  62.5% {
+    background-position: 166px 233px;
+  }
+
+  75% {
+    background-position: 14px 92px;
+  }
+
+  87.5% {
+    background-position: 227px 172px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp .fp-stage {
+    transition: none;
+  }
+}
+
+/* The pause screen proper: every CSS animation outside the pager holds
+   (GSAP tweens + the scene loop are paused by the skin — globalTimeline +
+   the swm:fp-freeze scene gate), and the scrim turns SOLID to input so the
+   stage, CTAs and chrome are inert while frozen. */
+.fp.is-fp-frozen :not(.fp-scale, .fp-scale *) {
+  animation-play-state: paused;
+}
+
+.fp[data-pager='scale'].is-fp-frozen::before {
+  pointer-events: auto;
+}
+
+/* (The r8 pause-screen globe ::after was REMOVED in r9 — Nathan's call;
+   the [select_project] label became the accent CHIP instead.) */
+
+
+@media (prefers-reduced-motion: reduce) {
+  /* The scrim's fade (the pager's own RM rules live in pager-scale.css). */
+  .fp[data-pager='scale']::before {
+    transition: none;
+  }
+
+  /* Baked 30fps grain jitter (09-04) holds still under RM — the scrim
+     keeps its static grain texture. */
+  .fp[data-pager='scale'].is-pager-engaged::before,
+  .fp[data-pager='scale'].is-scrimtune-hold::before {
+    animation: none;
+  }
+}
+
+/* .fp-cta base chip + .fp-cta__arrows moved to global.css (shared CTA chip
+   family). 08-31, Nathan: /work's [PREVIOUS]/[NEXT] center chips are
+   RETIRED — the /process STEPPER set is the primary prev/next component
+   now (small sans chip, left corners, the shared --stepnav-edge-inset
+   seat), refined going forward as the family that matches the breadcrumb/
+   next-project chips. The behavior wiring is unchanged: --cta-bg/--cta-fg
+   still carry the scroll-charge lerp, --cta-scale × --tx-scale still ride
+   the enter push-in (transform-origin left so the corner chips grow from
+   their seat). */
+/* Class-doubled selectors on purpose: Astro's stylesheet ORDER between
+   global and page css differs between a direct /work load and a client-nav
+   arrival (observed 08-31) — specificity, not order, must win over the
+   .fp-cta base. Placement per Nathan (08-31): the chips STAY CENTERED on
+   this page (the base left:50% + centering translate), wearing the
+   stepper SKIN (small sans row, lowercase) and the shared inward seat. */
+/* 11-03: the chips' white charge (FeaturedProjects ctaColor), registered so
+   it can transition on its own lane while the background takes none. */
+@property --cta-charge {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+.fp-cta.fp-prev,
+.fp-cta.fp-next {
+  /* vertical stack (08-31): the base .fp-cta column/center/0.1rem-gap IS
+     the stepper read — arrows above the label on previous, below on next
+     (markup order); only the small skin overrides live here */
+  --cta-pad-x: 0.4rem; /* the name window bleeds through it (.fp-cta__name) */
+  padding: 0.25rem var(--cta-pad-x);
+  font-size: var(--text-mono);
+  letter-spacing: var(--tracking-tight);
+  /* previous/next as equals — the "previous" box is the floor (global token) */
+  min-width: var(--stepnav-min-w);
+  /* 11-03 (Nathan: the chips' colour "lags", the pager's 11-03 fix again):
+     no background lane. A lane on a background that rides the 1.7s
+     inherited --project-color fade CHASES it and lands late; the charge
+     transitions instead, and the background follows both every frame. */
+  transition:
+    transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    --cta-charge var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    color var(--cta-return, 0.18s) var(--cta-ease, ease-out);
+}
+
+/* Through a Turn the ink would chase the fading --project-color-fg the same
+   way: it swaps to the SNAPPING --nav-ink (same endpoints) and fades over the
+   nav links' own lane. The committing chip passes its pin/commit lane in
+   --cta-ink-fade / --cta-ink-ease, so a flick still pins black at once. */
+.fp[data-turning] .fp-cta.fp-prev,
+.fp[data-turning] .fp-cta.fp-next {
+  --cta-ink: var(--nav-ink, var(--color-white));
+  transition:
+    transform var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    --cta-charge var(--cta-return, 0.18s) var(--cta-ease, ease-out),
+    color var(--cta-ink-fade, var(--ink-fade, var(--project-color-fade)))
+      var(--cta-ink-ease, var(--ease-ink));
+}
+
+.fp-cta.fp-prev {
+  /* below the nav bar — the /process --prev seat's vertical tokens */
+  top: calc(var(--nav-height) + var(--space-4) + var(--stepnav-edge-inset));
+}
+
+.fp-cta.fp-next {
+  bottom: calc(var(--nav-inset) + var(--stepnav-edge-inset));
+}
+
+/* The /process caret re-cut (the 60×34 window outweighs the small label).
+   08-31: the window runs THROUGH the chip's vertical padding to its outer
+   edge — carets clip exactly at the chip bounds. */
+.fp-prev .fp-cta__arrows,
+.fp-next .fp-cta__arrows {
+  width: 34px;
+  height: calc(20px + 0.25rem);
+}
+
+.fp-prev .fp-cta__arrows--up {
+  margin: -0.25rem 0 0;
+}
+
+.fp-next .fp-cta__arrows--down {
+  margin: 0 0 -0.25rem;
+}
+
+/* SQ-80 (Nathan 11-13, "try"): the chips read the NEIGHBOURING client names
+   (?ctanames=0 restores the words). The width the words used to floor
+   (--stepnav-min-w) is the FIXED width now, so a long name never widens the
+   chip; the label is a box between the carets that hard-clips and — past its
+   width — rolls (CtaName in CtaArrows.jsx). Skin only: no colour, charge,
+   scale, wipe or timing moves. data-names is set only while a name is shown,
+   so the words' chip keeps its min-width. */
+.fp-cta.fp-prev[data-names],
+.fp-cta.fp-next[data-names] {
+  width: var(--stepnav-min-w);
+}
+
+/* The label wears the PAGER's client-name face and weight: the very tokens
+   .fp-scale__station sets (--font-body, --weight-medium) — no copied value —
+   and the case comes through uppercase from .fp-cta, like .fp-scale__name's.
+   Size is the chip's own (--text-mono, from the rule above). */
+.fp-cta .fp-cta__name {
+  align-self: stretch;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+  text-align: center;
+  white-space: nowrap;
+  /* line-height 1 would shave a Q/J tail at the clip; the padding gives it
+     room and the equal negative margin hands the chip its height back */
+  padding-block: 0.12em;
+  margin-block: -0.12em;
+  /* The window bleeds through the chip's side padding (Nathan 11-13: "just
+     like the breadcrumb buttons, the ticker should run all the way to the
+     edge" — .detail-next__window's idiom), so a rolling name enters and exits
+     AT the chip's edge. Symmetric, so a still name stays centred. */
+  margin-inline: calc(-1 * var(--cta-pad-x, 0px));
+}
+
+/* A name that fits: ONE copy, centred, still. */
+.fp-cta__name-track {
+  display: block;
+}
+
+.fp-cta__name-copy + .fp-cta__name-copy {
+  display: none;
+}
+
+/* The second copy is an empty span painted from data-copy. */
+.fp-cta__name-copy[data-copy]::before {
+  content: attr(data-copy);
+}
+
+/* A name that overflows (CtaName arms data-roll): two copies, each carrying
+   its own trailing gap as padding, so the track is 2 × (copy + gap) and its
+   -50% travel is EXACTLY one copy + one gap — the wrap lands on the same
+   pixels (inline-flex + gap would travel copy + gap/2). The duration and the
+   negative wall-clock delay (the r11h phase-lock) come from the component. */
+.fp-cta__name[data-roll] .fp-cta__name-track {
+  display: flex;
+  width: max-content;
+  animation: fp-cta-name-roll var(--cta-name-s, 6s) linear infinite;
+  animation-delay: var(--cta-name-delay, 0s);
+}
+
+.fp-cta__name[data-roll] .fp-cta__name-copy {
+  flex: none;
+  padding-right: var(--cta-name-gap, 1.5em);
+}
+
+.fp-cta__name[data-roll] .fp-cta__name-copy + .fp-cta__name-copy {
+  display: block;
+}
+
+@keyframes fp-cta-name-roll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-cta__name[data-roll] .fp-cta__name-track {
+    animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+
+  /* Pager client names were pinned to the desktop mono size (~12.8px) and
+     read too small on phones; give them a real lift beyond the token bump. */
+  .fp-pager__label {
+    font-size: 1.143rem;
+    /* 16px */
+  }
+
+  /* 08-31, Nathan: at REST the pager shows no client name on phones — the
+     focused card already carries it (redundant + it ate card real estate,
+     Heavy House Society worst). The label still slides in while the rail
+     is pressed/hovered (the is-hovered state below outranks this rest
+     override). Full pager rework queued next session. */
+  .fp-pager__dot.is-active .fp-pager__label {
+    opacity: 0;
+    transform: translate(-0.5rem, -50%);
+  }
+
+  .fp-pager.is-hovered .fp-pager__dot.is-active .fp-pager__label {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+
+  /* PROJECT_## tab collides with the left pager rail on phones — the pager
+     already carries the index; drop the chip. */
+  .fp-card__tab {
+    display: none;
+  }
+
+  /* Central text area: narrower container (clears the pager rail), with the
+     client name lifted back up — the desktop clamp scaled it away on phones. */
+  .fp-card {
+    max-width: 76vw;
+    min-width: 0;
+  }
+
+  /* 09-04 r9 (Nathan's mobile dial bake: ?cardname=84 → 6rem fixed —
+     replaces the old clamp; ?tagtext=12 → 0.857rem; ?taggap=6 → --space-3;
+     ?tagpad=4 = the shipped --space-2, already true). The --fp-* dial vars
+     still override live. 11-15 (Nathan): names 84 → 64 px so Munchietown
+     clears the pager's select_project hint (64 / 14 = 4.5714rem). */
+  .fp-card__client {
+    font-size: var(--fp-card-name-size, 4.5714rem);
+  }
+
+  .fp-tag {
+    font-size: var(--fp-tag-size, 0.857rem);
+  }
+
+  .fp-card__tags {
+    gap: var(--fp-tag-gap, var(--space-3));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-scroller {
+    scroll-behavior: auto;
+  }
+}
+
+/* — Deck Viewer debug panel (?deckdebug) — dev affordance, mirrors the
+   process ?debug chrome (mono, near-black, electric-blue accents). Bottom-right
+   so it clears the left pager rail and the top/bottom CTAs. — */
+.fp-deckdbg {
+  position: fixed;
+  right: 1.143rem;
+  bottom: 1.143rem;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  width: min(21rem, calc(100vw - 2.286rem));
+  max-height: calc(100dvh - 8rem);
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid var(--color-electric-blue);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-white);
+}
+
+.fp-deckdbg--chip {
+  width: auto;
+  padding: 0;
+  overflow: visible;
+}
+
+.fp-deckdbg--chip button {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-electric-blue);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.fp-deckdbg__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.fp-deckdbg__title {
+  color: var(--color-electric-blue);
+}
+
+.fp-deckdbg__close {
+  padding: 0 var(--space-2);
+  font-family: inherit;
+  font-size: 1.143rem;
+  line-height: 1;
+  color: var(--color-white);
+}
+
+.fp-deckdbg__knobs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.fp-deckdbg__knob {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr 3rem;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.fp-deckdbg__knob-name {
+  opacity: 0.75;
+}
+
+.fp-deckdbg__knob-value {
+  text-align: right;
+  color: var(--color-electric-blue);
+}
+
+.fp-deckdbg__knob input[type='range'] {
+  width: 100%;
+  height: 2px;
+  appearance: none;
+  background: rgba(250, 250, 250, 0.3);
+  cursor: pointer;
+}
+
+.fp-deckdbg__knob input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 0;
+  background: var(--color-electric-blue);
+}
+
+.fp-deckdbg__knob input[type='range']::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 0;
+  background: var(--color-electric-blue);
+}
+
+.fp-deckdbg__url {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  border-top: 1px solid rgba(250, 250, 250, 0.2);
+  padding-top: var(--space-3);
+}
+
+.fp-deckdbg__url button {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-electric-blue);
+  color: var(--color-electric-blue);
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.fp-deckdbg__url code {
+  flex-basis: 100%;
+  font-family: inherit;
+  font-size: 0.786rem;
+  opacity: 0.6;
+  word-break: break-all;
+}

@@ -1,0 +1,308 @@
+/**
+ * SiteShell — Persistent site-wide shell (React island).
+ *
+ * Lives in BaseLayout with `transition:persist` so it survives
+ * Astro page navigations without reloading. Contains:
+ *   - InfoPanel (client drawer + SiteNav)
+ *   - ProjectOverlay (inquiry form)
+ *
+ * Cross-island communication:
+ *   - Listens for `swm:open-overlay` CustomEvent from Hero CTA
+ *   - Scroll-to-toggle drawer works on all pages
+ *
+ * Architecture:
+ * ┌────────────────────────────────────────┐
+ * │  .site-shell (fixed, z-index 100)     │
+ * │  ┌──────────────────────────────────┐  │
+ * │  │ info-wrapper                     │  │
+ * │  │   InfoPanel (client drawer)      │  │
+ * │  │   SiteNav (bottom of wrapper)    │  │
+ * │  └──────────────────────────────────┘  │
+ * │  ProjectOverlay (when open)            │
+ * └────────────────────────────────────────┘
+ */
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+import { Flip } from 'gsap/Flip';
+
+import InfoPanel from './InfoPanel';
+import ProjectOverlay from './ProjectOverlay';
+import { PRIVACY_STATE_EVENT } from './PrivacyOverlay.jsx';
+import RouteFill from './RouteFill';
+import { LENIS_TUNE_ACTIVE } from '../lib/lenisTune.js';
+import { FOOTER_TUNE_ACTIVE } from '../lib/footerTune.js';
+import {
+  INFO_OPEN,
+  INFO_CLOSE,
+  INFO_CLOSE_EVENT,
+  infoPush,
+  measureInfoPush,
+  pushTo,
+  watchInfoPush,
+} from '../lib/infoPush.js';
+
+gsap.registerPlugin(useGSAP, Flip);
+
+export default function SiteShell({ siteCopy, roster }) {
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  // The privacy overlay lives in the SiteTagline island (its pill is its
+  // close control and must paint above it); it reports its state here.
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  useEffect(() => {
+    const on = (e) => setIsPrivacyOpen(!!e.detail?.open);
+    window.addEventListener(PRIVACY_STATE_EVENT, on);
+    return () => window.removeEventListener(PRIVACY_STATE_EVENT, on);
+  }, []);
+  const shellRef = useRef(null);
+
+  // A2b Lenis tuning bench — mount only AFTER hydration. LENIS_TUNE_ACTIVE
+  // reads the URL, which must match server render; deferring to an effect keeps
+  // the first client render byte-identical to SSR (see fp1Tune's mount note).
+  // The panel is also CODE-SPLIT: the same effect that opens the gate pulls the
+  // chunk in, so the bench (and its stylesheet, imported inside the panel) never
+  // rides the shipped SiteShell payload. State holds the component itself, so
+  // the setter needs the UPDATER form — setLenisTunePanel(Component) would treat
+  // a function value as a reducer and call it.
+  const [LenisTunePanel, setLenisTunePanel] = useState(null);
+  useEffect(() => {
+    if (!LENIS_TUNE_ACTIVE) return;
+    // `alive` covers the late-resolve case: a ClientRouter navigation can unmount
+    // this island before the chunk lands, and setState-after-unmount would warn.
+    // React 19 StrictMode double-invokes this in dev — the second pass re-imports
+    // from the module cache and re-sets, so the panel still arrives.
+    let alive = true;
+    import('./LenisTunePanel.jsx')
+      .then((m) => {
+        if (alive) setLenisTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Footer-reveal tuning bench (?footertune=1) — same hydration-safe lazy
+  // gate as LenisTunePanel above: SSR/first client render emit nothing, the
+  // effect import()s the chunk only when the URL asks for it.
+  const [FooterTunePanel, setFooterTunePanel] = useState(null);
+  useEffect(() => {
+    if (!FOOTER_TUNE_ACTIVE) return;
+    let alive = true;
+    import('./FooterTunePanel.jsx')
+      .then((m) => {
+        if (alive) setFooterTunePanel(() => m.default);
+      })
+      .catch(() => {
+        /* dev bench only — a blocked/offline chunk just means no panel */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    setIsInfoOpen((prev) => !prev);
+  }, []);
+
+  // A client name in the drawer closes it as it filters the directory.
+  const handleClose = useCallback(() => {
+    setIsInfoOpen(false);
+  }, []);
+
+  const handleOpenOverlay = useCallback(() => {
+    setIsOverlayOpen(true);
+  }, []);
+
+  const handleCloseOverlay = useCallback(() => {
+    setIsOverlayOpen(false);
+  }, []);
+
+  // Listen for Hero CTA custom event (cross-island communication)
+  useEffect(() => {
+    const handler = () => setIsOverlayOpen(true);
+    window.addEventListener('swm:open-overlay', handler);
+    return () => window.removeEventListener('swm:open-overlay', handler);
+  }, []);
+
+  // Track open state in a ref for GSAP closures
+  const isOpenRef = useRef(isInfoOpen);
+  useEffect(() => {
+    isOpenRef.current = isInfoOpen;
+  }, [isInfoOpen]);
+
+  // F1 footer nav-slide gate: mark <html> while the info drawer or inquiry
+  // overlay is open so the footer-reveal shell slide (global.css) backs off. A
+  // transformed .site-shell becomes the containing block for the fixed overlay,
+  // which would otherwise shift by the nav height when both are active at once.
+  useEffect(() => {
+    document.documentElement.toggleAttribute(
+      'data-chrome-open',
+      isInfoOpen || isOverlayOpen || isPrivacyOpen
+    );
+  }, [isInfoOpen, isOverlayOpen, isPrivacyOpen]);
+
+  // Reserve the classic scrollbar's width as a DEVICE CONSTANT (→ --scrollbar-w),
+  // measured off an off-screen probe rather than innerWidth − clientWidth. The
+  // old measurement read the CURRENT route's scrollbar (≈15px on a scrollable
+  // route, 0 on a locked one), so the nav/footer right inset — and with it the
+  // right-edge items — jumped between pages. The probe reports the device's
+  // scrollbar width the SAME on every route (0 on overlay-scrollbar systems),
+  // so the inset is identical whether or not this page scrolls, while the
+  // `max(--space-4, --scrollbar-w)` in global.css still reserves room to clear
+  // the bar where it appears. Re-measured on resize (browser zoom, or plugging
+  // a mouse that flips macOS overlay↔classic scrollbars, changes the width).
+  // RE-ASSERTED on astro:after-swap: ClientRouter soft navs replace ALL <html>
+  // attributes, inline style included, silently erasing the property — on
+  // classic-scrollbar devices the right inset then collapsed to the 0px
+  // fallback and the nav links shifted ~7px right after the first soft nav
+  // (Nathan's home→/work report, 08-29).
+  useEffect(() => {
+    const setSbw = () => {
+      const probe = document.createElement('div');
+      probe.style.cssText =
+        'position:absolute;top:-9999px;width:100px;height:100px;overflow:scroll;visibility:hidden;pointer-events:none;';
+      document.body.appendChild(probe);
+      const w = Math.max(0, probe.offsetWidth - probe.clientWidth);
+      probe.remove();
+      document.documentElement.style.setProperty('--scrollbar-w', `${w}px`);
+    };
+    setSbw();
+    window.addEventListener('resize', setSbw);
+    document.addEventListener('astro:after-swap', setSbw);
+    return () => {
+      window.removeEventListener('resize', setSbw);
+      document.removeEventListener('astro:after-swap', setSbw);
+    };
+  }, []);
+
+  // GSAP: initial closed position + resize tracking
+  useGSAP(() => {
+    const wrapper = shellRef.current?.querySelector('.info-wrapper');
+    const panelContent = wrapper?.querySelector('.info-panel');
+    if (!wrapper || !panelContent) return;
+
+    // Closed y = -ceil(panel height): the panel hides fully even at a
+    // fractional measure, but the NAV at the wrapper's bottom stays seated
+    // AT the viewport top. (08-30, Nathan's report: the old flat +1px
+    // overshoot lifted the whole bar 1px — the mobile menu's takeover bar
+    // sits at true 0, so its centered lockup read "a touch lower" than the
+    // nav's. Probe: bar top −1 vs menu bar 0.)
+    let currentHeight = panelContent.getBoundingClientRect().height;
+
+    if (!isOpenRef.current) {
+      gsap.set(wrapper, { y: -Math.ceil(currentHeight) });
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        const accurateHeight = panelContent.getBoundingClientRect().height;
+        if (Math.abs(currentHeight - accurateHeight) > 0.5) {
+          currentHeight = accurateHeight;
+          if (!isOpenRef.current) {
+            gsap.set(wrapper, { y: -Math.ceil(currentHeight), overwrite: true });
+          }
+        }
+      });
+    });
+
+    resizeObserver.observe(panelContent);
+    return () => resizeObserver.disconnect();
+  }, { scope: shellRef });
+
+  // The close in flight, and what waits on it (home's zoom_in: requestInfoClose).
+  const closingRef = useRef(false);
+  const afterCloseRef = useRef(null);
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    const onCloseRequest = (e) => {
+      if (!isOpenRef.current && !closingRef.current) return; // nothing to wait for
+      e.detail.deferred = true;
+      afterCloseRef.current = e.detail.done;
+      setIsInfoOpen(false);
+    };
+    window.addEventListener(INFO_CLOSE_EVENT, onCloseRequest);
+    return () => window.removeEventListener(INFO_CLOSE_EVENT, onCloseRequest);
+  }, []);
+
+  // Home's page content rides the drawer: keep the push honest while it is open.
+  useEffect(() => watchInfoPush(() => isOpenRef.current), []);
+
+  // GSAP: open/close slide animation
+  useGSAP(() => {
+    const wrapper = shellRef.current?.querySelector('.info-wrapper');
+    const panelContent = wrapper?.querySelector('.info-panel');
+    if (!wrapper || !panelContent) return;
+
+    const currentHeight = panelContent.getBoundingClientRect().height;
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = isInfoOpen;
+
+    // The push-down (src/lib/infoPush.js) rides the drawer's own tween: the
+    // same call, duration, delay and ease, so the two cannot drift. Zero off
+    // home, where the drawer behaves exactly as before.
+    const push = isInfoOpen ? measureInfoPush() : 0;
+    const pushing = push > 0 || infoPush.to > 0;
+    const slide = isInfoOpen ? INFO_OPEN : INFO_CLOSE;
+    // Reduced motion: the home page and the drawer cut together, to the same end positions.
+    const motion = pushing && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? { duration: 0, delay: 0 }
+      : slide;
+
+    if (isInfoOpen) {
+      closingRef.current = false;
+      afterCloseRef.current = null; // reopened before the close landed: drop what waited
+      gsap.to(wrapper, { y: 0, ...motion, overwrite: true });
+    } else {
+      closingRef.current = wasOpen;
+      gsap.to(wrapper, {
+        y: -Math.ceil(currentHeight), // the ceil idiom — see the closed-set note
+        ...motion,
+        overwrite: true,
+        onComplete: () => {
+          closingRef.current = false;
+          const done = afterCloseRef.current;
+          afterCloseRef.current = null;
+          done?.();
+        },
+      });
+    }
+    if (pushing) pushTo(push, motion);
+  }, { scope: shellRef, dependencies: [isInfoOpen] });
+
+  return (
+    <>
+    <div className="site-shell" ref={shellRef}>
+      {/* Envelopment bridge — persists across route swaps (ADR-0002).
+          First in the shell so the nav chrome paints above the fill. */}
+      <RouteFill />
+
+      <InfoPanel
+        isOpen={isInfoOpen}
+        onToggle={handleToggle}
+        onClose={handleClose}
+        onStartProject={handleOpenOverlay}
+        siteCopy={siteCopy}
+        roster={roster}
+      />
+
+      <ProjectOverlay
+        isOpen={isOverlayOpen}
+        onClose={handleCloseOverlay}
+      />
+
+      {LenisTunePanel && <LenisTunePanel />}
+      {FooterTunePanel && <FooterTunePanel />}
+    </div>
+    {/* The phone menu's seat (SiteNav portals the takeover here). Outside .site-shell on purpose: the
+        shell is one stacking context (z 100) that holds RouteFill, and the colour-scheme badge (z 101)
+        has to paint above the fill and below the menu, so the menu sits one level above the badge
+        (global.css .site-menu-host, z 102) and its wipe covers the badge in one paint. It persists
+        with this island. */}
+    <div className="site-menu-host" />
+    </>
+  );
+}

@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
 
 # Editor directories and files
 .vscode/*
@@ -27,3 +28,27 @@ dist-ssr
 PkgTTC-SGr-IosevkaTerm-34.4.0/
 *.ttc
 *.ttf
+
+# Media library — 28GB+ of client assets (Dropbox-synced)
+# Only manifest metadata files and the audit's accepted list are tracked in git
+media/**
+!media/**/
+!media/**/_manifest.md
+!media/_audit-accepted.json
+
+# Local-only artifacts
+# CMS state defaults outside Dropbox; ignore an explicit checkout-local override too.
+.cms-runs/
+.sanity/
+.scratch/
+schema.json
+
+# Claude Code per-machine settings
+.claude/settings.local.json
+
+# Client logo intake (Dropbox dump) — scripts/prep-client-logos.mjs
+# normalises it into the tracked src/assets/client-logos/
+Client Logos/
+
+# Headless probe output (pager-probe / process-probe screenshots + JSON)
+scripts/shots/

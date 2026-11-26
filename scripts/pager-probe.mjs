@@ -1,0 +1,575 @@
+#!/usr/bin/env node
+/**
+ * pager-probe — headless Playwright harness for the /work ?pager= arms.
+ *
+ * Usage:
+ *   node pager-probe.mjs --variant=scale --root=.fp-scale [--vw=1440 --vh=900]
+ *        [--mobile] [--dpr=3] [--rm] [--out=DIR] [--scenario=rest,hover,wheel,touch,peek,keys,all]
+ *        (--scenario=edge [--want=NAME], --mobile only, never part of `all`: the phone clip edge + the marquee wrap step)
+ *        (--scenario=chipwipe [--browser=webkit], never part of `all`: the [select_project] chip sampled every
+ *         frame through a release — touch scrub + lift with --mobile, hover + wheel + leave without; judged
+ *         by scripts/lib/chipWipeGate.mjs, SQ-142. WebKit has no CDP, so its touch is synthetic PointerEvents.
+ *         [--stall=MS]: a main-thread busy-wait the instant data-exit lands, the phone's Turn-landing long task.)
+ *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
+ *        [--path=/work] [--host=.fp]   (SQ-87: the route, and the element that wears
+ *        .is-pager-engaged — .swm-corner for the pager mounted outside /work)
+ *
+ * Prints a JSON report to stdout (console errors, page errors, readouts per
+ * step) and writes PNG screenshots to --out. Touch gestures go through CDP
+ * Input.dispatchTouchEvent (Playwright's mouse never becomes a touch pointer).
+ *
+ * Headless doctrine, learned the hard way (09-01):
+ *   - /work starves the main thread on the GPU path (~250ms timer lag, 150ms
+ *     frames), so the engine's 200ms hold timer beats a 60ms tap and peeks
+ *     never register. SwiftShader is therefore the DEFAULT (~30ms lag).
+ *   - React-state-driven attributes (data-open/data-charged) land a render
+ *     late, hence --settle before every readout. `.fp.is-pager-engaged` is
+ *     the imperative ground truth for engagement.
+ *   - Environmental console noise to ignore: cdn.sanity.io CORS image errors,
+ *     net::ERR_FAILED, "GPU stall due to ReadPixels", and Chrome's own
+ *     reduced-motion view-transitions warning.
+ *   - The two awaited desktop wheel ticks land ~1.4s apart under SwiftShader,
+ *     so the wheel scenario reads as two bursts and can commit twice. Real
+ *     hardware sends them as one burst / one commit.
+ */
+import path from 'node:path';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { verdict as chipWipeVerdict, clipFraction } from './lib/chipWipeGate.mjs';
+
+const require = createRequire(import.meta.url);
+// Playwright is NOT a project dependency (the repo ships no test runner). Point
+// PLAYWRIGHT_PATH at any install whose browsers are downloaded; the default is
+// the npx-cached 1.62.1 that carries chromium-1234 on Nathan's machine. The
+// copy bundled with @playwright/mcp has no browser and will not launch.
+const pw = require(
+  process.env.PLAYWRIGHT_PATH ||
+    '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright'
+);
+
+const arg = (k, d) => {
+  const m = process.argv.find((a) => a.startsWith(`--${k}=`));
+  if (m) return m.slice(k.length + 3);
+  return process.argv.includes(`--${k}`) ? true : d;
+};
+const BROWSER = String(arg('browser', 'chromium')); // chromium | webkit (the iOS stand-in)
+const VARIANT = arg('variant', 'scale'); // tape/tuner arms deleted 09-05
+const MOBILE = !!arg('mobile', false);
+const VW = Number(arg('vw', MOBILE ? 390 : 1440));
+const VH = Number(arg('vh', MOBILE ? 844 : 900));
+const RM = !!arg('rm', false);
+const DPR = Number(arg('dpr', MOBILE ? 2 : 1)); // --dpr=3 for the phone fidelity shots
+// fileURLToPath, not URL.pathname — the Dropbox path has spaces (%20 would
+// mkdir a stray "Small%20World%20Media" tree beside the real one).
+const OUT = arg('out', path.join(path.dirname(fileURLToPath(import.meta.url)), 'shots', `${VARIANT}-${MOBILE ? 'm' : 'd'}${RM ? '-rm' : ''}`));
+const SCEN = String(arg('scenario', 'all')).split(',');
+const EXTRA = arg('extra', '');
+const HOLD = Number(arg('hold', 260));
+const DETENTS = Number(arg('detents', 2));
+const BASE = arg('base', 'http://localhost:4321');
+const PEEKWAIT = Number(arg('peekwait', 250));
+const GPU = arg('gpu', 'swiftshader'); // swiftshader (default: ~30ms timer lag) | default (GPU path: ~250ms main-thread starvation)
+// r12c: where the pointer parks to LEAVE the pager. Was the viewport centre — but the scaled selected name
+// (≈620px wide at 1440) now reaches it and keeps the pager engaged (it is hoverable by design).
+const LEAVE_X = Math.round(VW * 0.75);
+const SETTLE = Number(arg('settle', 250)); // extra ms before every readout (headless render lag)
+// SQ-87: the route and the pager's host element are parameters — the pager also mounts
+// outside /work, in a .swm-corner wrapper (--path=/lab/x --host=.swm-corner).
+const PATH_ = String(arg('path', '/work'));
+const HOST = String(arg('host', '.fp'));
+// SQ-92: the corner widget gives every page a second .fp-scale root, so the default root is the pager INSIDE the host.
+const ROOT = arg('root', `${HOST} .fp-scale`);
+const URL_ = `${BASE}${PATH_}${PATH_.includes('?') ? '&' : '?'}pager=${VARIANT}${EXTRA}`;
+const want = (s) => SCEN.includes('all') || SCEN.includes(s);
+
+fs.mkdirSync(OUT, { recursive: true });
+const report = { url: URL_, viewport: [VW, VH], mobile: MOBILE, rm: RM, steps: [], consoleErrors: [], pageErrors: [] };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function waitServer() {
+  const t0 = Date.now();
+  while (Date.now() - t0 < 90000) {
+    try {
+      const r = await fetch(`${BASE}${PATH_}`);
+      if (r.ok) return;
+    } catch {}
+    await sleep(1000);
+  }
+  throw new Error('dev server not reachable at ' + BASE);
+}
+
+const readout = (page) =>
+  page.evaluate(([root, host]) => {
+    const r = document.querySelector(root);
+    const q = (s) => r?.querySelector(s);
+    const hostEl = document.querySelector(host);
+    const rect = r?.getBoundingClientRect();
+    return {
+      rootPresent: !!r,
+      legacyRailPresent: !!document.querySelector('.fp-pager'),
+      open: r?.hasAttribute('data-open') ?? null,
+      charged: r?.hasAttribute('data-charged') ?? null,
+      engagedClass: hostEl?.classList.contains('is-pager-engaged') ?? null,
+      stageOpacity: document.querySelector('.fp-stage') ? getComputedStyle(document.querySelector('.fp-stage')).opacity : null,
+      live: q('[aria-live]')?.textContent ?? null,
+      current: q('[aria-current="true"]')?.textContent?.trim() ?? null,
+      slider: q('[role="slider"]') ? { now: q('[role="slider"]').getAttribute('aria-valuenow'), text: q('[role="slider"]').getAttribute('aria-valuetext') } : null,
+      rootRect: rect ? { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) } : null,
+      // r13: the CHIP's own box (lens + den) and the rest hint's — they keep the pre-r12c size at every
+      // width (2 d.p.: it is compared against the stream's chip at the same width).
+      chipRect: ((c) => (c ? { x: +c.x.toFixed(2), y: +c.y.toFixed(2), w: +c.width.toFixed(2), h: +c.height.toFixed(2) } : null))(
+        q('.fp-scale__chip')?.getBoundingClientRect()
+      ),
+      hintRect: ((c) => (c ? { x: +c.x.toFixed(2), y: +c.y.toFixed(2), w: +c.width.toFixed(2), h: +c.height.toFixed(2) } : null))(
+        q('.fp-scale__hint')?.getBoundingClientRect()
+      ),
+      // r12c: the pager's resolved pitch (px; @property-registered) — the
+      // desktop readouts are compared NORMALISED by it against the base.
+      pitch: r ? parseFloat(getComputedStyle(r).getPropertyValue('--scale-pitch')) || null : null,
+      projectColor: hostEl?.style.getPropertyValue('--project-color') || null,
+      html: r ? r.outerHTML.replace(/\s+/g, ' ').slice(0, 900) : null,
+    };
+  }, [ROOT, HOST]);
+
+// SQ-80: the /work [PREVIOUS] / [NEXT] chips — the label (a neighbour's client
+// name, or the words under ?ctanames=0), its box, the face it wears next to the
+// pager's own names, and the marquee's wrap step (the copy period vs the
+// track's -50% travel; both unscaled px — offsetLeft/offsetWidth ignore the
+// chip's transform scale). The base (:4322) carries the words, so a chips
+// diff against it is expected; every OTHER readout field must match.
+const chipsReadout = (page) =>
+  page.evaluate((root) => {
+    const one = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      const win = el.querySelector('.fp-cta__name');
+      const lab = win || el.querySelector('.fp-cta__label');
+      const cs = lab && getComputedStyle(lab);
+      const copies = win ? win.querySelectorAll('.fp-cta__name-copy') : [];
+      const track = win?.querySelector('.fp-cta__name-track');
+      const roll = win ? win.hasAttribute('data-roll') : null;
+      // fractional: rects, undone for the chip's own scale (offset* rounds to whole px)
+      const k = r.width / el.offsetWidth || 1;
+      const period = roll ? (copies[1].getBoundingClientRect().left - copies[0].getBoundingClientRect().left) / k : null;
+      const travel = roll ? track.getBoundingClientRect().width / 2 / k : null;
+      const pxs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--scale-fill-pxs')) || 30;
+      return {
+        aria: el.getAttribute('aria-label'),
+        text: win ? copies[0]?.textContent : el.querySelector('.fp-cta__label')?.textContent,
+        names: !!win,
+        rect: { x: +r.x.toFixed(1), y: +r.y.toFixed(1), w: +r.width.toFixed(1), h: +r.height.toFixed(1) },
+        chipW: el.offsetWidth,
+        font: cs && { family: cs.fontFamily, weight: cs.fontWeight, size: cs.fontSize, transform: cs.textTransform },
+        winW: win?.clientWidth ?? null,
+        textW: win?.querySelector('.fp-cta__name-copy > span')?.offsetWidth ?? null,
+        roll,
+        period: roll ? +period.toFixed(3) : null,
+        travel: roll ? +travel.toFixed(3) : null,
+        wrapStepPx: roll ? +Math.abs(period - travel).toFixed(3) : null,
+        frameTravelPx: roll ? +(pxs / 60).toFixed(3) : null,
+        // phase-lock: the animation's own clock mod its period vs the wall clock mod it
+        anim: roll
+          ? (() => {
+              const a = track.getAnimations()[0];
+              const dur = parseFloat(getComputedStyle(track).animationDuration);
+              return {
+                s: getComputedStyle(track).animationDuration,
+                delay: getComputedStyle(track).animationDelay,
+                // progress is the iteration fraction INCLUDING the negative delay
+                phaseS: a ? +(a.effect.getComputedTiming().progress * dur).toFixed(3) : null,
+                wallS: +(((performance.now() / 1000) % dur)).toFixed(3),
+              };
+            })()
+          : null,
+      };
+    };
+    const pn = document.querySelector(`${root} .fp-scale__name`);
+    const pcs = pn && getComputedStyle(pn.closest('.fp-scale__station') || pn);
+    const pns = pn && getComputedStyle(pn);
+    return {
+      prev: one('.fp-prev'),
+      next: one('.fp-next'),
+      pagerName: pcs && { family: pcs.fontFamily, weight: pcs.fontWeight, transform: pns.textTransform },
+    };
+  }, ROOT);
+
+async function step(page, name, fn) {
+  if (fn) await fn();
+  if (SETTLE) await sleep(SETTLE);
+  const r = { ...(await readout(page)), chips: await chipsReadout(page) };
+  const file = path.join(OUT, `${String(report.steps.length + 1).padStart(2, '0')}-${name}.png`);
+  await page.screenshot({ path: file });
+  report.steps.push({ name, ...r, shot: file });
+}
+
+async function rootCenter(page) {
+  const b = await page.locator(ROOT).first().boundingBox();
+  if (!b) throw new Error('root not found: ' + ROOT);
+  return { x: b.x + Math.min(b.width, 30) / 2, y: b.y + b.height / 2, box: b };
+}
+
+// CDP touch: press, hold, slide dy (negative = up = next), release.
+async function touchScrub(page, cdp, x, y, dy, holdMs, { steps = 12, flick = false } = {}) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+  await sleep(holdMs);
+  for (let i = 1; i <= steps; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y + (dy * i) / steps, id: 1 }] });
+    await sleep(flick ? 8 : 40);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
+// SQ-142: sample the [select_project] chip every rAF from the press to well past its exit.
+async function chipWipe(page) {
+  await page.evaluate(() => {
+    const rec = (window.__chipSamples = []);
+    window.__chipSampling = true;
+    const tick = (t) => {
+      const el = document.querySelector('.fp .fp-scale__freeze');
+      const cs = el && getComputedStyle(el);
+      rec.push({
+        t,
+        connected: !!el?.isConnected,
+        show: !!el?.hasAttribute('data-show'),
+        exit: !!el?.hasAttribute('data-exit'),
+        opacity: cs ? parseFloat(cs.opacity) : 0,
+        clipPath: cs ? cs.clipPath : null,
+        chars: el ? Array.from(el.querySelectorAll('span')).filter((s) => getComputedStyle(s).visibility !== 'hidden').length : 0,
+        open: !!document.querySelector('.fp .fp-scale[data-open]'),
+        z: el ? getComputedStyle(el.closest('.fp-scale')).zIndex : null,
+        // What paints on top at the chip's centre (the chip itself is pointer-events:none, so
+        // the hit list skips it): the 09-06 hard cut was the stage rising over it.
+        top: ((b) => {
+          if (!b || !b.width) return null;
+          const hit = document.elementsFromPoint(b.x + b.width / 2, b.y + b.height / 2)[0];
+          return hit ? `${hit.tagName.toLowerCase()}.${String(hit.className?.baseVal ?? hit.className).trim().split(/\s+/)[0]}` : null;
+        })(el?.getBoundingClientRect()),
+      });
+      if (window.__chipSampling) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  // --stall=MS (round 2): busy-wait the main thread MS ms the instant data-exit lands, before the
+  // browser can start the wipe's transition — the device's long task as the Turn lands on the
+  // next world. gsap.ticker runs lagSmoothing(0) (smoothScroll.js), so GSAP's clock counts the
+  // stall while the CSS transition only starts after it.
+  const STALL = Number(arg('stall', 0));
+  if (STALL > 0) {
+    await page.evaluate((ms) => {
+      const el = document.querySelector('.fp .fp-scale__freeze');
+      if (!el) return;
+      new MutationObserver(() => {
+        if (!el.hasAttribute('data-exit') || window.__chipStalled) return;
+        window.__chipStalled = true;
+        const t0 = performance.now();
+        while (performance.now() - t0 < ms);
+      }).observe(el, { attributes: true, attributeFilter: ['data-exit'] });
+    }, STALL);
+  }
+  // --cpu=N (Chromium only): CDP CPU throttling, a slower phone's main thread.
+  const CPU = Number(arg('cpu', 1));
+  if (CPU > 1 && BROWSER === 'chromium') {
+    const s = await page.context().newCDPSession(page);
+    await s.send('Emulation.setCPUThrottlingRate', { rate: CPU });
+  }
+  const c = await rootCenter(page);
+  if (MOBILE) {
+    // Synthetic touch PointerEvents on the root (the engine listens for pointer*, not touch*):
+    // press, hold past PAGER_HOLD_MS, slide up DETENTS stations, lift.
+    const fire = (type, y) =>
+      page.evaluate(
+        ([root, type, x, y]) => {
+          document.querySelector(root).dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true, cancelable: true, composed: true, pointerId: 7, pointerType: 'touch', isPrimary: true,
+              clientX: x, clientY: y, buttons: type === 'pointerup' ? 0 : 1,
+            })
+          );
+        },
+        [ROOT, type, c.x, y]
+      );
+    await fire('pointerdown', c.y);
+    await sleep(HOLD);
+    const dy = -56 * DETENTS;
+    for (let i = 1; i <= 10; i++) {
+      await fire('pointermove', c.y + (dy * i) / 10);
+      await sleep(40);
+    }
+    await sleep(300);
+    await fire('pointerup', c.y + dy);
+  } else {
+    await page.mouse.move(c.x, c.y);
+    await sleep(400);
+    for (let i = 0; i < DETENTS; i++) {
+      await page.mouse.wheel(0, 90);
+      await sleep(60);
+    }
+    await sleep(500);
+    await page.mouse.move(LEAVE_X, VH / 2);
+  }
+  // --chipshots=N: N back-to-back viewport shots through the exit (pixel truth; they slow the frames).
+  const shots = Number(arg('chipshots', 0));
+  const tShots = Date.now();
+  for (let i = 0; i < shots; i++) {
+    const at = await page.evaluate(() => performance.now());
+    await page.screenshot({ path: path.join(OUT, `chipwipe-${String(i).padStart(2, '0')}-${Math.round(at)}.png`) });
+  }
+  await sleep(Math.max(0, 2600 - (Date.now() - tShots)));
+  const raw = await page.evaluate(() => {
+    window.__chipSampling = false;
+    return window.__chipSamples;
+  });
+  const samples = raw.map((s) => ({ ...s, clip: clipFraction(s.clipPath) }));
+  const v = chipWipeVerdict({ id: `chipwipe-${BROWSER}-${MOBILE ? 'touch' : 'desktop'}`, samples });
+  // The exit window: from the first letter cut to a few frames past the last data-show frame.
+  const full = samples.reduce((m, s) => Math.max(m, s.chars), 0);
+  const firstCut = samples.findIndex((s) => s.show && s.chars < full);
+  const lastShow = samples.map((s) => s.show).lastIndexOf(true);
+  const win = samples.slice(Math.max(0, firstCut), lastShow + 2);
+  report.chipWipe = {
+    ...v,
+    stallMs: STALL,
+    stalled: await page.evaluate(() => !!window.__chipStalled),
+    frames: samples.length,
+    // the longest frame through the exit: a main-thread stall here eats the clip-path transition
+    maxGapMs: +win.reduce((m, s, i) => (i ? Math.max(m, s.t - win[i - 1].t) : m), 0).toFixed(1),
+    exitWindow: samples.slice(Math.max(0, firstCut - 2), lastShow + 3).map((s) => ({
+      t: +s.t.toFixed(1), show: s.show, exit: s.exit, op: +s.opacity.toFixed(3), clip: s.clip, chars: s.chars, open: s.open, z: s.z, top: s.top,
+    })),
+  };
+  await step(page, 'chipwipe-after');
+}
+
+(async () => {
+  await waitServer();
+  const browser = await pw[BROWSER].launch({
+    headless: true,
+    args: BROWSER === 'chromium' && GPU === 'swiftshader' ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [],
+  });
+  const ctx = await browser.newContext({
+    viewport: { width: VW, height: VH },
+    deviceScaleFactor: DPR,
+    hasTouch: MOBILE,
+    isMobile: MOBILE,
+    reducedMotion: RM ? 'reduce' : 'no-preference',
+  });
+  const page = await ctx.newPage();
+  page.on('console', (m) => {
+    if (m.type() === 'error' || m.type() === 'warning') report.consoleErrors.push(`${m.type()}: ${m.text().slice(0, 300)}`);
+  });
+  page.on('pageerror', (e) => report.pageErrors.push(String(e).slice(0, 400)));
+  await page.goto(URL_, { waitUntil: 'networkidle' });
+  // attached, not visible: a corner wrapper holds only a position:fixed pager, so its own box is empty
+  await page.waitForSelector(HOST, { state: 'attached', timeout: 30000 });
+  try {
+    await page.waitForSelector(ROOT, { timeout: 15000 });
+  } catch {
+    report.fatal = `variant root ${ROOT} never mounted`;
+  }
+  await sleep(1200); // card boot + globe warm-up
+
+  if (!report.fatal) {
+    const cdp = MOBILE && BROWSER === 'chromium' ? await ctx.newCDPSession(page) : null;
+    // --at=N|last: walk to World N (or the last) through the [NEXT] chip before
+    // the scenarios run (SQ-80 chip shots). Each Turn gets ~2.6s to settle.
+    const AT = arg('at', '');
+    if (AT) {
+      for (let i = 0; AT === 'last' ? await page.locator('.fp-next').count() : i < Number(AT); i++) {
+        await page.locator('.fp-next').click();
+        await sleep(2600);
+      }
+      await page.mouse.move(VW / 2, VH / 2);
+      await sleep(1500);
+    }
+    await step(page, AT ? `rest-at-${AT}` : 'rest');
+    if (want('chips')) {
+      // the roll, sampled twice (it must advance) and a held look at the box
+      await sleep(900);
+      await step(page, 'chips-roll-sample');
+    }
+
+    if (!MOBILE && want('hover')) {
+      const c = await rootCenter(page);
+      await page.mouse.move(c.x, c.y);
+      await sleep(400);
+      await step(page, 'hover-engaged');
+      // r12c: the scaled geometry, engaged — pitch, the roster/selected name
+      // sizes, the window's reach vs the viewport (--scale-rows × pitch must
+      // fit the half-height; reported, never silently cut) and the project
+      // directory's filter-tag size (--text-drawer-name) it must match.
+      report.geometry = await page.evaluate((root) => {
+        const r = document.querySelector(root);
+        const cs = getComputedStyle(r);
+        const px = (v) => parseFloat(v) || null;
+        const rows = px(cs.getPropertyValue('--scale-rows'));
+        const pitch = px(cs.getPropertyValue('--scale-pitch'));
+        const roster = [...r.querySelectorAll('.fp-scale__name')].find((n) => !n.hasAttribute('data-sel'));
+        const sel = r.querySelector('.fp-scale__name[data-sel]');
+        const dummy = document.createElement('span');
+        dummy.style.cssText = 'position:absolute;visibility:hidden;font-size:var(--text-drawer-name)';
+        document.body.appendChild(dummy);
+        const filterTag = px(getComputedStyle(dummy).fontSize);
+        dummy.remove();
+        return {
+          vw: innerWidth,
+          vh: innerHeight,
+          pitch,
+          rows,
+          windowHalfPx: rows && pitch ? +(rows * pitch).toFixed(1) : null,
+          halfViewportPx: innerHeight / 2,
+          fitsViewport: rows && pitch ? rows * pitch <= innerHeight / 2 : null,
+          rosterNameFontPx: roster ? px(getComputedStyle(roster).fontSize) : null,
+          selectedPaintedPx: sel ? +(px(getComputedStyle(sel).fontSize) * (px(cs.getPropertyValue('--scale-sel')) || 1.5) * (px(cs.getPropertyValue('--scale-sel-bump')) || 1.05)).toFixed(2) : null,
+          filterTagPx: filterTag,
+          scaleW: +r.getBoundingClientRect().width.toFixed(2), // = --scale-w (unregistered token: measured)
+          numH: r.querySelector('.fp-scale__lens') ? +r.querySelector('.fp-scale__lens').getBoundingClientRect().height.toFixed(2) : null,
+        };
+      }, ROOT);
+      await page.mouse.move(LEAVE_X, VH / 2);
+      await sleep(700);
+      await step(page, 'hover-left');
+    }
+    if (!MOBILE && want('wheel')) {
+      const c = await rootCenter(page);
+      await page.mouse.move(c.x, c.y);
+      await sleep(50);
+      // r12c: the wheel's deltaY per station scales with the desktop pitch
+      // (the skin's wheel detent = 100 × pitch/48), so a 90 notch is 90 ×
+      // pitch/48 here — the same fraction of a station at every width.
+      const pitchK = await page.evaluate(
+        (root) => (parseFloat(getComputedStyle(document.querySelector(root)).getPropertyValue('--scale-pitch')) || 48) / 48,
+        ROOT
+      );
+      report.pitchK = +pitchK.toFixed(4);
+      for (let i = 0; i < DETENTS; i++) {
+        await page.mouse.wheel(0, Math.round(90 * pitchK));
+        await sleep(60);
+      }
+      await sleep(120);
+      await step(page, 'wheel-mid');
+      await sleep(900); // > stall commit
+      await step(page, 'wheel-committed');
+      await page.mouse.move(LEAVE_X, VH / 2);
+      await sleep(2200); // Turn + retract
+      await step(page, 'wheel-after-turn');
+    }
+    if (MOBILE && want('peek')) {
+      const c = await rootCenter(page);
+      // Atomic tap: start+end queued back-to-back so a 186ms SwiftShader frame can't
+      // separate them past the engine's 200ms hold threshold.
+      await Promise.all([
+        cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c.x, y: c.y, id: 1 }] }),
+        cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }),
+      ]);
+      await sleep(PEEKWAIT);
+      await step(page, 'peek-open');
+      await sleep(1100);
+      await step(page, 'peek-closed');
+    }
+    if (MOBILE && want('touch')) {
+      const c = await rootCenter(page);
+      // press-hold, then slide up DETENTS stations (56px each) — sample mid-scrub
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c.x, y: c.y, id: 1 }] });
+      await sleep(HOLD);
+      await step(page, 'touch-held');
+      const dy = -56 * DETENTS;
+      for (let i = 1; i <= 10; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: c.x, y: c.y + (dy * i) / 10, id: 1 }] });
+        await sleep(40);
+      }
+      await sleep(150);
+      await step(page, 'touch-scrub');
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await sleep(350);
+      await step(page, 'touch-released');
+      await sleep(2200);
+      await step(page, 'touch-after-turn');
+      // overtravel: from the landed station slide DOWN past index 0 hard
+      const c2 = await rootCenter(page);
+      await touchScrub(page, cdp, c2.x, c2.y, 56 * 6, HOLD);
+      await sleep(300);
+      await step(page, 'touch-overtravel-released');
+      await sleep(2200);
+      await step(page, 'touch-overtravel-after');
+    }
+    // r12b (11-13): the phone clip edge + the marquee wrap. Hold, scrub detents
+    // until the selected row MARQUEES (any name; --want=TEXT picks one), then
+    //   edge: the selected name's painted right edge vs the viewport width
+    //         (Nathan: "extend to the actual edge" — gap must be 0);
+    //   wrap: both name copies' left edges every frame across >1 loop; at the
+    //         wrap, newA − oldB is the visual step. A seamless loop steps by no
+    //         more than one frame of travel; the pre-r12b track (gap/2 short)
+    //         stepped gap/2 × the row's paint scale (≈ 9.5 px at 390).
+    // `node pager-probe.mjs --mobile --scenario=edge --base=… [--want=Heavy]`
+    if (MOBILE && SCEN.includes('edge')) {
+      const c = await rootCenter(page);
+      const WANT = String(arg('want', '')).toUpperCase();
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c.x, y: c.y, id: 1 }] });
+      await sleep(HOLD);
+      const selRow = () =>
+        page.evaluate((root) => {
+          const nm = document.querySelector(`${root} .fp-scale__name[data-sel]`);
+          return nm && { text: nm.textContent, marquee: nm.hasAttribute('data-marquee'), right: nm.getBoundingClientRect().right, vw: innerWidth };
+        }, ROOT);
+      let row = null;
+      for (let k = 1; k <= 16 && !row; k++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: c.x, y: c.y - 48 * k, id: 1 }] });
+        await sleep(450);
+        const r = await selRow();
+        if (r?.marquee && r.text.toUpperCase().includes(WANT)) row = r;
+      }
+      if (row) {
+        await page.screenshot({ path: path.join(OUT, `edge-${VW}-engaged.png`) });
+        const frames = await page.evaluate(
+          (root) =>
+            new Promise((resolve) => {
+              const [a, b] = document.querySelector(`${root} .fp-scale__name[data-sel]`).firstChild.children;
+              const out = [];
+              const t0 = performance.now();
+              const tick = () => {
+                const t = performance.now() - t0;
+                out.push([t, a.getBoundingClientRect().left, b.getBoundingClientRect().left]);
+                t < 14000 ? requestAnimationFrame(tick) : resolve(out);
+              };
+              requestAnimationFrame(tick);
+            }),
+          ROOT
+        );
+        const wraps = [];
+        for (let i = 2; i < frames.length; i++) {
+          if (frames[i][1] - frames[i - 1][1] > 10) {
+            const step = frames[i][1] - frames[i - 1][2]; // new copy-one left − old copy-two left
+            const perFrame = Math.abs(frames[i - 1][1] - frames[i - 2][1]);
+            wraps.push({ t: Math.round(frames[i][0]), stepPx: +step.toFixed(2), frameTravelPx: +perFrame.toFixed(2), seamless: Math.abs(step) <= perFrame * 1.5 + 0.5 });
+          }
+        }
+        report.edge = { name: row.text, right: row.right, vw: row.vw, gapToViewportPx: +(row.vw - row.right).toFixed(2), wraps };
+      } else report.edge = { found: false };
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    }
+    if (SCEN.includes('chipwipe')) await chipWipe(page);
+    if (want('keys')) {
+      const el = page.locator(`${ROOT} button, ${ROOT} [tabindex="0"]`).first();
+      if ((await el.count()) > 0) {
+        await el.focus();
+        await page.keyboard.press('ArrowDown');
+        await sleep(120);
+        await step(page, 'key-arrow');
+        await sleep(700);
+        await step(page, 'key-committed');
+        await page.keyboard.press('Escape');
+        await page.evaluate(() => document.activeElement && document.activeElement.blur()); // never click: [PREVIOUS] sits top-center
+        await sleep(2000);
+        await step(page, 'key-after');
+      }
+    }
+  }
+  await browser.close();
+  console.log(JSON.stringify(report, null, 1));
+})().catch((e) => {
+  report.fatal = String(e && e.stack ? e.stack : e);
+  console.log(JSON.stringify(report, null, 1));
+  process.exit(1);
+});

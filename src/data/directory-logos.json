@@ -1,0 +1,555 @@
+{
+  "image-031f81c24cdb148c681a045d7950b0b5d0c2f877-602x587-png": {
+    "hold": "multi-colour",
+    "title": "Imperfect Stacked Color",
+    "client": "Imperfect Records",
+    "doc": "mediaAsset-imperfect-records-imperfect-stacked-color"
+  },
+  "image-113c06d9ab6a6f7947ce7a911d146081c0a3a4a6-413x413-jpg": {
+    "file": "113c06d9ab6a.png",
+    "w": 349,
+    "h": 328,
+    "aspect": 1.064,
+    "density": 0.4341,
+    "cx": 0.4999,
+    "cy": 0.4876,
+    "trim": [
+      0.0799,
+      0.0969,
+      0.845,
+      0.7942
+    ],
+    "title": "Andhera Logo Sticker",
+    "client": "Andhera Records",
+    "doc": "mediaAsset-andhera-records-andhera-logo-sticker"
+  },
+  "image-1f3ba6b1ae7b655515ece2d234704f1d35e7de10-656x718-png": {
+    "file": "1f3ba6b1ae7b.png",
+    "w": 656,
+    "h": 718,
+    "aspect": 0.9136,
+    "density": 0.4347,
+    "cx": 0.5277,
+    "cy": 0.536,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Momentum Logo — Outline (White)",
+    "client": "Momentum Records",
+    "doc": "mediaAsset-955b7abe-eb3e-49e8-b17b-2b10b08705a7"
+  },
+  "image-26e57148c763943904b8d3cd33047d5715e88647-1229x1077-png": {
+    "file": "26e57148c763.png",
+    "w": 1000,
+    "h": 876,
+    "aspect": 1.1416,
+    "density": 0.4003,
+    "cx": 0.4764,
+    "cy": 0.4524,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Andhera Logo (White)",
+    "client": "Andhera Records",
+    "doc": "mediaAsset-andhera-records-andhera-logo-white"
+  },
+  "image-314cb9560eece92198992d4331723fe8c8839524-1200x1200-png": {
+    "file": "314cb9560eec.png",
+    "w": 834,
+    "h": 404,
+    "aspect": 2.0644,
+    "density": 0.319,
+    "cx": 0.4814,
+    "cy": 0.482,
+    "trim": [
+      0.083,
+      0.298,
+      0.834,
+      0.404
+    ],
+    "title": "front left logo white",
+    "client": "Front Left",
+    "doc": "mediaAsset-front-left-front-left-logo-white"
+  },
+  "image-35666b96734ac7fd548cbe10af41d60b6e333464-1200x1200-jpg": {
+    "file": "35666b96734a.png",
+    "w": 970,
+    "h": 930,
+    "aspect": 1.043,
+    "density": 0.076,
+    "cx": 0.5065,
+    "cy": 0.5156,
+    "trim": [
+      0.026,
+      0.022,
+      0.97,
+      0.93
+    ],
+    "title": "Friends & Disco Initials Logo (Light)",
+    "client": "Friends & Disco",
+    "doc": "mediaAsset-baa15aba-114f-4268-bcc1-2dfc1a7c98dd"
+  },
+  "image-3c0a752df36cb007934cb82b31057390a5c5a772-2456x2422-png": {
+    "file": "3c0a752df36c.png",
+    "w": 1000,
+    "h": 986,
+    "aspect": 1.0142,
+    "density": 0.6362,
+    "cx": 0.5137,
+    "cy": 0.454,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "SB Logo Single Stack White",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-single-stack-white"
+  },
+  "image-472f3eb337009fe5502ef17552ec7456239a9e82-3573x2427-png": {
+    "file": "472f3eb33700.png",
+    "w": 1000,
+    "h": 679,
+    "aspect": 1.4728,
+    "density": 0.5805,
+    "cx": 0.5058,
+    "cy": 0.4947,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "SB Logo Double Stack White",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-double-stack-white"
+  },
+  "image-47517da0a9643c8498dc2fcebd6448e1f9bc8432-2554x978-png": {
+    "file": "47517da0a964.png",
+    "w": 950,
+    "h": 133,
+    "aspect": 7.1429,
+    "density": 0.7438,
+    "cx": 0.4949,
+    "cy": 0.5016,
+    "trim": [
+      0.025,
+      0.3264,
+      0.95,
+      0.3473
+    ],
+    "title": "Maximo Logo",
+    "client": "Maximo",
+    "doc": "mediaAsset-maximo-maximo-logo"
+  },
+  "image-4da771c90ceea2d1a74886cdbe522ca2bad97135-1626x339-png": {
+    "file": "4da771c90cee.png",
+    "w": 1000,
+    "h": 209,
+    "aspect": 4.7847,
+    "density": 0.2258,
+    "cx": 0.4662,
+    "cy": 0.4417,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "RozálesD Logo (Solid White)",
+    "client": "RozálesD",
+    "doc": "mediaAsset-c476a5a3-9a55-4eb9-aee5-d587d1bc8ef6"
+  },
+  "image-513cce8481aaf4fab18e220791de84e61ba3a4d4-3373x1689-png": {
+    "file": "513cce8481aa.png",
+    "w": 1000,
+    "h": 501,
+    "aspect": 1.996,
+    "density": 0.361,
+    "cx": 0.464,
+    "cy": 0.5687,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Offstage Logo White",
+    "client": "Offstage",
+    "doc": "mediaAsset-offstage-offstage-logo-white"
+  },
+  "image-62552f84237b08807f272204a337163efac220e5-2501x677-png": {
+    "file": "62552f84237b.png",
+    "w": 1000,
+    "h": 271,
+    "aspect": 3.69,
+    "density": 0.2969,
+    "cx": 0.4801,
+    "cy": 0.4981,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Ky William Logo Inline White",
+    "client": "Ky William",
+    "doc": "mediaAsset-ky-william-ky-william-logo-inline-white"
+  },
+  "image-63f8b3f90127c6f3b1b0a3a1f1bcc015060db6e2-4781x1077-png": {
+    "file": "63f8b3f90127.png",
+    "w": 1000,
+    "h": 225,
+    "aspect": 4.4444,
+    "density": 0.4847,
+    "cx": 0.4736,
+    "cy": 0.5824,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Kamino Logo — White (Pre-Rebrand)",
+    "client": "Kamino",
+    "doc": "mediaAsset-d3f142cc-68c3-4c7a-a86a-1f3acfa0d0c4"
+  },
+  "image-6637912b94083c43034da1e3facb2db4d038a5d4-2401x270-png": {
+    "file": "6637912b9408.png",
+    "w": 1000,
+    "h": 113,
+    "aspect": 8.8496,
+    "density": 0.511,
+    "cx": 0.506,
+    "cy": 0.4895,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "TBH Logo White",
+    "client": "TOBEHONEST",
+    "doc": "mediaAsset-tobehonest-tbh-logo-white"
+  },
+  "image-66d5b97625f29eb9e8a7191f7ad9827a14d86316-3573x2457-png": {
+    "hold": "multi-colour",
+    "title": "SB Logo Double Stack Color",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-double-stack-color"
+  },
+  "image-76fb06d08b88a92d87f591dac1fbbab8093dcba0-830x762-png": {
+    "file": "76fb06d08b88.png",
+    "w": 830,
+    "h": 762,
+    "aspect": 1.0892,
+    "density": 0.2326,
+    "cx": 0.4812,
+    "cy": 0.42,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Cheetah Print Primary Logo — Red",
+    "client": "Cheetah Print",
+    "doc": "mediaAsset-3ea3229e-49b0-4ddf-afd7-3ca0127b8f6c",
+    "twinOf": "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png"
+  },
+  "image-82b1fe2b94ff90d7143246b87c0c8160c24b823d-1376x410-png": {
+    "file": "82b1fe2b94ff.png",
+    "w": 938,
+    "h": 245,
+    "aspect": 3.8286,
+    "density": 0.405,
+    "cx": 0.4986,
+    "cy": 0.6161,
+    "trim": [
+      0.031,
+      0.0973,
+      0.938,
+      0.8221
+    ],
+    "title": "Munchietown Logo — White",
+    "client": "Munchietown",
+    "doc": "mediaAsset-82490c0f-5a49-40f4-9953-5c02b3d4b3b7"
+  },
+  "image-93d120cb4b70a886aaec69a6790ab1d50738a935-830x762-png": {
+    "file": "93d120cb4b70.png",
+    "w": 830,
+    "h": 762,
+    "aspect": 1.0892,
+    "density": 0.2342,
+    "cx": 0.4804,
+    "cy": 0.4203,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Cheetah Print Primary Logo — Gold",
+    "client": "Cheetah Print",
+    "doc": "mediaAsset-b5ce1a5e-d7eb-444d-adfc-44ed2f3103eb"
+  },
+  "image-9f83deb98dad04b316fe212d75e5f8193e84968b-871x105-png": {
+    "hold": "multi-colour",
+    "title": "Jeff Sorkowitz Wordmark — White",
+    "client": "Jeff Sorkowitz",
+    "doc": "mediaAsset-1ffd2d59-3b99-4174-8672-762a7d2efa2d"
+  },
+  "image-a8511a7c6583a272b554b14d5159f58497301df7-3729x1970-png": {
+    "file": "a8511a7c6583.png",
+    "w": 1000,
+    "h": 529,
+    "aspect": 1.8904,
+    "density": 0.3262,
+    "cx": 0.4959,
+    "cy": 0.4977,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "HUS Logo Stacked — White",
+    "client": "Hurry Up Slowly",
+    "doc": "mediaAsset-821d7e1d-564d-49e5-8692-a6f09045a461"
+  },
+  "image-a93a7906f6a7c6503e86a35238e48f43c0916724-1200x1200-jpg": {
+    "hold": "two copies of the mark in one file",
+    "title": "Louder Than Silence Logo 01",
+    "client": "Louder Than Silence",
+    "doc": "mediaAsset-louder-than-silence-louder-than-silence-logo-01"
+  },
+  "image-b4e549fc8360ebddda27d1ca578cce4c8027747e-1700x600-png": {
+    "file": "b4e549fc8360.png",
+    "w": 853,
+    "h": 259,
+    "aspect": 3.2934,
+    "density": 0.3773,
+    "cx": 0.4598,
+    "cy": 0.4718,
+    "trim": [
+      0.074,
+      0.1615,
+      0.853,
+      0.7337
+    ],
+    "title": "Fletch Logo — Circles (White)",
+    "client": "Fletch",
+    "doc": "mediaAsset-edbf4b83-3ee7-4394-926b-1375dd641e46"
+  },
+  "image-b75416847567e3ca345d7e357d26a3e3acc74c5c-1238x687-png": {
+    "file": "b75416847567.png",
+    "w": 998,
+    "h": 554,
+    "aspect": 1.8014,
+    "density": 0.3583,
+    "cx": 0.4945,
+    "cy": 0.5866,
+    "trim": [
+      0.001,
+      0,
+      0.998,
+      0.9982
+    ],
+    "title": "Kamino Logo 2026 — White",
+    "client": "Kamino",
+    "doc": "mediaAsset-1c78bab4-42cd-4556-85b6-2fd14ae0fa1c"
+  },
+  "image-b9c8b793cb5c88d805fa64390ae7af272eddeddb-3034x521-png": {
+    "file": "b9c8b793cb5c.png",
+    "w": 1000,
+    "h": 171,
+    "aspect": 5.848,
+    "density": 0.466,
+    "cx": 0.5005,
+    "cy": 0.4546,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "The Fingerprint Masthead — White",
+    "client": "EDM Identity",
+    "doc": "mediaAsset-3c857c28-6cb7-4289-9b4b-f51ecec6af9f"
+  },
+  "image-bdce4208f097507539a418d7a8129fb8bb6d7f9e-1500x1080-png": {
+    "hold": "busy-ground",
+    "title": "James Wyler Logo",
+    "client": "James Wyler",
+    "doc": "mediaAsset-james-wyler-james-wyler-logo"
+  },
+  "image-cbddaa9c854ba560a6ed7d1e85e7a73dbfec9774-1024x1024-svg": {
+    "file": "cbddaa9c854b.png",
+    "w": 911,
+    "h": 430,
+    "aspect": 2.1186,
+    "density": 0.4291,
+    "cx": 0.5131,
+    "cy": 0.5263,
+    "trim": [
+      0.045,
+      0.285,
+      0.911,
+      0.43
+    ],
+    "title": "Sidney Charles Logo 01",
+    "client": "Sidney Charles",
+    "doc": "mediaAsset-sidney-charles-sidney-charles-logo-01"
+  },
+  "image-cf109be3b7e2859051b3d443e91f577bd01dc9ee-3356x1698-png": {
+    "hold": "a board of logo options, not a mark",
+    "title": "Pulse Portfolio Logo Options",
+    "client": "Pulse Artists",
+    "doc": "mediaAsset-pulse-artists-pulse-portfolio-logo-options"
+  },
+  "image-d1d4f8b724c6bcd46df1d4808dcbb1ac3863c017-1644x1647-png": {
+    "file": "d1d4f8b724c6.png",
+    "w": 998,
+    "h": 1000,
+    "aspect": 0.998,
+    "density": 0.2532,
+    "cx": 0.4925,
+    "cy": 0.4992,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "heavy house society logo white",
+    "client": "Heavy House Society",
+    "doc": "mediaAsset-heavy-house-society-heavy-house-society-logo-white"
+  },
+  "image-d20c88d31bb37135415b08ec269eb4c386d317c5-2917x1048-png": {
+    "file": "d20c88d31bb3.png",
+    "w": 1000,
+    "h": 359,
+    "aspect": 2.7855,
+    "density": 0.3152,
+    "cx": 0.4771,
+    "cy": 0.51,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Gio Lucca Logo White",
+    "client": "Gio Lucca",
+    "doc": "mediaAsset-gio-lucca-gio-lucca-logo-white"
+  },
+  "image-d3f8958b029e95d13ee3ea9db383b39aa2adf99d-1400x333-png": {
+    "file": "d3f8958b029e.png",
+    "w": 1000,
+    "h": 238,
+    "aspect": 4.2017,
+    "density": 0.3324,
+    "cx": 0.5253,
+    "cy": 0.3797,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Pulse Artists Logo Beige",
+    "client": "Pulse Artists",
+    "doc": "mediaAsset-pulse-artists-pulse-artists-logo-beige"
+  },
+  "image-e08b61cc01176774084494ec37480e853fedbb3c-2486x2450-png": {
+    "hold": "multi-colour",
+    "title": "SB Logo Single Stack Color",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sb-logo-single-stack-color"
+  },
+  "image-e956a9e56cfe28e4008c1a101458301c922a7f84-4501x1647-png": {
+    "file": "e956a9e56cfe.png",
+    "w": 850,
+    "h": 308,
+    "aspect": 2.7597,
+    "density": 0.1823,
+    "cx": 0.4893,
+    "cy": 0.4912,
+    "trim": [
+      0.075,
+      0.0847,
+      0.85,
+      0.8415
+    ],
+    "title": "Here & Now Logo — White",
+    "client": "Here & Now",
+    "doc": "mediaAsset-5a86c023-542c-4e7e-8887-08fa5ef3a919"
+  },
+  "image-ea91b09f5dbcc2c6482abce664bbe9c7086ef4f2-2558x2390-png": {
+    "hold": "multi-colour",
+    "title": "Sunday Brunch Logo Concepts",
+    "client": "Sunday Brunch",
+    "doc": "mediaAsset-sunday-brunch-sunday-brunch-logo-concepts"
+  },
+  "image-eaf959eccb1c4c630c7c71fbb3c68507617f798b-1506x800-png": {
+    "file": "eaf959eccb1c.png",
+    "w": 1000,
+    "h": 531,
+    "aspect": 1.8832,
+    "density": 0.1994,
+    "cx": 0.4849,
+    "cy": 0.5826,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Ain't Nobody Logo White",
+    "client": "Salomé Le Chat",
+    "doc": "mediaAsset-salom-le-chat-aint-nobody-logo-white"
+  },
+  "image-ee5b7b57e8ee6690c9b36f4c276e11afff291e49-2000x618-png": {
+    "file": "ee5b7b57e8ee.png",
+    "w": 1000,
+    "h": 309,
+    "aspect": 3.2362,
+    "density": 0.5254,
+    "cx": 0.4738,
+    "cy": 0.5371,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Rafael Wordmark — White",
+    "client": "Cheetah Print",
+    "doc": "mediaAsset-46f7be72-506d-48f8-abb0-756d11694698"
+  },
+  "image-fe9fe8dcf97706b133d6af8cc64987b3635ffe12-3046x1220-png": {
+    "file": "fe9fe8dcf977.png",
+    "w": 1000,
+    "h": 401,
+    "aspect": 2.4938,
+    "density": 0.2516,
+    "cx": 0.4748,
+    "cy": 0.6291,
+    "trim": [
+      0,
+      0,
+      1,
+      1
+    ],
+    "title": "Kamino Graffiti Logo — White (Pre-Rebrand)",
+    "client": "Kamino",
+    "doc": "mediaAsset-98eaa31d-a59d-4b78-becd-e56c9e0c3d58"
+  }
+}

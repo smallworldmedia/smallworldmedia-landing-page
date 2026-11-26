@@ -2,20 +2,116 @@
 /**
  * BaseLayout — HTML document shell.
  *
- * Replaces the old index.html entry point.
  * Handles: charset, viewport, meta, fonts, favicon,
- * Netlify hidden form, and global CSS import.
+ * Netlify hidden form, global CSS, the persistent SiteShell, and
+ * Plausible analytics (production builds only).
+ *
+ * The SiteShell (nav + drawer + overlay) uses `transition:persist`
+ * so it survives page navigations without reloading state.
+ * ClientRouter enables SPA-like client-side navigation.
  */
+import { ClientRouter } from 'astro:transitions';
+import '../styles/global.css';
+// The graticule pager's skin (SQ-87): scoped to :is(.fp, .swm-corner) so
+// GraticulePager can mount outside /work. Directly after global.css, which
+// owns its --scale-* tokens.
+import '../styles/pager-scale.css';
+// The colour-scheme widget's seat and swatch skin (SQ-92): scoped under
+// .swm-corner, so it must follow pager-scale.css (it overrides that sheet's
+// rules for the corner host and never touches /work's).
+import '../styles/site-scheme.css';
+// The black and blue colour schemes (US-7): every rule under html[data-scheme].
+// After global.css, the pager sheet and the widget's sheet so an
+// equal-specificity tie goes to it.
+import '../styles/scheme.css';
+// A2b Lenis scroll-tuning bench styles — only the .lenis-tune tree, which
+// renders solely under ?lenistune=1 (LenisTunePanel), is styled; inert otherwise.
+import '../styles/lenis-tune.css';
+// Home-hero rig-tuning bench styles — only the .hero-tune tree, which
+// renders solely under ?herotune=1 (HeroTunePanel), is styled; inert otherwise.
+import '../styles/hero-tune.css';
+// Footer-reveal tuning bench styles — only the .footer-tune tree, which
+// renders solely under ?footertune=1 (FooterTunePanel), is styled; inert otherwise.
+import '../styles/footer-tune.css';
+// Typed commit-choreography bench styles — only the .commit-tune tree, which
+// renders solely under ?committune=1 (CommitTunePanel), is styled; inert otherwise.
+import '../styles/commit-tune.css';
+// Both sheets stay HERE even though the panels are now code-split. Moving a
+// bare `import './x.css'` into a lazily import()ed component does NOT take its
+// CSS off the critical path: Astro's CSS plugin walks `importers` CONCAT
+// `dynamicImporters` (core/build/graph.js), so a dynamic import is not a break
+// in the attribution walk and the sheet is hoisted back onto every page that
+// can reach it. Measured on a real build: the bundled copy stayed put and an
+// inlined <style> copy was ADDED — lenis-tune shipped twice and eager CSS grew
+// ~330–440 b gz per route. The lazy import() earns its keep on the panels'
+// JavaScript, not their styles.
+import SiteShell from '../components/SiteShell.jsx';
+import SiteTagline from '../components/SiteTagline.jsx';
+import SiteScheme from '../components/SiteScheme.jsx';
+import { getSiteCopy } from '../lib/siteCopy.js';
+import { getDirectoryData } from '../lib/directoryData.js';
+import { toDrawerRoster } from '../lib/clientCoverage.js';
+// ?url imports resolve to the same content-hashed asset the CSS @font-face
+// references, so these preloads hit the real built URLs.
+import fontBook from '../assets/fonts/PPNeueMontreal-Book.woff2?url';
+import fontMedium from '../assets/fonts/PPNeueMontreal-Medium.woff2?url';
 
 interface Props {
   title?: string;
   description?: string;
+  /** Social share image path (1200×630); defaults to the site card. */
+  image?: string;
 }
 
 const {
   title = 'Small World Media™',
   description = 'Small World Media — Visual worlds for the music industry. Multi-disciplinary creative studio specializing in visual identity, motion design, and digital experiences.',
+  image = '/og-image.png',
 } = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL(image, Astro.site);
+
+// Globe-page chrome variant (transparent nav, black info pill) keys off this
+// body class. Set server-side so there's no hydration flash; the ClientRouter
+// swaps body attributes on navigation, so leaving `/` restores the blue nav.
+const isHome = Astro.url.pathname === '/';
+// Process-page chrome variant (transparent nav over the brand-black field)
+// + the route's scroll unlock key off this one — same server-side rule.
+const isProcess = Astro.url.pathname.replace(/\/+$/, '') === '/process';
+
+/* Plausible visit counts (11-24, Nathan): production builds only. Netlify sets
+   CONTEXT to 'production' for main's build and to 'branch-deploy' or
+   'deploy-preview' for every other one; dev servers and local builds have none,
+   so previews, probes and dev traffic never reach the stats. The script sets no
+   cookies and stores nothing on the device, which the privacy copy
+   (PrivacyContent.jsx) describes. It sits in <head>, so a ClientRouter swap
+   keeps it rather than re-running it, and its own history tracking counts each
+   swap as a pageview. */
+const analytics = process.env.CONTEXT === 'production';
+
+/* The site-wide studio copy (10-08, Nathan) — the footer blurb and the tagline,
+   from the `siteSettings` singleton in Sanity. Fetched HERE because this is the
+   one file every route passes through, /privacy and /404 included, and handed
+   to the two persistent islands as props: a module-level value would be visible
+   on the server only, and the islands would hydrate with the baked fallback.
+   getSiteCopy() memoizes its promise, so the whole build makes ONE request and
+   a Sanity outage degrades to the copy as it shipped rather than to blank
+   chrome. */
+const siteCopy = await getSiteCopy();
+
+/* The drawer's Client Roster (11-03, Nathan): every published client, by name,
+   `live` when its Client Coverage holds a directory tile
+   (src/lib/clientCoverage.js). It reads the directory's own memoized fetch, so
+   the drawer and the grid can't disagree, and it is the same on every page, so
+   the persisted shell never re-renders for it. A failed read empties the
+   drawer rather than failing the build. */
+const roster = await getDirectoryData()
+  .then(({ clients, tiles }) => toDrawerRoster(clients, tiles))
+  .catch((err) => {
+    console.warn('[roster] Sanity read failed, the drawer lists no clients:', err?.message || err);
+    return [];
+  });
 ---
 
 <!doctype html>
@@ -25,14 +121,105 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <title>{title}</title>
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#000000" />
 
-    {/* Google Fonts: Inter (UI font stack) */}
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
+    {/* US-7 colour scheme, latched before first paint: ?scheme= (a preview, never stored)
+        > localStorage swm:scheme > project. A stored value must be ACTIVE (a stored
+        spectrum, from before it was parked, is ignored); ?scheme= takes an active or a
+        parked name. html[data-scheme] is always set. A phone (colorScheme.js PHONE_QUERY,
+        Nathan 11-21) ignores the stored value and stays on project unless ?schemeui=1;
+        ?scheme= still previews there. The shared
+        state is window.__swmScheme (src/lib/colorScheme.js reads and writes it); the
+        names, key and phone query repeat that module's (scripts/test/color-scheme.test.mjs
+        pins the parity). ClientRouter replaces <html>'s attributes and inline style on every
+        swap and does not re-run this script, so the one listener below re-asserts. */}
+    <script is:inline>
+      (function () {
+        var w = window;
+        if (w.__swmScheme) return;
+        var d = document;
+        var names = ['project', 'black', 'blue'];
+        var parked = ['spectrum'];
+        var committed = 'project';
+        var applied;
+        var fade = '';
+        var q = null;
+        try {
+          q = new URLSearchParams(w.location.search);
+        } catch (e) {}
+        var phone = false;
+        try {
+          phone =
+            w.matchMedia('(max-width: 768px), (pointer: coarse) and (max-height: 500px)').matches &&
+            !(q && q.get('schemeui') === '1');
+        } catch (e) {}
+        if (!phone) {
+          try {
+            var stored = w.localStorage.getItem('swm:scheme');
+            if (names.indexOf(stored) > -1) committed = stored;
+          } catch (e) {}
+        }
+        applied = committed;
+        try {
+          var pick = q.get('scheme');
+          if (names.indexOf(pick) > -1 || parked.indexOf(pick) > -1) applied = pick;
+          var ms = q.get('schemefade');
+          if (ms !== null && ms.trim() !== '' && isFinite(Number(ms)) && Number(ms) >= 0) {
+            fade = Number(ms) + 'ms';
+          }
+        } catch (e) {}
+        w.__swmScheme = { applied: applied, committed: committed };
+        function assert() {
+          var root = d.documentElement;
+          root.setAttribute('data-scheme', w.__swmScheme.applied);
+          if (fade) root.style.setProperty('--scheme-fade', fade);
+        }
+        assert();
+        d.addEventListener('astro:after-swap', assert);
+      })();
+    </script>
+
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    {/* Social cards */}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Small World Media" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {/* Client-side navigation — SPA-like page swaps */}
+    <ClientRouter />
+
+    {/* Brand faces used above the fold — preload beats the CSS discovery */}
+    <link rel="preload" href={fontBook} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={fontMedium} as="font" type="font/woff2" crossorigin />
+
+    {/* Mux — warm DNS+TLS+TCP before the first globe manifest / still / work thumbnail (both fetched with CORS) */}
+    <link rel="preconnect" href="https://stream.mux.com" crossorigin />
+    <link rel="preconnect" href="https://image.mux.com" crossorigin />
+
+    {/* Inter (the UI stack's fallback behind ABC Areal) is self-hosted: its @font-face lives in
+        global.css, so no Google Fonts stylesheet or preconnect. */}
+
+    {/* Privacy-friendly analytics by Plausible: production only (`analytics` above) */}
+    {analytics && (
+      <>
+        <script is:inline async src="https://plausible.io/js/pa-SKEgfMNuIOLiFkhOIoZCY.js"></script>
+        <script is:inline>
+          window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+          plausible.init()
+        </script>
+      </>
+    )}
 
     {/* Favicons */}
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -40,16 +227,106 @@ const {
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   </head>
 
-  <body>
-    {/* Hidden form for Netlify's deploy parser (SPA detection) */}
+  <body class:list={[isHome && 'route-home', isProcess && 'route-process']}>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    {/* Hidden form for Netlify's deploy parser (SPA detection) — field set
+        must mirror ProjectOverlay's live form or Netlify drops fields */}
     <form name="contact" netlify netlify-honeypot="bot-field" hidden>
       <input name="bot-field" />
       <input name="name" />
       <input name="email" />
       <input name="project" />
+      <input name="subject" />
+      <input name="replyto" />
       <textarea name="message"></textarea>
     </form>
 
-    <slot />
+    {/* Persistent shell — nav + drawer + overlay (survives page swaps) */}
+    <SiteShell
+      client:load
+      transition:persist="site-shell"
+      transition:animate="none"
+      siteCopy={siteCopy}
+      roster={roster}
+    />
+
+    {/* Persistent lower-left tagline pill (Figma Frame 19, 08-27). Its OWN
+        island — the footer-reveal rule translates .site-shell up by the nav
+        height, which would carry the pill off its footer alignment. */}
+    <SiteTagline
+      client:load
+      transition:persist="site-tagline"
+      transition:animate="none"
+      siteCopy={siteCopy}
+    />
+
+    {/* The colour-scheme corner pager (SQ-92): the /work graticule pager mounted a
+        second time, lower right, its stations circular swatches. Persisted like
+        the shell, so a soft navigation keeps the same node (and an open gesture).
+        It precedes #main in DOM order — every .fp-scale query is scoped to its host. */}
+    <SiteScheme client:idle transition:persist="site-scheme" transition:animate="none" />
+
+    <div id="main">
+      <slot />
+    </div>
+
+    {/* Lenis smooth scroll — per-route start/stop (off on /work + reduced motion) */}
+    <script>
+      import { syncRoute } from '../lib/smoothScroll.js';
+      import { installHomeWarm } from './homeWarm.js';
+      // SQ-100: up from the first page, so a click before /work or a detail
+      // page loads still counts for their gesture page turns.
+      import '../lib/gestureHistory.js';
+      import '../lib/historyLog.js'; // SQ-105: ?histlog=1 on-device history HUD
+      document.addEventListener('astro:page-load', () => syncRoute());
+
+      // SQ-33: the way home (nav lockup, menu, /work scroll-up) rides an
+      // in-memory copy of `/` instead of a network round trip. ?homewarm=0 = off.
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('homewarm') !== '0') installHomeWarm();
+
+      // Arm the /work return-restore for browser back/forward out of a
+      // detail page or the directory. `route` lags one navigation behind
+      // (astro:page-load hasn't fired yet when popstate lands), so it
+      // identifies the page being LEFT while location already points at
+      // the destination — the flag arms only for /work/* → /work
+      // traversals. The detail breadcrumb arms the same flag on click; the
+      // nav link never does.
+      let route = window.location.pathname;
+      document.addEventListener('astro:page-load', () => {
+        route = window.location.pathname;
+      });
+      window.addEventListener('popstate', () => {
+        if (
+          /^\/work\/.+/.test(route) &&
+          window.location.pathname.replace(/\/+$/, '') === '/work'
+        ) {
+          try {
+            sessionStorage.setItem('swm:returnToWork', '1');
+          } catch {
+            /* storage unavailable */
+          }
+        }
+      });
+      // SQ-131 (Nathan 11-20, iPhone: Back "briefly shows the first project
+      // begin to populate (coco)"): the swapped-in /work is the server's
+      // first-World markup, and WebKit paints it before the island hydrates.
+      // On an armed return to a later World, hide that card before the first
+      // paint; the restore's pre-paint snap replaces it (and WorldCard's own
+      // entrance sets autoAlpha 1 should the first World stay).
+      document.addEventListener('astro:after-swap', () => {
+        if (window.location.pathname.replace(/\/+$/, '') !== '/work') return;
+        try {
+          if (sessionStorage.getItem('swm:returnToWork') !== '1') return;
+          const kept = window.history.state?.swmWorld;
+          const at = Number.isInteger(kept) ? kept : parseInt(sessionStorage.getItem('swm:worldIndex') ?? '', 10);
+          if (!(at > 0)) return;
+        } catch {
+          return;
+        }
+        for (const el of document.querySelectorAll('.fp-card-wrap')) el.style.visibility = 'hidden';
+      });
+    </script>
   </body>
 </html>

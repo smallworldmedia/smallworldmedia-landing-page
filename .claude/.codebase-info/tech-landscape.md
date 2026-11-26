@@ -1,0 +1,47 @@
+# Tech Landscape
+
+*Last Updated: 2026-11-24*
+
+## Languages & Runtimes
+- JavaScript (ESM, `"type": "module"`); React components are `.jsx`, helpers `.js`/`.mjs`.
+- TypeScript only in `src/schemas/*.ts` and `sanity.config.ts` / `sanity.cli.ts`; `tsconfig.json` extends `astro/tsconfigs/strict`.
+- Node for build and the CMS CLI (`node --test` for tests).
+
+## Frameworks & Libraries
+
+| Category | Package | Role |
+|---|---|---|
+| Core | `astro` 5, `@astrojs/react`, `react` 19 | Static build, islands, `ClientRouter` view transitions |
+| Motion | `gsap` 3.15, `@gsap/react` | Timelines, ScrollTrigger, CustomEase, Flip, ScrambleText; `useGSAP` in components |
+| 3D | `three` 0.184 | Globe, Worlds, process stage; EffectComposer + vendored lens-distortion pass |
+| Scroll | `lenis` | Single instance in `src/lib/smoothScroll.js`, ticked by `gsap.ticker` |
+| Video | `hls.js`, Mux (`@mux/mux-node`, `sanity-plugin-mux-input`) | HLS playback pools; Mux uploads from the CMS CLI |
+| CMS | `sanity` 5, `@sanity/astro`, `@sanity/client`, `@sanity/orderable-document-list`, `@sanity/vision`, `lexorank` | Studio at `/studio` in local dev only (production builds drop it, SQ-145; editors use the hosted Studio), build-time queries, drag ordering |
+| Images | `sharp` | CMS probe/dimension checks, client-logo prep, and `globe-probe`'s report-only `darkThumbs` (luma read from raw pixels) |
+| SEO | `@astrojs/sitemap` | Sitemap with disabled-route exclusions |
+| Dev | `groq-js` (only devDependency) | Evaluates real GROQ against fixtures in tests |
+| Styling | `styled-components` is installed but plain CSS files under `src/styles/` are the system |
+
+## Infrastructure
+- **Hosting:** Netlify site `smallworldmedia-landingpage`, `netlify.toml` (build `node scripts/audit-gate.mjs && npm run build`, publish `dist`, `Cache-Control: public, max-age=31536000, immutable` on the content-hashed `/_astro/*` while HTML keeps Netlify's default revalidation, forced redirects). Production branch `main`; branch deploy for `feature/v1-launch`. Netlify Forms handles the inquiry form (hidden mirror form in `BaseLayout.astro`). Plausible analytics loads on production builds only (`CONTEXT === 'production'`, see communication.md).
+- **CMS:** Sanity project `b60h4u7o`, dataset `production`, CDN reads. Studio served by the Astro integration.
+- **Video:** Mux (public playback), Sanity CDN for images.
+- **Fonts:** self-hosted PP Neue Montreal + others in `src/assets/fonts/` (woff2 tracked); Inter self-hosted since SQ-148 (11-24: `Inter-Variable-latin` + `-latin-ext` woff2, two `@font-face` rules with `unicode-range` in `global.css`; no Google request). `IosevkaTermMedium.woff2` is a subset (1.5 MB → 128 KB) whose coverage of every character the site prints is pinned by `scripts/lib/fontCoverageGate.mjs` under `scripts/test/font-coverage.test.mjs`.
+
+## Source-of-Truth Files
+
+| Concern | File |
+|---|---|
+| Build + integrations | `astro.config.mjs` |
+| Hosting, cache headers, redirects | `netlify.toml` |
+| Scripts, deps | `package.json` |
+| Sanity schema + Studio structure | `src/schemas/index.ts`, `sanity.config.ts` |
+| GROQ | `src/lib/queries.js` |
+| Design tokens | `src/styles/global.css` |
+| Tunables inventory | `docs/tunables-guide.md` (+ `scripts/tunables-keys.mjs`) |
+| Media glossary | `CONTEXT.md` |
+| Manifest contract | `docs/_manifest-template.md` |
+| Env var names | `.env.example` (values in `.env.local`, gitignored; never commit) |
+
+Env names in use: `SANITY_READ_TOKEN`, `SANITY_WRITE_TOKEN`, `MUX_TOKEN_ID`, `MUX_TOKEN_SECRET`,
+`PLAYWRIGHT_PATH`. `PUBLIC_SANITY_*` are listed but unread (values hardcoded in config).

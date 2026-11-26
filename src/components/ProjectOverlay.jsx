@@ -1,89 +1,24 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import { Flip } from 'gsap/Flip';
+import { CustomEase } from 'gsap/CustomEase';
 import { SERVICE_TAGS } from '../lib/constants';
+import { PREFERS_REDUCED_MOTION } from './work/world/worldConfig.js';
+import { wipeIn, wipeOut } from '../lib/overlayWipe.js';
+import CheckIndicator from './ui/CheckIndicator.jsx';
+import LOCKUP_SVG from '../assets/swm-lockup-inline.svg?raw';
 
-const globeGif = '/swm-globe.gif';
+gsap.registerPlugin(useGSAP, CustomEase);
+
+/* INQ-2 → 09-08 (Nathan): the overlay open/close is THE shared overlay wipe
+   (src/lib/overlayWipe.js) — up from the bottom edge on the house Turn
+   curve, erased back down on the way out; the mobile menu and the privacy
+   overlay ride the same module. */
 
 const FORM_FIELDS = [
     { name: 'name', label: 'Name', type: 'text', required: true },
     { name: 'email', label: 'Email', type: 'email', required: true },
 ];
-
-/* ── SVG check indicator ─────────────────────────────────────────────
- * Open circle → animated checkmark fill.
- * Uses stroke-dashoffset animation via GSAP (DrawSVG-style without plugin).
- */
-const CheckIndicator = ({ checked }) => {
-    const checkRef = useRef(null);
-    const circleRef = useRef(null);
-
-    useGSAP(() => {
-        const check = checkRef.current;
-        const circle = circleRef.current;
-        if (!check || !circle) return;
-
-        if (checked) {
-            // Circle shrinks opacity slightly, check draws in
-            gsap.to(circle, {
-                stroke: 'rgba(250,250,250,1)',
-                duration: 0.2,
-                ease: 'power3.out',
-            });
-            gsap.fromTo(check,
-                { strokeDashoffset: 14 },
-                {
-                    strokeDashoffset: 0,
-                    duration: 0.35,
-                    ease: 'power3.out',
-                }
-            );
-        } else {
-            gsap.to(circle, {
-                stroke: 'rgba(250,250,250,0.35)',
-                duration: 0.2,
-                ease: 'power2.inOut',
-            });
-            gsap.to(check, {
-                strokeDashoffset: 14,
-                duration: 0.2,
-                ease: 'power2.inOut',
-            });
-        }
-    }, { dependencies: [checked] });
-
-    return (
-        <svg
-            className="project-overlay__check"
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-        >
-            <circle
-                ref={circleRef}
-                cx="8"
-                cy="8"
-                r="7"
-                stroke="rgba(250,250,250,0.35)"
-                strokeWidth="1.25"
-                fill="none"
-            />
-            <path
-                ref={checkRef}
-                d="M4.5 8.2L7 10.5L11.5 5.5"
-                stroke="var(--color-cream)"
-                strokeWidth="1.25"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray="14"
-                strokeDashoffset="14"
-            />
-        </svg>
-    );
-};
 
 /**
  * ProjectOverlay — Full-screen blue contact form.
@@ -92,17 +27,22 @@ const CheckIndicator = ({ checked }) => {
  * Netlify detects the hidden HTML form in index.html at deploy time,
  * then this component POSTs to the same endpoint via fetch.
  *
- * Animation sequence (gsap-swm "Controlled Chaos"):
- * 1. Overlay clips in from bottom
- * 2. Header Flip-animates from the hero CTA's position into the overlay
+ * Animation sequence:
+ * 1. Overlay wipes in from the top edge on the house Turn curve
+ *    (clip-path reveal; closes bottom-to-top — INQ-2)
+ * 2. Header slides down into place
  * 3. Form body fades up after header lands
  * 4. Submit button follows
+ * Reduced motion swaps the wipes for the original gentle fades.
+ *
+ * The globe mark stays mounted across open/close — it's the same static
+ * SVG the nav renders at the same coordinates, so the brand mark reads as
+ * persistent through the whole overlay lifecycle.
  *
  * Layout: The header is position: absolute inside the form (bottom: 100%),
- * so it never participates in flexbox flow. This prevents Flip's absolute
- * mode from causing layout recalculations that shift the form.
+ * so it never participates in flexbox flow.
  */
-export default function ProjectOverlay({ isOpen, onClose, flipState }) {
+export default function ProjectOverlay({ isOpen, onClose }) {
     const overlayRef = useRef(null);
     const headerRef = useRef(null);
     const submitRef = useRef(null);
@@ -119,6 +59,32 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
         fieldValues.email.trim() !== '' &&
         fieldValues.message.trim() !== '' &&
         selectedTags.length > 0;
+
+    // INQ-1 — the first incomplete step in completion order
+    // (name → email → project type → message) carries the pulsing
+    // next-field highlight; null once the form is valid, and never
+    // active while the overlay is closed.
+    const nextStep =
+        fieldValues.name.trim() === '' ? 'name' :
+        fieldValues.email.trim() === '' ? 'email' :
+        selectedTags.length === 0 ? 'project' :
+        fieldValues.message.trim() === '' ? 'message' :
+        null;
+    const highlightedStep = isOpen ? nextStep : null;
+    const nextClass = (step) =>
+        highlightedStep === step ? ' project-overlay__field--next' : '';
+    // 09-05: the CSS house-pulse restarts from zero every time the class
+    // moves to the next field — a phase jump against the metronome every
+    // other pulse on the page keeps (housePulseLoop seeks the wall clock).
+    // Same seek, as a negative animation-delay on the label at each move.
+    useEffect(() => {
+        if (!highlightedStep || PREFERS_REDUCED_MOTION) return;
+        const label = document.querySelector('.project-overlay__field--next .project-overlay__label');
+        if (!label) return;
+        const periodS =
+            parseFloat(getComputedStyle(label).getPropertyValue('--duration-pulse')) / 1000 || 2.3;
+        label.style.animationDelay = `${(-((performance.now() / 1000) % periodS)).toFixed(3)}s`;
+    }, [highlightedStep]);
 
     const handleFieldChange = useCallback((fieldName, value) => {
         setFieldValues((prev) => ({ ...prev, [fieldName]: value }));
@@ -196,35 +162,21 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
             const tl = gsap.timeline();
 
-            // 1. Overlay clip reveal from bottom
-            tl.fromTo(el,
-                { clipPath: 'inset(100% 0 0 0)' },
-                {
-                    clipPath: 'inset(0 0 0 0)',
-                    duration: 0.35,
-                    ease: 'power4.out',
-                }
+            // 1. Overlay wipes in from the top edge — the blue arrives as a
+            //    directional reveal on the house Turn curve (INQ-2). autoAlpha
+            //    snaps to 1 first so `visibility` keeps gating pointer events
+            //    while closed — clip-path alone doesn't block them.
+            //    Reduced motion keeps the old gentle fade.
+            wipeIn(el, tl);
+
+            // 2. Header slides down into place — against the wipe, it starts
+            //    as the reveal front passes mid-viewport (the Turn curve
+            //    front-loads: most of the travel lands in the first ~40%)
+            tl.fromTo(header,
+                { y: -20, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
+                PREFERS_REDUCED_MOTION ? '-=0.2' : '-=0.35'
             );
-
-            // 2. Header — Flip from hero CTA position, or fallback slide-down
-            if (flipState && header) {
-                header.setAttribute('data-flip-id', 'start-project');
-
-                tl.add(() => {
-                    Flip.from(flipState, {
-                        targets: header,
-                        duration: 0.5,
-                        ease: 'power3.out',
-                    });
-                }, '-=0.1');
-            } else {
-                // Fallback: simple slide-down if no flip state
-                tl.fromTo(header,
-                    { y: -20, opacity: 0 },
-                    { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' },
-                    '-=0.2'
-                );
-            }
 
             // 3. Form body (fields wrapper) — fades up as a single block after header lands
             if (formBody) {
@@ -244,18 +196,25 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
 
             hasAnimatedRef.current = true;
         } else if (hasAnimatedRef.current) {
-            // Close — reverse clip out (exit = 60-70% of entrance duration)
-            gsap.to(el, {
-                clipPath: 'inset(0 0 100% 0)',
-                duration: 0.4,
-                ease: 'power2.inOut',
-                overwrite: true,
-            });
+            // Close — wiped away bottom-to-top on the house curve (INQ-2);
+            // exit stays shorter than the entrance. autoAlpha drops once the
+            // wipe lands so the closed overlay stays non-interactive.
+            wipeOut(el);
         } else {
             // Initial hidden state
-            gsap.set(el, { clipPath: 'inset(100% 0 0 0)' });
+            gsap.set(el, { autoAlpha: 0 });
         }
     }, { scope: overlayRef, dependencies: [isOpen] });
+
+    // Escape closes the overlay
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [isOpen, onClose]);
 
     const handleSubmit = useCallback(async (e) => {
         e.preventDefault();
@@ -279,13 +238,9 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                 setTimeout(() => {
                     const el = overlayRef.current;
                     if (el) {
-                        gsap.to(el, {
-                            clipPath: 'inset(0 0 100% 0)',
-                            duration: 0.5,
-                            ease: 'power3.inOut',
-                            overwrite: true,
-                            onComplete: () => onClose(),
-                        });
+                        // Post-submit close — same bottom-to-top wipe as the
+                        // manual close, a beat slower (INQ-2)
+                        wipeOut(el, 0.5).eventCallback('onComplete', () => onClose());
                     }
                 }, 2500);
             } else {
@@ -310,26 +265,16 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
             data-open={isOpen}
             aria-hidden={!isOpen}
         >
-            {/* Globe logo — top left */}
-            {isOpen && (
-                <img
-                    className="project-overlay__globe"
-                    src={globeGif}
-                    alt="Small World Media"
-                />
-            )}
+            {/* SWM lockup — top-left, in the nav lockup's seat and size
+                (--lockup-left, --nav-height; centred at ≤768px) — 09-08,
+                Nathan: replaces the top-left globe. */}
+            <div
+                className="project-overlay__lockup"
+                aria-label="Small World Media"
+                role="img"
+                dangerouslySetInnerHTML={{ __html: LOCKUP_SVG }}
+            />
 
-            {/* Close button — hidden after success */}
-            {status !== 'success' && (
-                <button
-                    className="project-overlay__close"
-                    onClick={onClose}
-                    aria-label="Close"
-                    type="button"
-                >
-                    ×
-                </button>
-            )}
 
             {status === 'success' ? (
                 <div className="project-overlay__confirmation">
@@ -354,6 +299,20 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                         ↳start a project
                     </div>
 
+                    {/* Close pill — top right of form, matches info pill style */}
+                    <button
+                        className="project-overlay__close"
+                        onClick={onClose}
+                        aria-label="Close"
+                        type="button"
+                    >
+                        <svg className="project-overlay__close-icon" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                            <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                        close
+                    </button>
+
                     {/* Hidden fields required by Netlify */}
                     <input type="hidden" name="form-name" value="contact" />
                     <input
@@ -372,10 +331,10 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                         {/* Text fields: name, email */}
                         {FORM_FIELDS.map((field) => (
                             <div
-                                className={`project-overlay__field${fieldValues[field.name]?.trim() ? ' project-overlay__field--filled' : ''}`}
+                                className={`project-overlay__field${fieldValues[field.name]?.trim() ? ' project-overlay__field--filled' : ''}${nextClass(field.name)}`}
                                 key={field.name}
                             >
-                                <CheckIndicator checked={fieldValues[field.name]?.trim() !== ''} />
+                                <CheckIndicator checked={fieldValues[field.name]?.trim() !== ''} className="project-overlay__check" />
                                 <div className="project-overlay__field-content">
                                     <label
                                         className="project-overlay__label"
@@ -400,8 +359,8 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                         ))}
 
                         {/* Project type — multi-select tag pills */}
-                        <div className={`project-overlay__field${selectedTags.length > 0 ? ' project-overlay__field--filled' : ''}`}>
-                            <CheckIndicator checked={selectedTags.length > 0} />
+                        <div className={`project-overlay__field${selectedTags.length > 0 ? ' project-overlay__field--filled' : ''}${nextClass('project')}`}>
+                            <CheckIndicator checked={selectedTags.length > 0} className="project-overlay__check" />
                             <div className="project-overlay__field-content">
                                 <span className={`project-overlay__label${selectedTags.length > 0 ? ' project-overlay__label--active' : ''}`}>
                                     Project Type
@@ -418,7 +377,7 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                                         <button
                                             key={tag}
                                             type="button"
-                                            className={`project-overlay__tag${
+                                            className={`stag project-overlay__tag${
                                                 selectedTags.includes(tag) ? ' project-overlay__tag--active' : ''
                                             }`}
                                             onClick={() => toggleTag(tag)}
@@ -433,8 +392,8 @@ export default function ProjectOverlay({ isOpen, onClose, flipState }) {
                         </div>
 
                         {/* Message textarea */}
-                        <div className={`project-overlay__field${fieldValues.message?.trim() ? ' project-overlay__field--filled' : ''}`}>
-                            <CheckIndicator checked={fieldValues.message?.trim() !== ''} />
+                        <div className={`project-overlay__field${fieldValues.message?.trim() ? ' project-overlay__field--filled' : ''}${nextClass('message')}`}>
+                            <CheckIndicator checked={fieldValues.message?.trim() !== ''} className="project-overlay__check" />
                             <div className="project-overlay__field-content">
                                 <label
                                     className="project-overlay__label"
