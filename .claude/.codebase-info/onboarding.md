@@ -26,7 +26,7 @@ every key). The records were re-recorded at the folded defaults on 11-01 (the pl
 seeds), so a run passes only its own row's flags.
 
 ## Where things are decided
-- `docs/v1-launch-plan.md` — what ships when `feature/v1-launch` merges to `main`.
+- `docs/v1-launch-plan.md` — the v1 launch plan and its record (launched 2026-11-25); work since is on `wip-build`.
 - `docs/refinements-master-plan.md` — Notion revision notes triaged into work items.
 - Specs/plans: `docs/featured-projects-preview-plan.md`, `docs/fpgrid-plan.md`,
   `docs/fp-pager-rework-approaches.md`, `docs/process-page-spec.md` + `-plan.md`,

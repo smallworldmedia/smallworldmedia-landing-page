@@ -1,6 +1,6 @@
 # Coding Style
 
-*Last Updated: 2026-10-08*
+*Last Updated: 2026-11-25*
 
 - **No formatter or linter in the repo.** No prettier/eslint/biome/editorconfig. Never run
   `prettier --write`; match the surrounding file by hand and keep diffs to the changed lines.
@@ -50,4 +50,4 @@
 - **Imperative readouts:** engine-owned DOM readouts are seeded once at mount and never re-rendered by
   React; aria-live text is change-gated and never announced on the mount run.
 - **Commits:** conventional-ish prefixes (`feat(chrome):`, `fix(footer):`, `docs(session):`) with a
-  sentence that states what was observed. Working branch `feature/v1-launch`; `main` is production.
+  sentence that states what was observed. Working branch `wip-build` (from 2026-11-25); `main` is production and moves by PR.

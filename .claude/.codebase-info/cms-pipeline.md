@@ -126,22 +126,10 @@ Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE
 column after `displayGroup`; never uploads, never overwrites bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
 
 ## Sets migration (US-10)
-Done: every legacy group got its Set (11-16 → 11-25) and the legacy fields are gone, so a re-run
-finds nothing to place; the script is kept for its record.
-`node --env-file=.env.local scripts/cms-sets-migration.mjs --project-id ID --dataset NAME --out DIR` reads
-the dataset and writes `--changes` request files (`_cms-request_sets-migration-2026-11-<n>.json`), never
-Sanity: one Set per (project, legacy displayGroup) plus one album-art set per project with album art;
-members get only `set`; decks start with `allowAsHero` true, every other set false. Each file keeps a
-set's create with all its member patches, at most 100 operations, and is never overwritten (`wx`).
-What it cannot place (no project, no type, mixed types, a draft twin) is reported, never guessed. Each
-file then goes through plan, Nathan's yes to that plan id, apply and verify.
-
-Before a file's plan, `node --env-file=.env.local scripts/cms-sets-migration-oracle.mjs media/_sets-migration
---only N` (read-only) applies that file in memory over a live snapshot (published perspective, drafts
-dropped) and reports (1) a field-level diff of the set-aware projections (`MEDIA_FIELDS`,
-`FEATURED_WORLDS_QUERY`) for every piece and (2) each touched project's `FEATURED_PROJECT_DETAIL_QUERY` +
-`buildContentFlow` result (detail, work, globe). It reads `SANITY_READ_TOKEN` or `SANITY_WRITE_TOKEN` and
-throws without one; snapshots never include `secrets.*` or `mux.apiKey`.
+Done: every legacy group got its Set (11-16 → 11-25) and the legacy fields are gone. Its request writer
+(`scripts/cms-sets-migration.mjs`), pre-apply oracle and their test were retired 11-25 (Nathan); the
+request files it wrote stay in `media/_sets-migration/` (gitignored) as the record, and
+`scripts/lib/cms/sets.mjs` keeps the Set ids intake uses.
 
 ## Tests — `npm run test:cms`
 `scripts/test/cms/{runner,adapters,safety,delete,audit,sets,sets-migration,guard-scope}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via

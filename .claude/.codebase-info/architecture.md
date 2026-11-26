@@ -1,6 +1,6 @@
 # Architecture
 
-*Last Updated: 2026-11-24*
+*Last Updated: 2026-11-25*
 
 ## Summary
 
@@ -93,8 +93,9 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 - ADRs in `docs/adr/`: 0001 project-doc-first featured projects; 0002 Envelopment route swap; 0003
   math-first composites (one geometry brain, thin renderer per surface, e.g. `work/bandLayout.js`);
   0004 /process is ScrollTrigger + house accumulator quantizer.
-- Production branch is `main` and still serves the old landing page; all v1 work lives on
-  `feature/v1-launch` with a stable Netlify branch preview. Merge to main is the launch.
+- Production branch is `main`: v1 launched 2026-11-25 (PR #44, `2fc9ab1`) and Netlify builds
+  smallworld.media from it. Work lands on the working branch `wip-build` (from 11-25; `main` merged in,
+  so `main..wip-build` is only new work), and `main` moves only by a PR from it on Nathan's word.
 - `/lab/globe` and `/specimen` are built but redirected at Netlify and by `Astro.redirect` in
   frontmatter; their components are dormant, not deleted. `/work/directory` was too until 11-03: the
   old directory's components and `work.css` were deleted (`18fd851`), it was rebuilt on the detail

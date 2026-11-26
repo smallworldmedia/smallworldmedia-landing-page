@@ -56,8 +56,6 @@
 ├── scripts/
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
 │   ├── audit-gate.mjs        # Netlify build gate: `cms audit` read-only, any error stops the deploy
-│   ├── cms-sets-migration.mjs   # US-10: writes the sets migration's --changes request files (read-only)
-│   ├── cms-sets-migration-oracle.mjs   # US-10: pre-apply oracle, one migration file over a live snapshot (read-only)
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit, sets (Set ids and keys)
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)

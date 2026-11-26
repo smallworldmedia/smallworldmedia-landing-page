@@ -48,8 +48,6 @@ Client Roster (`getDirectoryData()` → `toDrawerRoster`, `src/lib/clientCoverag
 | `npm run preview` | serve `dist/` |
 | `npm run cms -- plan|apply|verify|audit …` | CMS ingest CLI (`scripts/cms.mjs`) and read-only dataset audit, see `cms-pipeline.md` |
 | `npm run test:cms` | `node --test` over the CMS suites (`scripts/test/cms/`, `cms-*`, `legacy-cms`) |
-| `node --env-file=.env.local scripts/cms-sets-migration.mjs --project-id b60h4u7o --dataset production --out DIR` | US-10: writes the sets migration's `--changes` request files; read-only (each file then goes through `cms plan`, Nathan's yes, `apply`) |
-| `node --env-file=.env.local scripts/cms-sets-migration-oracle.mjs media/_sets-migration --only N` | US-10: the pre-apply oracle for migration file N; read-only, run right before that file's plan (see `cms-pipeline.md`) |
 | `node --test scripts/test/set-hero.test.mjs scripts/test/set-hero-flow.test.mjs scripts/test/studio-set-rows.test.mjs` | US-10: the hero rule (`src/lib/setHero.js`), a set as the detail hero (`buildContentFlow`), and the Studio's set rows and moves (`src/studio/setRows.js`); not in `test:cms` |
 | `node --test scripts/test/footer-reveal.test.mjs` | the footer reveal channel's pure pieces (`footerRise` / `footerSpan` normalization, the dial seeder incl. `ZERO_OK`, the marks window, the hero-lift maths, the wheel's weight: `footerDamp` against Lenis's damp, the house lerp as its default, `footerBrakeStep`'s tail; and home's finger lane since SQ-115: `footerTensionStep`'s symmetric tail, the drive's two lanes on a fake ticker, the touch dials' defaults); 43 tests at `413b515`; not in `test:cms` |
 | `node --test scripts/test/globe-worlds.test.mjs` | the home globe population modes' pure pieces (world pools, patterns, director ownership, the change clock, shared streams), the media spans' arithmetic, class rule, planner (the 2×3 growth too), per-frame windows (rows and flat) and tiers, and the probe's gate modules (`scripts/lib/unitGates.mjs`, `scripts/lib/netReport.mjs`) run on fixtures (the Project Directory's preview clip too); 100 tests at `5c66f49`; not in `test:cms` |
@@ -92,8 +90,8 @@ Client Roster (`getDirectoryData()` → `toDrawerRoster`, `src/lib/clientCoverag
 | `node --test scripts/test/legal-scroll.test.mjs` | `legalScrollGate.mjs`'s pure `verdict` / `scrollLocks` (which lock a failed scroll ran into: overflow, touch-action, a stopped Lenis) |
 | `node scripts/generate-manifests.mjs "Client" [--dry-run]` | scaffold TBD manifests |
 
-Deploy: push to `feature/v1-launch` rebuilds the Netlify branch preview; a merge to `main` is the
-launch. Every Netlify build runs `node scripts/audit-gate.mjs && npm run build` (11-23): an audit error
+Deploy: a merge into `main` (a PR from the working branch `wip-build`) is a production deploy; Nathan's
+Trigger deploy rebuilds `main` after Studio edits. Every Netlify build runs `node scripts/audit-gate.mjs && npm run build` (11-23): an audit error
 stops the build and the last good deploy stays live (`cms-pipeline.md`). Content reaches the site only
 through a build (no build hooks): Nathan publishes text edits in Studio, then triggers a deploy; media
 goes through a session. Draft deploy without touching production: `npm run build` then

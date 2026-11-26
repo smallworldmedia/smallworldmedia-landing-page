@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "tool": "codebase-mapper",
   "version": "2.15.10",
-  "mappedAt": "2026-11-25",
-  "gitCommit": "39f91bc2e9ec789f5fdd9f9c00df87bf5bf56e69",
+  "mappedAt": "2026-11-26",
+  "gitCommit": "e32981c3055f1120e8497b311f759a5b2689d106",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -19,16 +19,16 @@
   ],
   "hashes": {
     "INDEX.md": "8a454e23077eb84c249bddffd8e68cdf6a36e46edb560f5ae13afdadfd324504",
-    "architecture.md": "89f2a99f05fe6a04f7691e8378f89e6df7d820d920fd2e6a400b7fd5d27eb62c",
-    "cms-pipeline.md": "d8a5a14ff421f09fa89493d7b1a50ee87558e66225420714aa763f9432f07d3f",
-    "coding-style.md": "856e2d0b893613d795e60ac41c216665b1b932f15dfbfd26b49620c21e04a05b",
+    "architecture.md": "fd9fe169f6c4927482eba0c44ddfc7d104df7af4a4896539d17d48d0080480b0",
+    "cms-pipeline.md": "fdce923e423e79667732d75f2532ec28dccde88cbfa4de6680b17739f1319ca6",
+    "coding-style.md": "1bdd1857e16b6b3e3e47497d5db7f35a3ef3ce804584d90b8883924b710d14b9",
     "communication.md": "f3f28a586faa4c1a534f59b5aa150b2b4655f5218944031f208404047a60de9a",
     "database.md": "035bf2e535b55564e207e23632c0340059726ed64dcb9f709e8aac884e2ff319",
-    "directory-structure.md": "ef8a881d2377b4a5a3868cd6d0f7b128f3018eca0a1715a17f7a804e81619dc3",
-    "entry-points.md": "00c539186cd10ae29faadfe7bd5c0a8119552aac064f47f5549a0a776ef564b3",
+    "directory-structure.md": "498217102d1011318a48071ec143b98a4a6239eacd69b653c347b8016e739308",
+    "entry-points.md": "e0d157495a41a032410588f31bb9ae420c704d4cfbf357a199c942c8f370e8a8",
     "modules.md": "8ef8462f6b2e3763bfc9d55b34d77597e9de9c637c8bdbb4e32eeb47c4b5e426",
-    "onboarding.md": "b50c437553d14ac31167a8d03d33c20bcde1a7a9cc697c946473c52d21ab88ee",
+    "onboarding.md": "349e9155a04553f988bb5ab1757637b54a9efccb7c9edb1c7d78f31fc01801fc",
     "patterns.md": "5e4bb6a80bc04060cbbbcb34f608a9790c9b5ad632be73de96cad812400914d3",
-    "tech-landscape.md": "f14f392f830a5a1482709f900e8de3e127bea39ff1a5b984cd1b4615e7ac1d09"
+    "tech-landscape.md": "822ed94dbb06c2c9f508052b54aa3731d22485bdad0a14ccc0cb9611b84b5c78"
   }
 }
