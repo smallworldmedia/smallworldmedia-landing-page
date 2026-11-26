@@ -23,8 +23,8 @@
     },
     {
       "path": "rules/parallel-sessions.md",
-      "hash": "6b65cf86b97273f92449823425e2d3292786a23e24271de8693b4ff54ddf608d",
-      "description": "Parallel sessions: one stream toward deploy",
+      "hash": "6f848e985e7c51610bc53441e64415a44eeb36d658c3c0bc0dadc36ca8f64333",
+      "description": "Parallel sessions: one working branch, main is production",
       "globs": [],
       "dirs": [],
       "prompt": [],
