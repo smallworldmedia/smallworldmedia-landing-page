@@ -1,5 +1,5 @@
-// Set identity, shared by manifest intake (runner.mjs) and the sets migration (scripts/cms-sets-migration.mjs),
-// so a set either one creates is the set the other finds. The contract: one set per (project, key); the
+// Set identity for manifest intake (runner.mjs), the same ids the sets migration (US-10, retired 11-25) created,
+// so intake finds the sets already in the dataset. The contract: one set per (project, key); the
 // key is the manifest's displayGroup, and a project's album art is `<project slug>-album-art`. A set with
 // no project (a client's merch, banners or admats, 11-24) is named by its client: `mediaSet-<client slug>-<key>`.
 export const ref = id => ({ _type: 'reference', _ref: id })
