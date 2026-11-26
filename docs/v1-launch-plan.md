@@ -399,9 +399,24 @@ records (`docs/globe-worlds-plan.md`).
       schema drop `39f91bc`, hash `cee42ca9`; docs `4f5e398`) and the hosted Studio redeploy from
       `39f91bc` on Nathan's go ("Push 39f91bc and 4f5e398 and redploy studio"); the branch preview
       built `4f5e398` with the audit gate green.
-    - **Left before `main`:**
-      - Phone Checks 440 (SQ-142) and 450 (SQ-141) on his iPhone; SQ-153;
-      - the launch itself: freeze, retire worktrees, gates + `cms audit` 0, then `main` on his go.
+    - **LAUNCHED 2026-11-25** on Nathan's go ("phone checks 440 and 450 approved. fix 153. after that
+      proceed with all of item 3, i give you full approval"):
+      - Phone Checks 440 (SQ-142) and 450 (SQ-141) passed; SQ-153 folded (`6055111`: the scheme
+        probe's seat and shift gates settle the eye and read the seat after SQ-144's ride).
+      - Worktrees: the gate, A/B and fold-trial checkouts retired. Sidequest's executor checkouts stay
+        under its own sweep (every ticket done but SQ-114, whose attempt `affd5188` stays unfolded).
+      - Gates on `6055111`: units 1019/0 (1 skipped), `test:cms` 146, `tunables-keys --check` (512),
+        logo sizes (89, 0 problems), build, 18 sitemap routes 200, `cms audit` 0 errors / 27 warnings.
+        The all-schemes `scheme-probe` at 1440: 273 PASS, 21 FAIL, none a regression. Run on the 11-24
+        build (`0ed21f8`) they match: the eye over the links footer at the end of detail and directory
+        (it sits on the black panel above the logo row, clear of it), blue's hover on `.cta-primary`,
+        `.site-privacy`, `.fp-cta`. The phone-width checks (`rightEdge` at 390, `midChange` at 402)
+        predate the phones' no-eye (`9194099`), and `lids` and `persist` pass when run alone.
+      - Draft deploy `6b077f87…` checked (routes, `/process` and `/lab` 302, `/studio` 404,
+        immutable `/_astro`). PR #44 merged into `main` as `2fc9ab1`; Netlify's production build
+        (audit-gated) is ready, and smallworld.media serves v1 with Plausible on.
+      - Next: retire `project.services` (a hashed-schema edit, alone); the probe's stale phone-width
+        checks and the overlap and blue hover findings are Nathan's calls.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
@@ -441,8 +456,8 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
 
 **Status 11-25 (Nathan's answers of 11-24, item 13):** Lighthouse DONE (SQ-147, fixes folded);
 entry paths WAIVED; the media session's items below are DONE (the Kamino discs and the Tic Tac cover
-on 11-25) except `project.services` (right after launch). What's left is in item 13's "Left before
-`main`".
+on 11-25) except `project.services` (right after launch). **Launched 2026-11-25: `main` at `2fc9ab1`
+(PR #44), live on smallworld.media; the record is in item 13.**
 
 - Orbit/deck acceptance checklist (spec) passes.
 - `/work` live tier + Turn suspend verified on device.
