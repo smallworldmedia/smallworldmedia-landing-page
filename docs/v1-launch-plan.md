@@ -417,6 +417,13 @@ records (`docs/globe-worlds-plan.md`).
         (audit-gated) is ready, and smallworld.media serves v1 with Plausible on.
       - Next: retire `project.services` (a hashed-schema edit, alone); the probe's stale phone-width
         checks and the overlap and blue hover findings are Nathan's calls.
+      - After launch (11-25 night, Nathan: "Let's make a new working branch and keep main as the main"):
+        the working branch is `wip-build` (`292d11f`, main merged in, no file changes); `main` moves only
+        by PR. The live rule, the Sidequest board's integration branch and the map follow it. The
+        sets-migration scripts are retired ("Yes retire them"). `project.services` ("Yes retire
+        project.services if it's now unneeded"): no query reads it; clearing plan `df2af68c` (18 projects,
+        unset only) waits for his yes, then the schema commit lands alone and the Studio redeploys. He
+        checks the probe findings himself.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
