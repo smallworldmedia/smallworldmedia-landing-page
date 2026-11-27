@@ -859,7 +859,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       // The cover cuts in (10-06) — /work lets go once the entered card is up.
       coverToWork({ duration: 0 });
       handOffWorld();
-      navigate('/work'); // /work initializes already inside
+      navigate('/featured-projects'); // /featured-projects initializes already inside
       return;
     }
 
@@ -960,7 +960,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       // The blue fill froze the director at its first beat — the world here
       // is the one the commit swallowed.
       handOffWorld();
-      navigate('/work');
+      navigate('/featured-projects');
     };
 
     // e=1, dry run (?herotune bench): same passage, then hand everything
@@ -1072,7 +1072,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // gesture vocabulary across home→/work→detail. The old chunk-4 master
   // timeline (blue cascade + recenter + fill spread) is retired from this
   // path — the ?herotune bench's dry-run still rehearses it for reference.
-  // `arrive` is holdEntry('/work')'s commit: the /work entry was pushed in the
+  // `arrive` is holdEntry('/featured-projects')'s commit: the /featured-projects entry was pushed in the
   // tap itself (SQ-141), so the arrival replaces it, or is dropped after a Back.
   const enterWorld = (arrive) => {
     if (departingRef.current) return;
@@ -1096,7 +1096,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       coverToWork({ duration: 0 });
       handOffWorld(entered);
       const opts = arrive();
-      if (opts) navigate('/work', opts);
+      if (opts) navigate('/featured-projects', opts);
       return;
     }
     departingRef.current = true;
@@ -1168,7 +1168,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
       const opts = arrive();
       if (!opts) return; // a Back mid-dive: the router has re-rendered home
       handOffWorld(entered);
-      navigate('/work', opts);
+      navigate('/featured-projects', opts);
     }, enterMs + 60);
   };
 
@@ -1181,7 +1181,7 @@ export default function Hero({ globeAssets, globeWorlds, siteCopy }) {
   // the dive both run after it, past WebKit's ~1 s gesture carry.
   const onEnterClick = () => {
     if (departingRef.current) return;
-    const arrive = holdEntry('/work');
+    const arrive = holdEntry('/featured-projects');
     requestInfoClose(() => {
       if (heroRef.current?.isConnected) enterWorld(arrive);
     });

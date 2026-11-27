@@ -315,11 +315,11 @@ function goNextProject(e, next) {
       },
     })
   );
-  const arrive = holdEntry(`/work/${next.slug}`); // pushed in the tap (SQ-141)
+  const arrive = holdEntry(`/featured-projects/${next.slug}`); // pushed in the tap (SQ-141)
   setTimeout(() => {
     departing = false;
     const opts = arrive();
-    if (opts) navigate(`/work/${next.slug}`, opts);
+    if (opts) navigate(`/featured-projects/${next.slug}`, opts);
   }, NEXT_COVER_SECONDS * 1000 + 60);
 }
 
@@ -345,11 +345,11 @@ function goBackToWork(e, color, spectrum) {
   window.dispatchEvent(
     new CustomEvent('swm:envelop', { detail: { duration: NEXT_COVER_SECONDS, color, spectrum } })
   );
-  const arrive = holdEntry('/work'); // pushed in the tap (SQ-141)
+  const arrive = holdEntry('/featured-projects'); // pushed in the tap (SQ-141)
   setTimeout(() => {
     departing = false;
     const opts = arrive();
-    if (opts) navigate('/work', opts);
+    if (opts) navigate('/featured-projects', opts);
   }, NEXT_COVER_SECONDS * 1000 + 60);
 }
 
@@ -390,7 +390,7 @@ function DetailNextChip({ next, accentVars }) {
   return (
     <a
       className="detail-next"
-      href={`/work/${next.slug}`}
+      href={`/featured-projects/${next.slug}`}
       onClick={(e) => goNextProject(e, next)}
       // WCAG 2.5.3: the name must contain the visible "next_project: name" line.
       aria-label={label}
@@ -768,7 +768,7 @@ export default function FeaturedProjectDetail({ assets, client, project, collect
           reopens the World you entered from (nav link starts fresh), as a
           snap under the project-coloured cover (goBackToWork). */}
       <a
-        href="/work"
+        href="/featured-projects"
         className="detail-breadcrumb"
         style={accentVars}
         onClick={(e) => goBackToWork(e, project?.projectColor || undefined, project?.spectrum || undefined)}

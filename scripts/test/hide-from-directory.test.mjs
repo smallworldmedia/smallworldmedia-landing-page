@@ -1,6 +1,6 @@
 /**
  * "Hide from Project Directory" (mediaAsset.hideFromDirectory): a ticked piece is
- * skipped by the Project Directory's read ONLY; its project page, the /work worlds
+ * skipped by the Project Directory's read ONLY; its project page, the /featured-projects worlds
  * and the home globe keep it, and its tags still count for its project. The queries
  * are the real exports of src/lib/queries.js, run through groq-js over an in-memory
  * dataset; the contract is the real module. Nothing here reaches Sanity.
@@ -38,7 +38,7 @@ const build = (flags = { e1: true, e2: true }) => {
 }
 const ids = rows => rows.map(r => r._id)
 
-test('the directory skips a ticked piece; the project page, /work and the globe keep it', async () => {
+test('the directory skips a ticked piece; the project page, /featured-projects and the globe keep it', async () => {
   const data = build()
   assert.deepEqual(ids((await run(DIRECTORY_QUERY, data)).assets).sort(), ['m1', 'm2'])
   assert.deepEqual(ids((await run(FEATURED_PROJECT_DETAIL_QUERY, data, { projectId: 'p1' })).assets), ['m1', 'm2', 'e1', 'e2'])

@@ -279,10 +279,10 @@ export default function SiteNav({
     const refreshCurrent = () => {
       const path = window.location.pathname.replace(/\/$/, '') || '/';
       const isCurrent = (href) =>
-        (href === '/work' && (path === '/work' || path.startsWith('/work/'))) ||
+        (href === '/featured-projects' && (path === '/featured-projects' || path.startsWith('/featured-projects/'))) ||
         (href === '/services' && path === '/services');
       [linksRef.current, menuRef.current].filter(Boolean).forEach((root) => {
-        root.querySelectorAll('a[href="/work"], a[href="/services"]').forEach((el) => {
+        root.querySelectorAll('a[href="/featured-projects"], a[href="/services"]').forEach((el) => {
           if (isCurrent(el.getAttribute('href'))) {
             el.setAttribute('data-current', 'true');
             el.setAttribute('aria-current', 'page');
@@ -420,7 +420,7 @@ export default function SiteNav({
             <span className="site-nav__glyph">↳</span>
             <span className="site-nav__label">start_project</span>
           </a>
-          <a href="/work" className="site-nav__link">
+          <a href="/featured-projects" className="site-nav__link">
             <span className="site-nav__glyph">⁕</span>
             <span className="site-nav__label">featured_projects</span>
           </a>
@@ -502,7 +502,7 @@ export default function SiteNav({
                 <span className="site-nav__glyph">↳</span>
                 <span className="site-nav__label">start_project</span>
               </a>
-              <a href="/work" className="mobile-menu__item">
+              <a href="/featured-projects" className="mobile-menu__item">
                 <span className="site-nav__glyph">⁕</span>
                 <span className="site-nav__label">featured_projects</span>
               </a>

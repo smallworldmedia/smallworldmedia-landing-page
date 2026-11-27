@@ -6,7 +6,7 @@
  *
  * Usage:
  *   ~/swm-probe-lock.sh node scripts/next-band-media-probe.mjs --base=http://127.0.0.1:4351
- *        [--path=/work/cheetah-print/] [--phone] [--out=run.json] [--query=k=v]
+ *        [--path=/featured-projects/cheetah-print/] [--phone] [--out=run.json] [--query=k=v]
  *
  * Desktop (default 1440x900) drives a scripted wheel pull; --phone (390x844, touch, 3x) drives a
  * finger drag over CDP (first move clears the touch slop; the finger holds until the commit).
@@ -38,7 +38,7 @@ if (!base) {
   process.exit(1);
 }
 const phone = !!arg('phone', false);
-const route = arg('path', '/work/cheetah-print/');
+const route = arg('path', '/featured-projects/cheetah-print/');
 const out = arg('out', null);
 const query = [phone ? 'blurbhold=0' : null, arg('query', null)].filter(Boolean).join('&');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

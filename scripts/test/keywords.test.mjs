@@ -84,14 +84,14 @@ test('off still strips the brackets and keeps the punctuation', () => {
 })
 
 test('off leaves bold and plain links alone', () => {
-  const out = html(kw.renderKeywords('a **heavy** [HHS](/work/hhs) [[word]]'))
-  assert.equal(out, 'a <b class="kw-em">heavy</b> <a class="prose-link" href="/work/hhs">HHS</a> word')
+  const out = html(kw.renderKeywords('a **heavy** [HHS](/featured-projects/hhs) [[word]]'))
+  assert.equal(out, 'a <b class="kw-em">heavy</b> <a class="prose-link" href="/featured-projects/hhs">HHS</a> word')
 })
 
 test('off keeps a linked keyword a link in the prose-link style', () => {
   assert.equal(
-    html(kw.renderKeywords('see [[HHS]](/work/hhs) or [[Ext]](https://example.com/x)')),
-    'see <a class="prose-link" href="/work/hhs">HHS</a> or ' +
+    html(kw.renderKeywords('see [[HHS]](/featured-projects/hhs) or [[Ext]](https://example.com/x)')),
+    'see <a class="prose-link" href="/featured-projects/hhs">HHS</a> or ' +
       '<a class="prose-link" href="https://example.com/x" target="_blank" rel="noopener noreferrer">Ext</a>'
   )
 })

@@ -1,4 +1,4 @@
-// ctaNames: /work's [PREVIOUS] / [NEXT] chips read the neighbouring client names (SQ-80).
+// ctaNames: /featured-projects's [PREVIOUS] / [NEXT] chips read the neighbouring client names (SQ-80).
 //   node --test scripts/test/cta-names.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'

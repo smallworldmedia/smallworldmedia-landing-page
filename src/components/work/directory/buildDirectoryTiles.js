@@ -156,7 +156,7 @@ export function buildDirectoryTiles({ assets, worlds, clients = [], logos = null
   const routes = new Map(
     featuredRoutes(worlds).map((w, i) => [
       w.projectId,
-      { i, href: `/work/${w.slug}`, label: w.title ?? w.collection },
+      { i, href: `/featured-projects/${w.slug}`, label: w.title ?? w.collection },
     ])
   );
   const nameOf = new Map(clients.map((c) => [c.slug, c.name ?? c.slug]));

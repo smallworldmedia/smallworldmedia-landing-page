@@ -1084,7 +1084,7 @@ export default function FeaturedProjects({ worlds = [] }) {
       <ul className="sr-only">
         {worlds.map((world) => (
           <li key={world.slug}>
-            <a href={`/work/${world.slug}`}>
+            <a href={`/featured-projects/${world.slug}`}>
               {world.clientName} —{' '}
               {[world.title, formatYearRange(world.yearStart, world.yearEnd, world.isOngoing)].filter(Boolean).join(', ')}
             </a>

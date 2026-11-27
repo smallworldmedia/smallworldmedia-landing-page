@@ -309,7 +309,7 @@ export function carriers(list, expect) {
   return result(offenders, n, `${n} carriers checked of ${(list ?? []).length}`);
 }
 
-/** deal — card i's data-spectrum equals keyAt(i). cards = [{ slug, spectrum }] in /work order. */
+/** deal — card i's data-spectrum equals keyAt(i). cards = [{ slug, spectrum }] in /featured-projects order. */
 export function deal(cards, keyAt) {
   const offenders = [];
   (cards ?? []).forEach((c, i) => {
@@ -1280,11 +1280,11 @@ export function jitter(run, { snap = 0.5, rev = 0.25 } = {}) {
 }
 
 /**
- * shift — the engaged eye steps off the viewport's edge on /work's stagger taper (SQ-107 pass 10, Nathan
+ * shift — the engaged eye steps off the viewport's edge on /featured-projects's stagger taper (SQ-107 pass 10, Nathan
  * 11-17: "account for your thumb covering the selected eye ... the same small arrow and x position
- * offset utilized in the /work pager"). `s` = {
+ * offset utilized in the /featured-projects pager"). `s` = {
  *   vp: {w}, S, reach, exp,                  the viewport, the shift in px (the DEFAULT, never read back off the
- *                                            page: a page whose shift was forced to 0 must fail), /work's taper
+ *                                            page: a page whose shift was forced to 0 must fail), /featured-projects's taper
  *   rest:    { eye: {cx, w}, tile: {x, w}, pad, arrow: {opacity} },
  *   engaged: { open, tx0, eye: {x, w}, tile: {x, w}, lensCy,
  *              circles: [{ d, cx }],          d = the circle's distance from the lens in stations, cx its centre x

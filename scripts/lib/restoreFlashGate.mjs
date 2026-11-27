@@ -1,7 +1,7 @@
 /**
- * restoreFlashGate — the /work return-restore's first frame (SQ-131).
+ * restoreFlashGate — the /featured-projects return-restore's first frame (SQ-131).
  *
- * Nathan 11-20 (iPhone, row 130): Back from a project to /work "briefly shows
+ * Nathan 11-20 (iPhone, row 130): Back from a project to /featured-projects "briefly shows
  * the first project begin to populate (coco) and then proceeds to load the
  * correct last fp card". The probe (scripts/history-probe.mjs, scenarios RF/RFW)
  * samples every frame from the Back until the restored card is up, plus every

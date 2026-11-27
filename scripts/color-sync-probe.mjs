@@ -19,7 +19,7 @@
  * done. The "offset" lines compare the nav and the tagged elements against the page background,
  * in frames (frame = the median rAF gap) and ms. ≤ 1 frame = in sync.
  *
- * WebGL surfaces (the home globe, /work) need a Sanity CORS origin: serve on localhost:4330 (or
+ * WebGL surfaces (the home globe, /featured-projects) need a Sanity CORS origin: serve on localhost:4330 (or
  * 127.0.0.1:4399). The browser launches with swiftshader so headless WebGL works. One browser
  * probe at a time on this machine: wrap it as `~/swm-probe-lock.sh node scripts/color-sync-probe.mjs …`.
  * A measurement, not a gate: it exits 0 whatever it finds.
@@ -266,11 +266,11 @@ async function capture(page, ms) {
 }
 async function firstSlug(page) {
   if (SLUG) return SLUG;
-  await page.goto(`${BASE}/work/`, { waitUntil: 'load' });
+  await page.goto(`${BASE}/featured-projects/`, { waitUntil: 'load' });
   await sleep(1500);
   return page.evaluate(() => {
-    const a = [...document.querySelectorAll('a[href^="/work/"]')].find((x) => /^\/work\/[^/]+\/?$/.test(x.getAttribute('href')) && !/directory/.test(x.getAttribute('href')));
-    return a ? a.getAttribute('href').replace(/^\/work\/|\/$/g, '') : null;
+    const a = [...document.querySelectorAll('a[href^="/featured-projects/"]')].find((x) => /^\/featured-projects\/[^/]+\/?$/.test(x.getAttribute('href')) && !/directory/.test(x.getAttribute('href')));
+    return a ? a.getAttribute('href').replace(/^\/featured-projects\/|\/$/g, '') : null;
   });
 }
 
@@ -288,7 +288,7 @@ async function runCase(page, c) {
       }));
     const rows = [];
     const slug = await firstSlug(page);
-    await page.goto(`${BASE}/work/${slug}/`, { waitUntil: 'load' });
+    await page.goto(`${BASE}/featured-projects/${slug}/`, { waitUntil: 'load' });
     await sleep(4000);
     rows.push({ at: 'detail (load)', ...(await snap()) });
     await page.click('.site-nav__logo');
@@ -304,7 +304,7 @@ async function runCase(page, c) {
   }
   if (c === 'rest') {
     const rows = [];
-    for (const p of ['/', '/work/', '/services/']) {
+    for (const p of ['/', '/featured-projects/', '/services/']) {
       await page.goto(`${BASE}${p}`, { waitUntil: 'load' });
       await sleep(5000);
       rows.push(await page.evaluate(() => ({
@@ -317,7 +317,7 @@ async function runCase(page, c) {
       })));
     }
     const slug = await firstSlug(page);
-    await page.goto(`${BASE}/work/${slug}/`, { waitUntil: 'load' });
+    await page.goto(`${BASE}/featured-projects/${slug}/`, { waitUntil: 'load' });
     await sleep(4000);
     rows.push(await page.evaluate(() => ({
       path: location.pathname,
@@ -341,7 +341,7 @@ async function runCase(page, c) {
   }
   if (c === 'detail-chip' || c === 'detail-next') {
     const slug = await firstSlug(page);
-    await page.goto(`${BASE}/work/${slug}/`, { waitUntil: 'load' });
+    await page.goto(`${BASE}/featured-projects/${slug}/`, { waitUntil: 'load' });
     await sleep(4500);
     await arm(page);
     await sleep(300);
@@ -369,8 +369,8 @@ async function runCase(page, c) {
   if (c.startsWith('lockup-')) {
     const where = c.slice('lockup-'.length);
     let path;
-    if (where === 'detail') path = `/work/${await firstSlug(page)}/`;
-    else if (where === 'work') path = '/work/';
+    if (where === 'detail') path = `/featured-projects/${await firstSlug(page)}/`;
+    else if (where === 'work') path = '/featured-projects/';
     else path = '/services/';
     await page.goto(`${BASE}${path}`, { waitUntil: 'load' });
     await sleep(5000);

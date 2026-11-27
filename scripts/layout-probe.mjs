@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node scripts/layout-probe.mjs --base=http://localhost:4330 --out=want.json
- *        [--paths=/work/cheetah-print/,/services/] [--widths=1440,1024,390] [--query=tileshape=1.25]
+ *        [--paths=/featured-projects/cheetah-print/,/services/] [--widths=1440,1024,390] [--query=tileshape=1.25]
  *   node scripts/layout-probe.mjs --compare want.json got.json
  *
  * Record: loads each page at each width, under reduced motion and with every Mux stream aborted,
@@ -13,7 +13,7 @@
  * `.dir-flow`: every `.dir-grid` chunk. Each child is recorded as its inline placement style and
  * its layout box summed up the offset chain, so an entrance transform never counts, and each page
  * adds its document height. A page is read every 400 ms until two reads agree, at most 15 times.
- * With no --paths the probe takes every /work/… page in <base>'s sitemap past /work/ itself:
+ * With no --paths the probe takes every /featured-projects/… page in <base>'s sitemap past /featured-projects/ itself:
  * every detail page and the directory. --base falls back to GLOBE_PROBE_BASE and has no default,
  * because a fingerprint of whatever server holds a port is worse than none.
  *
@@ -115,7 +115,7 @@ async function sitemapPaths(base) {
   const pages = [];
   // The sitemap names the production origin; only the path is ours to load.
   for (const sub of await locs(`${base}/sitemap-index.xml`)) pages.push(...(await locs(base + new URL(sub).pathname)));
-  return pages.map((loc) => new URL(loc).pathname).filter((p) => p.startsWith('/work/') && p !== '/work/');
+  return pages.map((loc) => new URL(loc).pathname).filter((p) => p.startsWith('/featured-projects/') && p !== '/featured-projects/');
 }
 
 async function record() {

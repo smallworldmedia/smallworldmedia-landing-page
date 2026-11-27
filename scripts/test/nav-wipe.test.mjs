@@ -49,18 +49,18 @@ test('?navwipeout: the menu\'s wipe back down in ms (seconds out), WIPE_OUT_S by
   }
 });
 
-test('routeSignalsReady: home, /work, the directory and a project signal themselves; the rest fall back', () => {
-  for (const p of ['/', '/work', '/work/', '/services', '/services/', '/work/bedouin', '/work/bedouin/']) {
+test('routeSignalsReady: home, /featured-projects, the directory and a project signal themselves; the rest fall back', () => {
+  for (const p of ['/', '/featured-projects', '/featured-projects/', '/services', '/services/', '/featured-projects/bedouin', '/featured-projects/bedouin/']) {
     assert.equal(routeSignalsReady(p), true, p);
   }
-  for (const p of ['/process', '/privacy', '/terms', '/specimen', '/lab/globe', '/work/a/b', '/services/x', '/nope']) {
+  for (const p of ['/process', '/privacy', '/terms', '/specimen', '/lab/globe', '/featured-projects/a/b', '/services/x', '/nope']) {
     assert.equal(routeSignalsReady(p), false, p);
   }
 });
 
 // ── the hold, on a fake clock ──────────────────────────────────────────────────────────────────
 
-function world(pathname = '/work') {
+function world(pathname = '/featured-projects') {
   const win = new EventTarget();
   win.location = { pathname };
   const doc = new EventTarget();
@@ -176,7 +176,7 @@ test('the default timers are safe in a browser, where setTimeout/clearTimeout th
   globalThis.clearTimeout = guard(real.clear);
   try {
     const w = world();
-    const cancel = holdForRoute(() => {}, { win: w.win, doc: w.doc, pathname: '/work', now: () => 0, raf: () => {} }); // default timers
+    const cancel = holdForRoute(() => {}, { win: w.win, doc: w.doc, pathname: '/featured-projects', now: () => 0, raf: () => {} }); // default timers
     cancel();
   } finally {
     Object.assign(globalThis, { setTimeout: real.set, clearTimeout: real.clear });
@@ -206,7 +206,7 @@ test('a route with no canvas is ready at its first paint after astro:page-load',
 });
 
 test('a route that signals itself ignores astro:page-load, which fires before its scene draws', () => {
-  const w = world('/work');
+  const w = world('/featured-projects');
   const h = w.hold();
   w.advance(100);
   w.doc.dispatchEvent(new Event('astro:page-load'));
@@ -306,7 +306,7 @@ test('gate: a long task after the swap delays the cap timer, and the gate allows
 
 test('gate: the cap judges the release, so a wipe stretched by lag smoothing after an on-time release passes', () => {
   const slow = { readyAt: null, signals: false, paintedAt: null, samples: rampDown(600 + 120 + SLACK_MS + 900), stallMs: 0 };
-  const released = (ms) => ({ pathname: '/work', armedAt: 1000, releasedAt: 1000 + ms, why: 'cap' });
+  const released = (ms) => ({ pathname: '/featured-projects', armedAt: 1000, releasedAt: 1000 + ms, why: 'cap' });
   assert.equal(verdict(good({ ...slow, hold: released(640) })).pass, true);
   assert.ok(verdict(good({ ...slow, hold: released(600 + SLACK_MS + 50) })).fails.some((f) => /past the cap/.test(f)));
 });
@@ -367,6 +367,6 @@ test('every route island dispatches the ready signal once its first frame is up'
     assert.match(s, /signalRouteReady/, `${file} imports it`);
     assert.match(s, re, `${file} calls it at its first frame`);
   }
-  // /work's snapped arrival (a World restored by Back) is ready when that World's card is up.
+  // /featured-projects's snapped arrival (a World restored by Back) is ready when that World's card is up.
   assert.match(src('src/components/work/FeaturedProjects.jsx'), /fillOnCardRef\.current = null;\s*window\.dispatchEvent\(new CustomEvent\('swm:fill-release'\)\);\s*signalRouteReady\(\)/);
 });

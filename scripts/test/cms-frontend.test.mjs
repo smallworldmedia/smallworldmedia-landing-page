@@ -155,7 +155,7 @@ test('directory query: published media in World order, a deck as one tile, the l
   const tiles = buildDirectoryTiles(data)
   // The featured World first (its hero included), the deck as one tile at its first page's place, its face page 1.
   assert.deepEqual(tiles.map((t) => t._id), ['hero', 'cover', 'page-1', 'slide-1', 'motion', 'banner-2', 'other-project', 'munchie-cover'])
-  assert.equal(tiles[0].href, '/work/fixture-branding')
+  assert.equal(tiles[0].href, '/featured-projects/fixture-branding')
   assert.equal(tiles[0].label, 'Studio title')
   // ?client=dj-tennis: DJ Tennis has no media of its own; Munchietown names it, so its cover shows.
   const dj = coverageOf('dj-tennis', data.clients)
@@ -261,7 +261,7 @@ test('a piece in a Set document projects the set\'s type and key, and the hero r
   // A piece with no set projects no group: its own legacy displayGroup / groupType are never read.
   assert.deepEqual(pick(get('left-set')), [null, null, null, null], 'a legacy displayGroup / groupType without a set is ignored')
   for (const id of ['hero', 'cover', 'motion']) assert.deepEqual(pick(get(id)), [null, null, null, null], id)
-  // The same columns reach the directory's pieces; /work's Worlds read the two coalesced fields only.
+  // The same columns reach the directory's pieces; /featured-projects's Worlds read the two coalesced fields only.
   const dir = await query(DIRECTORY_QUERY, withSets)
   assert.deepEqual(pick(dir.assets.find((a) => a._id === 'set-flyer')), ['mediaSet-tour', true, 'admat', 'tour-admats'])
   const worlds = await query(FEATURED_WORLDS_QUERY, withSets)

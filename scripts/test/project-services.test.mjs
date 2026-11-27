@@ -71,7 +71,7 @@ test('one project\'s media never lend their tags to another', async () => {
   assert.deepEqual(slugs(rows.find((r) => r.slug === 'p-other').services), ['web-design'])
 })
 
-test('the detail page and the /work Worlds read the same tags', async () => {
+test('the detail page and the /featured-projects Worlds read the same tags', async () => {
   const detail = await query(FEATURED_PROJECT_DETAIL_QUERY, documents, { projectId: 'p-mixed' })
   const worlds = await query(FEATURED_WORLDS_QUERY, documents)
   const want = ['branding', 'album-art', 'logo-design']

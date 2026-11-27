@@ -55,15 +55,44 @@
   force = true
 
 # FP-4b (2026-07-16): homegrwxn merged INTO rossi — permanent move; bellaire
-# unfeatured for now — soft redirect until it returns.
+# unfeatured for now — soft redirect until it returns. Both under the new and the old
+# (/work) prefix, each straight to its target (no chain).
 [[redirects]]
-  from = "/work/homegrwxn"
-  to = "/work/rossi"
+  from = "/featured-projects/homegrwxn"
+  to = "/featured-projects/rossi"
   status = 301
   force = true
 
 [[redirects]]
-  from = "/work/bellaire"
-  to = "/work"
+  from = "/work/homegrwxn"
+  to = "/featured-projects/rossi"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/featured-projects/bellaire"
+  to = "/featured-projects"
   status = 302
+  force = true
+
+[[redirects]]
+  from = "/work/bellaire"
+  to = "/featured-projects"
+  status = 302
+  force = true
+
+# 11-27 (Nathan: "change /work to /featured-projects", both the page and each project's
+# page): every old /work URL moves permanently, query kept. Netlify takes the FIRST matching
+# rule, so the /work/directory and /work/homegrwxn / bellaire rules above must stay above
+# this catch-all.
+[[redirects]]
+  from = "/work"
+  to = "/featured-projects"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/work/*"
+  to = "/featured-projects/:splat"
+  status = 301
   force = true

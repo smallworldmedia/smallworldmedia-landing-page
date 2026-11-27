@@ -6,7 +6,7 @@
  * A RECORD is one navigation, every time in ms on the page clock, 0 = the tap:
  *   id        'directory>work'
  *   via       'menu' | 'card'   how the route was left. 'card' is the control for a navigation made
- *             with the menu closed (/work → a project by its card): no hold may arm there.
+ *             with the menu closed (/featured-projects → a project by its card): no hold may arm there.
  *   swapAt    astro:after-swap, when the hold starts (menu navigations)
  *   readyAt   the first swm:route-ready after the swap, or null
  *   signals   the destination route dispatches swm:route-ready itself (routeSignalsReady)

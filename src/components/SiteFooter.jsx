@@ -1144,7 +1144,7 @@ export default function SiteFooter({
               <span className="site-footer__glyph">↳</span>
               <span className="site-footer__label">start_project</span>
             </a>
-            <a href="/work" className="site-footer__link">
+            <a href="/featured-projects" className="site-footer__link">
               <span className="site-footer__glyph">⁕</span>
               <span className="site-footer__label">featured_projects</span>
             </a>

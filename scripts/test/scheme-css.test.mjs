@@ -346,7 +346,7 @@ test('scheme.css: the spectrum footer draws its ramp-A rule as a ::before on the
   assert.equal(d.get('height'), '2px');
 });
 
-test('scheme.css: the /work prev/next :hover is inside @media (hover: hover); :focus-visible stays outside', () => {
+test('scheme.css: the /featured-projects prev/next :hover is inside @media (hover: hover); :focus-visible stays outside', () => {
   const css = stripComments(read('src/styles/scheme.css'));
   const hover = ':is(.fp-prev, .fp-next):hover';
   assert.equal(css.split(hover).length - 1, 1, 'the hover selector appears once');

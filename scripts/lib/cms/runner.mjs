@@ -645,7 +645,7 @@ export async function applyPlan({ plan, confirm, checkout, store, sanity, mux, .
 }
 export async function verifyRun({ plan, journal, sanity, mux }) {
   validatePlan(plan); invariant(same(sanity.target, plan.target), 'Adapter target mismatch'); invariant(journal, 'No run journal; apply has not started'); journalCheck(plan, journal)
-  const report = { run: plan.id, target: plan.target, created: 0, updated: 0, unchanged: 0, deleted: 0, pending: 0, failed: 0, issues: [], unattached: [], routes: ['/work','/services'], publication: PUBLICATION, resume: `node scripts/cms.mjs apply --plan <saved-plan-path> --confirm ${plan.id}` }
+  const report = { run: plan.id, target: plan.target, created: 0, updated: 0, unchanged: 0, deleted: 0, pending: 0, failed: 0, issues: [], unattached: [], routes: ['/featured-projects','/services'], publication: PUBLICATION, resume: `node scripts/cms.mjs apply --plan <saved-plan-path> --confirm ${plan.id}` }
   const docs = await fresh(sanity, plan.operations.filter(o => o.type !== 'mux.asset').map(o => o.id))
   for (const op of plan.operations) {
     const state = journal.operations[op.id], actual = docs.get(op.id)
@@ -655,7 +655,7 @@ export async function verifyRun({ plan, journal, sanity, mux }) {
         if (op.type !== 'mux.asset') invariant(!actual && !docs.has(`drafts.${op.id}`), `Deleted document still present: ${op.id}`)
         const assetId = op.type === 'mux.asset' ? op.id : op.mux?.id
         if (assetId) invariant(await mux.findAsset(assetId) === null, `Mux asset still present: ${assetId}`)
-        if (op.type === 'mediaAsset' && op.before.project?._ref) { const project = (await sanity.getDocuments([op.before.project._ref])).find(d => d._id === op.before.project._ref); if (project?.slug?.current) report.routes.push(`/work/${project.slug.current}`) }
+        if (op.type === 'mediaAsset' && op.before.project?._ref) { const project = (await sanity.getDocuments([op.before.project._ref])).find(d => d._id === op.before.project._ref); if (project?.slug?.current) report.routes.push(`/featured-projects/${project.slug.current}`) }
         report.deleted++; continue
       }
       noDraft(docs, op.id)
@@ -673,9 +673,9 @@ export async function verifyRun({ plan, journal, sanity, mux }) {
           if (op.upload) invariant(image.metadata.dimensions.width === op.source.dimensions.width && image.metadata.dimensions.height === op.source.dimensions.height, 'Image dimensions changed')
         }
       }
-      if (op.type === 'project' && actual.slug?.current) report.routes.push(`/work/${actual.slug.current}`)
+      if (op.type === 'project' && actual.slug?.current) report.routes.push(`/featured-projects/${actual.slug.current}`)
       if (op.type === 'globeSettings' && op.action === 'patch') report.routes.push('/')
-      if (op.type === 'mediaAsset' && actual.project?._ref) { const project = targets.get(actual.project._ref); if (project?.slug?.current) report.routes.push(`/work/${project.slug.current}`) }
+      if (op.type === 'mediaAsset' && actual.project?._ref) { const project = targets.get(actual.project._ref); if (project?.slug?.current) report.routes.push(`/featured-projects/${project.slug.current}`) }
       report[op.action === 'create' ? 'created' : op.action === 'patch' ? 'updated' : 'unchanged']++
     } catch (error) { report.failed++; report.issues.push({ id: op.id, message: error.message?.includes('https://') ? 'Provider verification failure (details suppressed).' : error.message }) }
   }

@@ -290,8 +290,8 @@ const roster = await getDirectoryData()
       // detail page or the directory. `route` lags one navigation behind
       // (astro:page-load hasn't fired yet when popstate lands), so it
       // identifies the page being LEFT while location already points at
-      // the destination — the flag arms only for /work/* → /work and
-      // /services → /work traversals (the directory left /work/ 11-27). The
+      // the destination — the flag arms only for /featured-projects/* → /featured-projects and
+      // /services → /featured-projects traversals (/work until 11-27). The
       // detail breadcrumb arms the same flag on click; the nav link never does.
       let route = window.location.pathname;
       document.addEventListener('astro:page-load', () => {
@@ -299,8 +299,8 @@ const roster = await getDirectoryData()
       });
       window.addEventListener('popstate', () => {
         if (
-          /^\/(work\/.+|services\/?$)/.test(route) &&
-          window.location.pathname.replace(/\/+$/, '') === '/work'
+          /^\/(featured-projects\/.+|services\/?$)/.test(route) &&
+          window.location.pathname.replace(/\/+$/, '') === '/featured-projects'
         ) {
           try {
             sessionStorage.setItem('swm:returnToWork', '1');
@@ -316,7 +316,7 @@ const roster = await getDirectoryData()
       // paint; the restore's pre-paint snap replaces it (and WorldCard's own
       // entrance sets autoAlpha 1 should the first World stay).
       document.addEventListener('astro:after-swap', () => {
-        if (window.location.pathname.replace(/\/+$/, '') !== '/work') return;
+        if (window.location.pathname.replace(/\/+$/, '') !== '/featured-projects') return;
         try {
           if (sessionStorage.getItem('swm:returnToWork') !== '1') return;
           const kept = window.history.state?.swmWorld;

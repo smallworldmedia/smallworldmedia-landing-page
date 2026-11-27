@@ -87,7 +87,7 @@ const build = (hidden = { m1: true, m4: true, h1: true, h2: true }) => {
 }
 const ids = rows => rows.map(r => r._id)
 
-test('hidden pieces are absent from every site query result (project page, /work worlds, directory, globe)', async () => {
+test('hidden pieces are absent from every site query result (project page, /featured-projects worlds, directory, globe)', async () => {
   const data = build()
   const detail = await run(FEATURED_PROJECT_DETAIL_QUERY, data, { projectId: 'p1' })
   assert.deepEqual(ids(detail.assets), ['m2', 'm3'])

@@ -6,7 +6,7 @@
  * is the signal Grid Socket parallax and the orbit's scroll-kick consume
  * (see docs/orbit-deck-viewer-spec.md § Lenis scroll foundation).
  *
- * Route rule: `/work` (exact) is excluded — the FeaturedProjects island owns
+ * Route rule: `/featured-projects` (exact) is excluded — the FeaturedProjects island owns
  * wheel physics there (World Turn) and Lenis must never contest it. Reduced
  * motion never initializes Lenis: native scroll, but getLenis() consumers
  * must handle null.
@@ -29,7 +29,7 @@ const prefersReducedMotion = () =>
 /** Routes whose islands own the wheel — Lenis stays off. */
 const ownsItsWheel = (pathname) => {
   const p = pathname.replace(/\/+$/, '');
-  return p === '/work' || p === ''; // 09-08: home's wheel drives the footer reveal
+  return p === '/featured-projects' || p === ''; // 09-08: home's wheel drives the footer reveal
 };
 
 function start() {

@@ -3,7 +3,7 @@
  * image-sharp-probe (SQ-150) — are the DOM images that were fitted to their drawn size still sharp?
  *
  * Usage:
- *   node scripts/image-sharp-probe.mjs --base=http://localhost:4416 [--paths=/work/bedouin/,/]
+ *   node scripts/image-sharp-probe.mjs --base=http://localhost:4416 [--paths=/featured-projects/bedouin/,/]
  *        [--viewports=390x844@3,1440x900@2] [--out=FILE.json]
  *
  * Loads each page at each viewport (a width of 480 or less is a touch phone), scrolls it end to end
@@ -31,10 +31,10 @@ const arg = (k, d) => {
 };
 const base = arg('base', process.env.IMAGE_SHARP_BASE);
 if (!base) {
-  console.error('image-sharp-probe: --base=URL is required\n  node scripts/image-sharp-probe.mjs --base=http://localhost:4416 [--paths=/work/bedouin/,/] [--viewports=390x844@3,1440x900@2] [--out=FILE]');
+  console.error('image-sharp-probe: --base=URL is required\n  node scripts/image-sharp-probe.mjs --base=http://localhost:4416 [--paths=/featured-projects/bedouin/,/] [--viewports=390x844@3,1440x900@2] [--out=FILE]');
   process.exit(1);
 }
-const paths = arg('paths', '/work/bedouin/,/').split(',').filter(Boolean);
+const paths = arg('paths', '/featured-projects/bedouin/,/').split(',').filter(Boolean);
 const viewports = arg('viewports', '390x844@3,1440x900@2')
   .split(',')
   .map((v) => {

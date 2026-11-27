@@ -476,7 +476,7 @@ test('seat gate the same gap above the bottom on every route and stop passes and
   const ok = seat([at('home rest', 17.31), at('home end', 17.31), at('work rest', 17.31), at('process end', 17.6)]);
   assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
   assert.match(ok.note, /4 seats/);
-  // negative controls: the old flush corner on /work (0), a footer-riding route, a missing gap, one lone sample
+  // negative controls: the old flush corner on /featured-projects (0), a footer-riding route, a missing gap, one lone sample
   const flush = seat([at('home rest', 17.31), at('work rest', 0)]);
   assert.equal(flush.pass, false);
   assert.ok(flush.offenders.some((o) => o.path === 'home rest' || o.path === 'work rest'));
@@ -1095,7 +1095,7 @@ test('menuWipe gate the pixels below the edge are the menu and above it the badg
   assert.equal(menuWipe(GOOD, TILE, { pixels: shots.slice(0, 2) }).pass, false, 'two screenshots across the box prove nothing');
 });
 
-// ── shift (SQ-107 pass 10): the engaged eye steps left off the edge on /work's stagger taper ────────────
+// ── shift (SQ-107 pass 10): the engaged eye steps left off the edge on /featured-projects's stagger taper ────────────
 
 // 1440 wide, the eye 33.22 px, S = 33.22 (one eye width), tx0 = -(1.5 - 1) * (16.61 + 4) = -10.3 (the lift's anchor drift)
 const SHIFT_S = 33.22;
@@ -1128,7 +1128,7 @@ test('shift gate the lens steps the full shift, one out 0.444 and two out 0.111,
   assert.equal(ok.pass, true, JSON.stringify(ok.offenders));
   assert.match(ok.note, /shift 33\.22 px, steps d2 3\.69, d1 14\.76, d0 33\.22/, 'a pass prints the offsets it passed with');
   assert.equal(taperOf(0), 1);
-  assert.ok(Math.abs(taperOf(1) - 0.4444) < 1e-3 && Math.abs(taperOf(2) - 0.1111) < 1e-3, '/work\'s taper at reach 3 exponent 2');
+  assert.ok(Math.abs(taperOf(1) - 0.4444) < 1e-3 && Math.abs(taperOf(2) - 0.1111) < 1e-3, '/featured-projects\'s taper at reach 3 exponent 2');
 });
 
 test('shift gate a straight column and a half-way shift and a wrong taper all fail', () => {

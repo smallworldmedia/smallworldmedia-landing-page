@@ -14,7 +14,7 @@ export const NOT_CHECKED = [
   'alt text and description quality (only presence and length)',
   'the deployed Studio schema against the local schema files',
   'the same video uploaded twice under different files (needs frame comparison)',
-  'where each asset lands on the globe, /work and detail pages',
+  'where each asset lands on the globe, /featured-projects and detail pages',
 ]
 // [severity, meaning]. Errors break a page or a CMS plan; warnings are drift or waste; info is context.
 export const CHECKS = {

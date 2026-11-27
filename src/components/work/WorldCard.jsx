@@ -82,11 +82,11 @@ function enterWorld(e, slug, color, spectrum) {
     // scale-up enter-ramp under the rising cover (same duration, one gesture).
     new CustomEvent('swm:enter-world', { detail: { duration: coverS, color } })
   );
-  const arrive = holdEntry(`/work/${slug}`); // pushed in the tap (SQ-141)
+  const arrive = holdEntry(`/featured-projects/${slug}`); // pushed in the tap (SQ-141)
   setTimeout(() => {
     departing = false;
     const opts = arrive();
-    if (opts) navigate(`/work/${slug}`, opts);
+    if (opts) navigate(`/featured-projects/${slug}`, opts);
   }, coverS * 1000 + 60);
 }
 
@@ -236,7 +236,7 @@ export default function WorldCard({ world, index, phase = 'enter', dir = 1 }) {
         )}
         <a
           className="fp-card__cta cta-primary"
-          href={`/work/${world.slug}`}
+          href={`/featured-projects/${world.slug}`}
           onClick={(e) => enterWorld(e, world.slug, world.projectColor, world.spectrum)}
         >
           zoom_in

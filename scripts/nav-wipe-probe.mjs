@@ -10,14 +10,14 @@
  * anything, and 4399 is on Sanity's CORS list.
  *
  * Phone viewport (390×844, touch, taps through Playwright's touchscreen). Scenarios:
- *   A  /services → /work, by the nav menu
- *   B  /work → a project, by its card (the CONTROL: no menu is open, so no hold may arm)
- *   C  / (home) → /work, by the nav menu
+ *   A  /services → /featured-projects, by the nav menu
+ *   B  /featured-projects → a project, by its card (the CONTROL: no menu is open, so no hold may arm)
+ *   C  / (home) → /featured-projects, by the nav menu
  *   D  a project → /services, by the nav menu
- *   E  /work → /services, by the nav menu
+ *   E  /featured-projects → /services, by the nav menu
  *   (The menu’s other items navigate nowhere the hold governs: the lockup runs the black-cover passage
  *   home and closes at once, start_project and privacy open overlays, follow_us leaves the site.)
- * (The menu has no project entry, so /work → a project is the card passage Nathan calls perfect;
+ * (The menu has no project entry, so /featured-projects → a project is the card passage Nathan calls perfect;
  * the probe shows it never meets the hold.)
  *
  * An in-page recorder (0 = the tap) reads, every frame: the menu's coverage (clip-path inset ×
@@ -207,19 +207,19 @@ async function main() {
     await ctx.close();
     return rec;
   };
-  // /work → a project by its card: the menu is closed, so the hold must never arm.
+  // /featured-projects → a project by its card: the menu is closed, so the hold must never arm.
   const viaCard = async (id) => {
     const { ctx, page } = await newPage();
     const rec = { id, via: 'card', notes: [] };
     try {
-      await page.goto(url('/work'), { waitUntil: 'load' });
+      await page.goto(url('/featured-projects'), { waitUntil: 'load' });
       if (!(await settle(page, WITNESS.canvas))) rec.notes.push('start page never drew');
       await page.evaluate(() => window.__navRec.arm(null));
       await page.tap('.fp-card__cta');
-      const landed = await waitFor(page, () => /^\/work\/.+/.test(location.pathname), null, 15000);
+      const landed = await waitFor(page, () => /^\/featured-projects\/.+/.test(location.pathname), null, 15000);
       if (!landed) rec.notes.push('the card tap never reached a project');
       await sleep(3000);
-      Object.assign(rec, await harvest(page, id, 'card', '/work/x'), { id, via: 'card', notes: rec.notes });
+      Object.assign(rec, await harvest(page, id, 'card', '/featured-projects/x'), { id, via: 'card', notes: rec.notes });
       rec.landed = pathOf(page.url());
     } catch (e) {
       rec.notes.push('ERR ' + e.message.split('\n')[0]);
@@ -231,11 +231,11 @@ async function main() {
   const runPass = async (control) => {
     extra = [control ? 'navwipehold=0' : null, args.query || null].filter(Boolean).join('&');
     const records = [];
-    if (want('A')) records.push(await viaMenu('A directory>work', '/services/', WITNESS.directory, ITEM('/work'), '/work', WITNESS.canvas));
+    if (want('A')) records.push(await viaMenu('A directory>work', '/services/', WITNESS.directory, ITEM('/featured-projects'), '/featured-projects', WITNESS.canvas));
     if (want('B')) records.push(await viaCard('B work>project (card)'));
-    if (want('C')) records.push(await viaMenu('C home>work', '/', WITNESS.canvas, ITEM('/work'), '/work', WITNESS.canvas));
-    if (want('D')) records.push(await viaMenu('D project>directory', '/work/bedouin/', WITNESS.project, ITEM('/services'), '/services', WITNESS.directory));
-    if (want('E')) records.push(await viaMenu('E work>directory', '/work', WITNESS.canvas, ITEM('/services'), '/services', WITNESS.directory));
+    if (want('C')) records.push(await viaMenu('C home>work', '/', WITNESS.canvas, ITEM('/featured-projects'), '/featured-projects', WITNESS.canvas));
+    if (want('D')) records.push(await viaMenu('D project>directory', '/featured-projects/bedouin/', WITNESS.project, ITEM('/services'), '/services', WITNESS.directory));
+    if (want('E')) records.push(await viaMenu('E work>directory', '/featured-projects', WITNESS.canvas, ITEM('/services'), '/services', WITNESS.directory));
     const out = summary(records, EXPECT);
     console.log(control ? '── control: ?navwipehold=0, the hold off ──' : '── the hold, as shipped ──');
     out.results.forEach((r, i) => {

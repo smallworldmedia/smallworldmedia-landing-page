@@ -244,7 +244,7 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
  * client name breaks ties until ranks are assigned). Each project carries its
  * editorial copy + its media, joined via the `mediaAsset.project` reference.
  * buildContentFlow() partitions the assets into the World's Tiles + sockets
- * at build time (see src/pages/work/index.astro).
+ * at build time (see src/pages/featured-projects/index.astro).
  */
 export const FEATURED_WORLDS_QUERY = `
   *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))]

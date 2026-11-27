@@ -4,8 +4,8 @@
  * A measurement, not a gate: it exits 0 whatever it finds. Run it on a base and a build.
  *
  * Usage:
- *   node scripts/scroll-kick-probe.mjs --base=http://localhost:4321 --path=/work/coco-branding-2026/
- *        [--from=/work/] [--out=run.json] [--width=1440] [--frames]  (--frames keeps e-wheel's per-frame rows)
+ *   node scripts/scroll-kick-probe.mjs --base=http://localhost:4321 --path=/featured-projects/coco-branding-2026/
+ *        [--from=/featured-projects/] [--out=run.json] [--width=1440] [--frames]  (--frames keeps e-wheel's per-frame rows)
  *
  * Every animation frame, in the page, each DeckScroller strip (.deck-scroller__strip) is read and
  * its step since the last frame taken (wrap-aware). `excess` is the step beyond idle drift
@@ -17,7 +17,7 @@
  *   d-scrollto   at the top, window.scrollTo(the wall, instant) (3 s)
  *   e-wheel      at the top, 40 wheel notches of 100 px, 50 ms apart, then 2 s (user scroll:
  *                its summed excess is the coupling a build must keep)
- * Also counts the Project Directory's and /work's walls: any .deck-scroller__strip or element
+ * Also counts the Project Directory's and /featured-projects's walls: any .deck-scroller__strip or element
  * whose transform moves while the page jumps (--path=/services/ runs the same scenarios).
  * One browser probe at a time on this machine (~/swm-probe-lock.sh).
  */
@@ -32,8 +32,8 @@ const args = Object.fromEntries(
 );
 const BASE = args.base ?? process.env.GLOBE_PROBE_BASE;
 if (!BASE) throw new Error('--base is required');
-const PATH = args.path ?? '/work/coco-branding-2026/';
-const FROM = args.from ?? '/work/';
+const PATH = args.path ?? '/featured-projects/coco-branding-2026/';
+const FROM = args.from ?? '/featured-projects/';
 const WIDTH = Number(args.width ?? 1440);
 const require = createRequire(import.meta.url);
 const PW = process.env.PLAYWRIGHT_PATH ?? '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright';
