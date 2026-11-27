@@ -135,7 +135,7 @@ request files it wrote stay in `media/_sets-migration/` (gitignored) as the reco
 `scripts/lib/cms/sets.mjs` keeps the Set ids intake uses.
 
 ## Tests — `npm run test:cms`
-`scripts/test/cms/{runner,adapters,safety,delete,audit,sets,sets-migration,guard-scope}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
+`scripts/test/cms/{runner,adapters,safety,delete,audit,sets,guard-scope}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
 groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`, `cms-audit-gate.test.mjs` (the deploy gate: clean → 0, an error → 1 with the items capped, no token → 1, a provider URL never echoed). Covers parsing, zero-write previews,
 idempotent reruns, legacy-ID matching, tampered-plan rejection, Mux resume, replacement atomicity,
 lock refusal, schema-drift fail-closed, delete blockers/drift/resume/tamper, audit (clean-set negative control, every check seeded, secrets never reported, read-only CLI), the apply guard scope (exact collection-capture counts via `stats.collections`; drift in the next op's collection or during an upload still stops; drift elsewhere is reported by verify), and that retired scripts
@@ -144,5 +144,6 @@ stay guidance-only.
 ## Retired / gated scripts
 Hard-retired (guard only): `ingest.mjs`, `ingest-all.mjs`, `ingest-videos.mjs`,
 `backfill-project-refs.mjs`. Maintenance-gated (`--legacy-maintenance --acknowledge-legacy=…`):
-`seed`, `sync-hero-to-rank`, `patch-project-data`, `migrate-year-fields`, `upload-missing-videos`,
-`backfill-order-rank`, `phase2-setup`. Treat all as history; use `npm run cms`.
+`seed`, `sync-hero-to-rank`, `upload-missing-videos`, `backfill-order-rank`. Treat all as history; use
+`npm run cms`. Deleted 11-26 (git history keeps them): `patch-project-data`, `phase2-setup`,
+`migrate-year-fields`, one-offs that wrote Sanity directly (two of them set the retired `project.services`).

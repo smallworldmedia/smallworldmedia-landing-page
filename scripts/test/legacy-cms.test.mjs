@@ -9,8 +9,8 @@ import { legacyMaintenanceGate } from '../lib/legacy-cms-guard.mjs'
 
 const scripts = fileURLToPath(new URL('../', import.meta.url))
 const retired = ['ingest.mjs', 'ingest-videos.mjs', 'ingest-all.mjs', 'backfill-project-refs.mjs']
-const historical = ['seed.mjs', 'patch-project-data.mjs', 'phase2-setup.mjs',
-  'upload-missing-videos.mjs', 'migrate-year-fields.mjs', 'backfill-order-rank.mjs', 'sync-hero-to-rank.mjs']
+// patch-project-data, phase2-setup and migrate-year-fields were deleted 11-26 (Nathan: "retire all 3").
+const historical = ['seed.mjs', 'upload-missing-videos.mjs', 'backfill-order-rank.mjs', 'sync-hero-to-rank.mjs']
 const writeFlag = script => script === 'sync-hero-to-rank.mjs' ? '--commit' : '--apply'
 const ack = script => `--acknowledge-legacy=${script}:b60h4u7o/production`
 const approved = script => ['--legacy-maintenance', ack(script), writeFlag(script)]
