@@ -5,7 +5,7 @@
  *
  * Usage:
  *   node scripts/footer-probe.mjs --base=http://127.0.0.1:4399 [--out=run.json] [--shots=dir]
- *     [--widths=769,800,...] [--page=/work/directory/?tag=all] [--sweep=760-1100:20]
+ *     [--widths=769,800,...] [--page=/services/?tag=all] [--sweep=760-1100:20]
  * One browser probe at a time on this machine (~/swm-probe-lock.sh).
  *
  * Chromium, each width: load the directory, wheel-scroll to the footer's end (not a detail page,
@@ -31,7 +31,7 @@ const args = Object.fromEntries(
 const BASE = args.base;
 if (!BASE) throw new Error('--base is required');
 const WIDTHS = (args.widths ?? '769,800,850,900,950,1000,1024,1100,1280,1440').split(',').map(Number).filter((w) => w > 0);
-const PAGE = args.page ?? '/work/directory/?tag=all';
+const PAGE = args.page ?? '/services/?tag=all';
 const require = createRequire(import.meta.url);
 const PW = process.env.PLAYWRIGHT_PATH ?? '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright';
 const { chromium } = require(PW);

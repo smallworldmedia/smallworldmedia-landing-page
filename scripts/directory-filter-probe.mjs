@@ -40,7 +40,7 @@ const require = createRequire(import.meta.url);
 const PW = process.env.PLAYWRIGHT_PATH ?? '/Users/nathangorey/.npm/_npx/e41f203b7505f1fb/node_modules/playwright';
 const { chromium } = require(PW);
 
-const DIR = '/work/directory/';
+const DIR = '/services/';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // In-page: stamp the filter's nodes, then sample every frame until window.__run is false.
@@ -114,7 +114,7 @@ const RESETS = [
     path: 'the footer\'s "services" link (a client picked)',
     url: `${DIR}?client=coco`,
     expect: DEFAULT,
-    act: (p) => p.evaluate(() => document.querySelector('.site-footer__link[href="/work/directory"]').click()),
+    act: (p) => p.evaluate(() => document.querySelector('.site-footer__link[href="/services"]').click()),
   },
   {
     id: 'menu-services',
@@ -123,7 +123,7 @@ const RESETS = [
     phone: true,
     menu: true,
     expect: DEFAULT,
-    act: (p) => p.click('.mobile-menu__item[href="/work/directory"]'),
+    act: (p) => p.click('.mobile-menu__item[href="/services"]'),
   },
   { id: 'clear-all-stuck', path: '"× clear all" with the page scrolled (the filter stuck)', url: `${DIR}?tag=branding,illustration`, scroll: 6, act: (p) => p.click('.dir-filter__clear') },
   // The clients list is the one tall enough to scroll in a short window: its place must survive a reset.

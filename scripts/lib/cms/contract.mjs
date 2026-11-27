@@ -6,7 +6,7 @@ import lexo from 'lexorank'
 export const VERSION = 1
 // Deliberately fail closed on schema edits, including changes made BEFORE preview.
 // Review this allowlist/validation contract, then refresh the fingerprint with schemaHash().
-export const SUPPORTED_SCHEMA_HASH = 'cee42ca91a62b6ce95e5db4a36b1f8803edbf9b0fb87a43ce333ebf58d5e50cb'
+export const SUPPORTED_SCHEMA_HASH = '0e7594939704222a430d280e6c589a6087c1a52b6033fe7fb3e05bacc6478cb3'
 export const PUBLICATION = 'Published documents only; affected drafts block. No site deployment.'
 export const NO_EDIT_WINDOW = 'Keep the affected Studio collection closed to edits during apply. Draft/member absence cannot be locked atomically; immediate rechecks and verification are not cross-editor atomicity.'
 // Explicit deletes only: a mediaAsset, a client nothing references, a Mux document (optionally with its Mux asset), an image asset, or a Mux asset no document describes.
@@ -45,9 +45,10 @@ export function assertFreeRanks(docs, writtenIds) {
 }
 // A Set's type (src/schemas/mediaSet.ts groupType); where each type opens its viewer is site code.
 export const GROUP_TYPES = ['album-art','deck','banner','admat','carousel','merch','visuals','live-footage','mockups','flyer-progression']
-const common = ['slug','yearStart','yearEnd','isOngoing','services']
+const common = ['slug','yearStart','yearEnd','isOngoing']
 export const FIELDS = {
-  mediaAsset: ['title',...common,'mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','orderRank','alt','description','video','splitIntoThirds','hideFromSite','hideFromDirectory','set'],
+  // A project's tags are its media's, unioned at query time (src/lib/queries.js PROJECT_SERVICES); its own field left the schema 11-26.
+  mediaAsset: ['title',...common,'services','mediaType','client','collaborators','project','releaseInfo','brandDeckOrder','contentRole','orderRank','alt','description','video','splitIntoThirds','hideFromSite','hideFromDirectory','set'],
   project: ['title',...common,'client','description','isFeatured','projectColor','projectColorSecondary','orderRank'],
   client: ['name','slug','clientType','city','country','affiliations','links'],
   // A new tag shows in the directory filters; the inquiry form keeps its own list (src/lib/constants.js SERVICE_TAGS).

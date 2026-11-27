@@ -1,7 +1,7 @@
 // The build-time spectrum deal (US-7, SQ-89): src/lib/spectrumDeal.js hands every featured
-// project one palette key by its POSITION in the /work order (colorScheme.spectrumKeyAt),
+// project one palette key by its POSITION in the /featured-projects order (colorScheme.spectrumKeyAt),
 // and buildWorldPools carries it onto the home globe's worlds. Pure parts only: the Sanity
-// read is the same featuredRoutes list /work/[slug] builds its pages from.
+// read is the same featuredRoutes list /featured-projects/[slug] builds its pages from.
 //   node --test scripts/test/spectrum-deal.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'

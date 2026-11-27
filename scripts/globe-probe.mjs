@@ -52,7 +52,7 @@
  * arms, and any page.route turns Playwright's HTTP cache off for the whole
  * page, images included: every byte in report.net is a cold-cache byte, a
  * probe's figure, not a viewer's.
- * --detail=SLUG loads /work/SLUG instead of home and scrolls it top to
+ * --detail=SLUG loads /featured-projects/SLUG instead of home and scrolls it top to
  * bottom, holding two capped loops at each end; it judges the four gates,
  * detailCovered (every <video> on the page asked for a stream), noErrors
  * (no console error or page error; warnings are listed, not gated) and, with
@@ -61,7 +61,7 @@
  * plays past its window), and skips the globe's sampling. --detail refuses
  * --rm, which would drop every vacuity floor to zero, and --footer and
  * --enter, which start on home.
- * --directory[=QUERY] loads /work/directory/?QUERY (the Project Directory;
+ * --directory[=QUERY] loads /services/?QUERY (the Project Directory;
  * --directory=client=dj-tennis, say). It holds two preview windows at the
  * top, takes 12 slow steps of most of a viewport (each held STEP_MS),
  * flings 20 steps FLING_MS apart, then holds two windows more; a step turns
@@ -183,8 +183,8 @@
  * at the end — Chromium's paint-invalidation trap on animating custom
  * properties (the 08-29 nav fix) — so the gate is ≥ 3 in-between colours.
  *
- * --enter (P3) then clicks Enter World on a world that isn't /work's first
- * (⏭ until the globe shows one) and follows the passage: /work must open
+ * --enter (P3) then clicks Enter World on a world that isn't /featured-projects's first
+ * (⏭ until the globe shows one) and follows the passage: /featured-projects must open
  * INSIDE that world as a snap — never an outgoing card (no Turn staged), the
  * scale pager never between stations (no glide from the first World), the
  * accent the world's colour from the moment it lands, the swm:enterWorld key
@@ -193,10 +193,10 @@
  * restore) as a snap too since 10-06 — no outgoing card on the way back.
  * 10-06 cover gates: the Enter World chrome must be fully out before the
  * loading bar shows (under RM the bar never shows), and on the way in AND
- * back the cover must be fully up from the moment /work's first card exists
+ * back the cover must be fully up from the moment /featured-projects's first card exists
  * until the wanted card is — reduced motion included (its instant cover), so
  * World 0's server-rendered card is never seen.
- * With --extra="&popenter=0" /work must open on its first world.
+ * With --extra="&popenter=0" /featured-projects must open on its first world.
  *
  * --footer (10-07) is the only scenario here that GESTURES: it forces the
  * mobile viewport, drives a real touch scrub with CDP Input.dispatchTouchEvent
@@ -292,26 +292,26 @@ const GPU = arg('gpu', 'swiftshader');
 const CHANNEL = arg('channel', ''); // 'chrome' → the installed Google Chrome
 const PAINT = !!arg('paint', false);
 const ENTER = !!arg('enter', false);
-const ENTER_OFF = /[?&]popenter=0\b/.test(EXTRA); // /work must open on its first world
+const ENTER_OFF = /[?&]popenter=0\b/.test(EXTRA); // /featured-projects must open on its first world
 const TEX_BOUND = Number(arg('texbound', 150)); // today's globe binds ~96
 // The video diet (P0): --noclip strips asset_end_time from every master in
 // flight (the negative control; --noclip=0, =false, =off, =no or = leave it
-// off); --detail=SLUG probes /work/SLUG instead, and --hold=PREFIX holds one
+// off); --detail=SLUG probes /featured-projects/SLUG instead, and --hold=PREFIX holds one
 // of its videos through a wrap.
 const NOCLIP_ARG = arg('noclip', false);
 const NOCLIP = NOCLIP_ARG === true || (typeof NOCLIP_ARG === 'string' && !/^(0|false|off|no)?$/i.test(NOCLIP_ARG));
 const DETAIL = arg('detail', '');
 if (DETAIL === true || process.argv.includes('--detail=')) throw new Error('globe-probe: --detail takes a slug (--detail=SLUG)');
 if (DETAIL && RM) throw new Error('globe-probe: --detail with --rm drops every vacuity floor to 0; run --detail without --rm');
-if (DETAIL && (FOOTER || ENTER)) throw new Error('globe-probe: --detail probes /work/SLUG alone; run --footer and --enter without it');
+if (DETAIL && (FOOTER || ENTER)) throw new Error('globe-probe: --detail probes /featured-projects/SLUG alone; run --footer and --enter without it');
 const HOLD = arg('hold', '');
 if (HOLD === true || process.argv.includes('--hold=') || (HOLD && !DETAIL)) throw new Error('globe-probe: --hold takes a Mux id prefix and goes with --detail (--detail=SLUG --hold=PREFIX)');
 const STEP_MS = 2000; // --detail, --directory: each scroll step's hold, so the slots it reveals start their streams
-// --directory[=QUERY]: /work/directory/?QUERY alone (bare: no query).
+// --directory[=QUERY]: /services/?QUERY alone (bare: no query).
 const DIRECTORY_ARG = arg('directory', false);
 const DIRECTORY = DIRECTORY_ARG !== false;
 const DIR_QUERY = typeof DIRECTORY_ARG === 'string' ? DIRECTORY_ARG.replace(/^\?/, '') : '';
-if (DIRECTORY && (DETAIL || HOLD || FOOTER || ENTER)) throw new Error('globe-probe: --directory probes /work/directory alone; run --detail, --hold, --footer and --enter without it');
+if (DIRECTORY && (DETAIL || HOLD || FOOTER || ENTER)) throw new Error('globe-probe: --directory probes /services alone; run --detail, --hold, --footer and --enter without it');
 // --keyctl=escape|ring: the keyboard gates' negative controls (directoryKeys).
 const KEYCTL = arg('keyctl', '');
 if (KEYCTL && (!['escape', 'ring'].includes(KEYCTL) || !DIRECTORY || MOBILE)) throw new Error('globe-probe: --keyctl takes escape or ring, with --directory and without --mobile');
@@ -395,9 +395,9 @@ const OUT = arg(
 // --footer needs no gain pin since 11-17: home's finger has its own baked gain (?footertouchgain, 2), which is
 // what footerScenario's finger distances and step counts were calibrated at; the house ?touchgain no longer reaches it.
 const URL_ = DIRECTORY
-  ? `${BASE}/work/directory/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
+  ? `${BASE}/services/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
   : DETAIL
-    ? `${BASE}/work/${DETAIL}`
+    ? `${BASE}/featured-projects/${DETAIL}`
     : FOOTER
       ? `${BASE}/?intro=${INTRO}${EXTRA}`
       : `${BASE}/?popmode=${MODE}&popseed=${SEED}&poptune=1&intro=${INTRO}${EXTRA}${UNITS === null ? '' : `&popunits=${UNITS}`}`;
@@ -428,7 +428,7 @@ const GATE_CTX = {
 
 // pager-probe's environmental noise (headless CDN CORS, GPU readback stalls,
 // Chrome's reduced-motion view-transitions warning) — never the page's fault.
-// --enter adds Chrome's font-preload timing warning on /work and the detail
+// --enter adds Chrome's font-preload timing warning on /featured-projects and the detail
 // page (the layout's preloads, not the globe's).
 const NOISE = [
   /cdn\.sanity\.io/,
@@ -534,13 +534,13 @@ const holdRoom = (page) =>
       () => false
     );
 
-// /work's first World — slug + accent — from its SSR'd card.
+// /featured-projects's first World — slug + accent — from its SSR'd card.
 async function firstWork() {
-  const html = await (await fetch(`${BASE}/work`)).text();
+  const html = await (await fetch(`${BASE}/featured-projects`)).text();
   const wrap = html.match(/<div[^>]*fp-card-wrap[^>]*>/)?.[0] ?? '';
   const tag = html.match(/<a[^>]*fp-card__cta[^>]*>/)?.[0] ?? '';
   return {
-    slug: tag.match(/href="\/work\/([^"]+)"/)?.[1] ?? null,
+    slug: tag.match(/href="\/featured-projects\/([^"]+)"/)?.[1] ?? null,
     color: wrap.match(/--project-color:\s*(#[0-9a-fA-F]{6})/)?.[1] ?? null,
   };
 }
@@ -548,7 +548,7 @@ async function firstWork() {
 // In-page recorder, armed before the click: every change to the staged
 // cards, the scale pager's strip position, the <html> accent and the passage
 // fill's opacity (to 0.01), as it happens (a MutationObserver — the main
-// thread is too busy building /work for a polling probe to see the arrival).
+// thread is too busy building /featured-projects for a polling probe to see the arrival).
 // window survives the soft nav.
 const armRecorder = () => {
   const log = (window.__enterLog = []);
@@ -590,7 +590,7 @@ const armRecorder = () => {
   requestAnimationFrame(frame);
 };
 
-// /work as the page holds it: the staged cards (an 'exit' one = a Turn), the
+// /featured-projects as the page holds it: the staged cards (an 'exit' one = a Turn), the
 // entered card's slug, the scale pager's strip position, the <html> accent,
 // the active index FeaturedProjects persists, the handoff key.
 const readWork = () => {
@@ -608,7 +608,7 @@ const readWork = () => {
     path: location.pathname,
     cards: cards.length,
     exits: cards.filter((c) => c.dataset.phase === 'exit').length,
-    slug: href.startsWith('/work/') ? href.slice(6) : null,
+    slug: href.startsWith('/featured-projects/') ? href.slice(6) : null,
     qf: Number.isFinite(qf) ? qf : null,
     index: Number.isFinite(index) ? index : null,
     accent: getComputedStyle(document.documentElement).getPropertyValue('--project-color').trim(),
@@ -616,7 +616,7 @@ const readWork = () => {
   };
 };
 
-/** --enter: Enter World on a world other than /work's first, the /work
+/** --enter: Enter World on a world other than /featured-projects's first, the /featured-projects
  *  arrival recorded as it happens, then its enter_world and the breadcrumb. */
 async function enterScenario(page) {
   const out = { first: await firstWork() };
@@ -647,7 +647,7 @@ async function enterScenario(page) {
   out.held = await page
     .waitForFunction(() => window.__swmPopStats?.held, null, { timeout: 3000, polling: 50 })
     .then(() => true, () => false);
-  await page.waitForFunction(() => location.pathname === '/work', null, { timeout: 20000, polling: 50 });
+  await page.waitForFunction(() => location.pathname === '/featured-projects', null, { timeout: 20000, polling: 50 });
   out.navMs = Date.now() - t0;
   await sleep(4000); // the build, the fill's release, the card's boot
   out.log = await page.evaluate(() => window.__enterLog);
@@ -655,12 +655,12 @@ async function enterScenario(page) {
   await shot(page, 'enter-work');
   try {
     await page.locator('.fp-card-wrap[data-phase="enter"] .fp-card__cta').first().click();
-    await page.waitForFunction((slug) => location.pathname === `/work/${slug}`, out.landed.slug, { timeout: 20000, polling: 100 });
+    await page.waitForFunction((slug) => location.pathname === `/featured-projects/${slug}`, out.landed.slug, { timeout: 20000, polling: 100 });
     await page.waitForSelector('.detail-breadcrumb', { state: 'visible', timeout: 20000 });
     await sleep(1500);
     await page.evaluate(armRecorder);
     await page.locator('.detail-breadcrumb').first().click();
-    await page.waitForFunction(() => location.pathname === '/work', null, { timeout: 20000, polling: 50 });
+    await page.waitForFunction(() => location.pathname === '/featured-projects', null, { timeout: 20000, polling: 50 });
     await sleep(2500); // the restore's snap (10-06) lands
     out.backLog = await page.evaluate(() => window.__enterLog);
     out.back = await page.evaluate(readWork);
@@ -1527,7 +1527,7 @@ function footerPass(f) {
   page.on('console', (m) => {
     if (m.type() !== 'error' && m.type() !== 'warning') return;
     const text = m.text();
-    // the route it fired on (--enter visits /work and a detail page too)
+    // the route it fired on (--enter visits /featured-projects and a detail page too)
     const at = new URL(page.url()).pathname;
     if (!NOISE.some((re) => re.test(text))) report.consoleErrors.push(`${m.type()} @${at}: ${text.slice(0, 300)}`);
   });
@@ -1959,7 +1959,7 @@ function footerPass(f) {
     const cards = log.filter((x) => 'cards' in x).map((x) => x.cards);
     const qfs = log.filter((x) => x.qf != null).map((x) => parseFloat(x.qf));
     const accents = log.filter((x) => 'accent' in x).map((x) => x.accent);
-    // The cover is fully up when /work's first card appears and stays up
+    // The cover is fully up when /featured-projects's first card appears and stays up
     // until the wanted card is the one on screen.
     const coverHeld = (rows, slug) => {
       const swapAt = rows.findIndex((x) => x.cards);

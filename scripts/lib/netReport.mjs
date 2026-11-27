@@ -6,10 +6,10 @@
  *
  * Every master owes the clip of the surface that asked for it (owedClip):
  *  - pinned, i.e. the ASKED URL carries max_resolution: VideoSlotPool (the
- *    home globe, /lab, /work's World Near tier) clips at the preview window;
- *  - bare, on the Project Directory (/work/directory): its gated players
+ *    home globe, /lab, /featured-projects's World Near tier) clips at the preview window;
+ *  - bare, on the Project Directory (/services): its gated players
  *    (MediaSlot's GatedVideo) clip at the preview window too;
- *  - bare, on a detail page (/work/<slug>): MediaSlot and NextProjectBand
+ *  - bare, on a detail page (/featured-projects/<slug>): MediaSlot and NextProjectBand
  *    clip at the detail cap;
  *  - anything else has no rule here and fails streamClip.
  * The caller passes both windows in (the probe imports them from
@@ -86,8 +86,8 @@ export const pinnedMaster = (asked) => new URL(asked).searchParams.has('max_reso
  *  the detail cap for a bare stream on a detail page, else null (no rule:
  *  judged bad). */
 export function owedClip(route, pooled, { preview, detail }) {
-  if (pooled || /^\/work\/directory\/?$/.test(route)) return preview;
-  return /^\/work\/[^/]+\/?$/.test(route) ? detail : null;
+  if (pooled || /^\/services\/?$/.test(route)) return preview;
+  return /^\/featured-projects\/[^/]+\/?$/.test(route) ? detail : null;
 }
 
 /** What a clip at `clip` seconds keeps of a playlist whose segments last

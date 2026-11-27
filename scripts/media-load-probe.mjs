@@ -5,7 +5,7 @@
  * change to the media grids (a detail page, or the Project Directory).
  *
  * Usage:
- *   node scripts/media-load-probe.mjs --base=http://localhost:4330 --path=/work/cheetah-print/ --out=before.json
+ *   node scripts/media-load-probe.mjs --base=http://localhost:4330 --path=/featured-projects/cheetah-print/ --out=before.json
  *        [--width=1440] [--speed=2000] [--net=wifi|4g] [--back] [--maxpx=N] [--query=k=v]
  *        [--browser=chromium|webkit|firefox] [--channel=chrome]
  *   node scripts/media-load-probe.mjs --summary before.json after.json
@@ -34,7 +34,7 @@
  *   drag, because a wheel fights the phone's touch mechanics. On a detail page add
  *   --query=blurbhold=0, or the blurb hold stops the run early. Walls scroll sideways and are
  *   never driven, so most wall pages stay unseen.
- * - The Project Directory opens on a filter; --path=/work/directory/ --query=tag= is every work.
+ * - The Project Directory opens on a filter; --path=/services/ --query=tag= is every work.
  * - The HTTP cache stays on (no page.route), as a viewer's is. --base falls back to
  *   GLOBE_PROBE_BASE and has no default. One browser probe at a time on this machine.
  */
@@ -46,7 +46,7 @@ const arg = (k, d) => {
   if (m) return m.slice(k.length + 3);
   return process.argv.includes(`--${k}`) ? true : d;
 };
-const USAGE = `  run:     node scripts/media-load-probe.mjs --base=URL --path=/work/slug/ [--out=FILE] [--width=1440] [--speed=2000]
+const USAGE = `  run:     node scripts/media-load-probe.mjs --base=URL --path=/featured-projects/slug/ [--out=FILE] [--width=1440] [--speed=2000]
            [--net=wifi|4g] [--back] [--maxpx=N] [--query=k=v] [--browser=chromium|webkit|firefox] [--channel=chrome]
   summary: node scripts/media-load-probe.mjs --summary RUN.json [RUN.json …]`;
 function usage(why) {

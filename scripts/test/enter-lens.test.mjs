@@ -1,4 +1,4 @@
-// The home → /work dive carries the FP → detail lens deepen (SQ-34): the lens
+// The home → /featured-projects dive carries the FP → detail lens deepen (SQ-34): the lens
 // channel is the SAME ramp the World's applyEnter builds (lens window, power-
 // inOut), so the two passages cannot drift. enterLens is the one source Hero reads.
 //   node --test scripts/test/enter-lens.test.mjs

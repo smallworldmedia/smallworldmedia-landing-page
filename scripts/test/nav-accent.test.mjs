@@ -114,7 +114,7 @@ test('a held accent paints black, remembers the colour, and a release paints it 
   clearNavAccent()
   holdNavAccent()
   assert.equal(isNavAccentHeld(), true)
-  applyNavAccent('#B63947', '#ffffff', false) // /work's first apply, under the cover
+  applyNavAccent('#B63947', '#ffffff', false) // /featured-projects's first apply, under the cover
   assert.equal(props.get('--project-color'), NAV_BLACK, 'the nav stays black through the swap')
   reapplyNavAccent() // the after-swap re-assert
   assert.equal(props.get('--project-color'), NAV_BLACK)
@@ -235,7 +235,7 @@ test('`last` round-trips the key: a held accent paints no project key, and the r
   const { root } = fakeDom()
   clearNavAccent()
   holdNavAccent()
-  applyNavAccent('#B63947', undefined, false, { spectrum: 'red' }) // /work's first apply, under the cover
+  applyNavAccent('#B63947', undefined, false, { spectrum: 'red' }) // /featured-projects's first apply, under the cover
   assert.equal('spectrum' in root.dataset, false, 'held = black, the key of no project')
   reapplyNavAccent()
   assert.equal('spectrum' in root.dataset, false)

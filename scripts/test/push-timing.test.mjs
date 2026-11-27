@@ -40,9 +40,9 @@ function fakeWindow(state = { index: 3, scrollX: 0, scrollY: 0 }) {
 
 test('holdEntry pushes the destination at once, with the state ClientRouter keeps', () => {
   const { win, entries } = fakeWindow()
-  holdEntry('/work', win)
+  holdEntry('/featured-projects', win)
   assert.equal(entries.length, 2)
-  assert.deepEqual(entries[1], { state: { index: 4, scrollX: 0, scrollY: 0 }, url: '/work' })
+  assert.deepEqual(entries[1], { state: { index: 4, scrollX: 0, scrollY: 0 }, url: '/featured-projects' })
   // The page left keeps its scroll, as ClientRouter's own push records it.
   assert.equal(entries[0].state.scrollY, 120)
   assert.equal(entries[0].state.index, 3)
@@ -50,17 +50,17 @@ test('holdEntry pushes the destination at once, with the state ClientRouter keep
 
 test('the passage end commits the arrival as a REPLACE of the held entry (no second push)', () => {
   const { win } = fakeWindow()
-  const arrive = holdEntry('/work', win)
+  const arrive = holdEntry('/featured-projects', win)
   assert.deepEqual(arrive(), { history: 'replace' })
 })
 
 test('a Back during the passage drops the arrival; the held entry stays forward only', () => {
   const { win, entries, back, at } = fakeWindow()
-  const arrive = holdEntry('/work', win)
+  const arrive = holdEntry('/featured-projects', win)
   back()
   assert.equal(at(), 0)
   assert.equal(arrive(), null)
-  assert.equal(entries.length, 2) // Forward reaches /work; Back from home leaves (nothing stray behind it)
+  assert.equal(entries.length, 2) // Forward reaches /featured-projects; Back from home leaves (nothing stray behind it)
 })
 
 test('a page with no router state still gets an indexed entry', () => {
@@ -71,12 +71,12 @@ test('a page with no router state still gets an indexed entry', () => {
 
 const rec = (pushT, active, extra = {}) => ({
   id: 'TE',
-  dest: '^/work$',
+  dest: '^/featured-projects$',
   inputs: [
     { t: 1000, type: 'pointerdown' },
     { t: 1080, type: 'click' },
   ],
-  pushes: [{ t: pushT, path: '/work/', active }],
+  pushes: [{ t: pushT, path: '/featured-projects/', active }],
   ...extra,
 })
 
@@ -109,8 +109,8 @@ test('gate, the first push to the destination is the one judged', () => {
   const v = pushTimingVerdict(
     rec(0, true, {
       pushes: [
-        { t: 1085, path: '/work', active: true },
-        { t: 3000, path: '/work/', active: false },
+        { t: 1085, path: '/featured-projects', active: true },
+        { t: 3000, path: '/featured-projects/', active: false },
       ],
     })
   )

@@ -154,7 +154,7 @@ const asSets = (dataset) => {
 }
 const query = async (source, dataset = documents) => (await evaluate(parse(source), { dataset: asSets(dataset) })).get()
 
-test('buildWorldPools holds exactly the /work World media: hero, showcase Tiles, album art', async () => {
+test('buildWorldPools holds exactly the /featured-projects World media: hero, showcase Tiles, album art', async () => {
   const rows = await query(FEATURED_WORLDS_QUERY)
   const [world] = buildWorldPools(rows)
   assert.equal(world.slug, 'fixture-branding')
@@ -599,7 +599,7 @@ test('director: a world holds, then the next pours in on a tide — one full spa
     frames += 1
   }
   assert.ok(frames >= 19 && frames <= 21, `held ${frames} frames`)
-  assert.equal(director.lead, (first + 1) % 3) // chaos 0 walks the /work order
+  assert.equal(director.lead, (first + 1) % 3) // chaos 0 walks the /featured-projects order
   assert.deepEqual(seen.at(-1), [director.worlds[director.lead].slug, true]) // the colour turns as the tide starts
   assert.equal(director.sample(new THREE.Euler()).phase, 'transition')
   while (director.tide) director.update(1 / 60)
@@ -652,7 +652,7 @@ test('director: ?popworlds stops the clock for good once that many worlds have t
   assert.ok(free.upcoming)
 })
 
-test('director: chaos 0 walks the /work order and the set in turn; chaos 1 never revisits a recent world', () => {
+test('director: chaos 0 walks the /featured-projects order and the set in turn; chaos 1 never revisits a recent world', () => {
   const eight = Array.from({ length: 8 }, (_, i) => ({ slug: `w${i}`, clientName: `W${i}`, title: null, services: [], assets: pool(4, 'video', `w${i}-`) }))
   const set = ['tide', 'blink', 'cut']
   const { director } = makeDirector({ seed: 11, chaos: 0, transitions: set }, { worlds: eight })
@@ -1056,7 +1056,7 @@ test('scheduler: shared streams — one decode per clip lights every copy of it'
 })
 
 /* — P0c: the globe device knobs — */
-test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pin, /work renders at full res (P0c)', async () => {
+test('device knobs: ?globedpr clamps, ?globeres takes a Mux rung or keeps the pin, /featured-projects renders at full res (P0c)', async () => {
   // load-time knobs: stub the window, evaluate a fresh copy of the module, restore the window in finally
   let fresh = 0
   const load = async (file, search, mobile, devicePixelRatio) => {
@@ -1249,13 +1249,13 @@ test('video diet: one preview window, one detail cap, the clip last and once (P0
   // each surface's owed clip: the directory's bare players owe the preview window
   const W = { preview: PREVIEW_SECONDS, detail: DETAIL_MAX_SECONDS }
   assert.equal(owedClip('/', true, W), PREVIEW_SECONDS)
-  assert.equal(owedClip('/work', true, W), PREVIEW_SECONDS) // the World Near tier
+  assert.equal(owedClip('/featured-projects', true, W), PREVIEW_SECONDS) // the World Near tier
   assert.equal(owedClip('/lab/globe', true, W), PREVIEW_SECONDS)
-  assert.equal(owedClip('/work/some-project', false, W), DETAIL_MAX_SECONDS)
-  assert.equal(owedClip('/work/some-project/', false, W), DETAIL_MAX_SECONDS)
-  assert.equal(owedClip('/work/directory', false, W), PREVIEW_SECONDS)
-  assert.equal(owedClip('/work/directory/', false, W), PREVIEW_SECONDS)
-  assert.equal(owedClip('/work/directory/x', false, W), null) // no deeper route has a rule
+  assert.equal(owedClip('/featured-projects/some-project', false, W), DETAIL_MAX_SECONDS)
+  assert.equal(owedClip('/featured-projects/some-project/', false, W), DETAIL_MAX_SECONDS)
+  assert.equal(owedClip('/services', false, W), PREVIEW_SECONDS)
+  assert.equal(owedClip('/services/', false, W), PREVIEW_SECONDS)
+  assert.equal(owedClip('/services/x', false, W), null) // no deeper route has a rule
   assert.equal(owedClip('/', false, W), null)
   // Mux keeps every segment that starts before the clip
   assert.deepEqual(cover([5, 5, 5, 5, 5, 5], 15), { needed: 3, end: 15 })
@@ -1300,15 +1300,15 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   const slotUrl = muxStream('slot', PREVIEW_SECONDS, STREAM_PARAMS) // a home globe slot (pinned)
   const heroUrl = muxStream('hero', DETAIL_MAX_SECONDS) // a detail page's MediaSlot (bare)
   const ok = run(
-    [master('/', slotUrl, 'p'), playlist('/', 'p', pv), master('/work/x', heroUrl, 'h'), playlist('/work/x', 'h', dv)],
-    [...gets('/', 'p', pv), ...gets('/work/x', 'h', dv)],
-    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, DETAIL_MAX_SECONDS + TICK_S / 2)],
+    [master('/', slotUrl, 'p'), playlist('/', 'p', pv), master('/featured-projects/x', heroUrl, 'h'), playlist('/featured-projects/x', 'h', dv)],
+    [...gets('/', 'p', pv), ...gets('/featured-projects/x', 'h', dv)],
+    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/featured-projects/x', false, DETAIL_MAX_SECONDS + TICK_S / 2)],
   )
   assert.deepEqual(ok.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
   assert.equal(ok.net.detail.streamClip.n, 2) // both surfaces judged, each against its own clip
   assert.equal(ok.net.detail.segmentsPerRendition.n, 2)
   assert.equal(ok.net.detail.loops.wraps, 2)
-  assert.equal(ok.net.byRoute['/work/x']['mux-segment'].n, dv + 1) // the init + the clip
+  assert.equal(ok.net.byRoute['/featured-projects/x']['mux-segment'].n, dv + 1) // the init + the clip
   assert.equal(ok.net.detail.segmentsPerRendition.conflicts, 0)
   assert.deepEqual(ok.net.refetch, { chunks: pv + 1 + dv + 1, dupPaths: 0 })
   // a 4 s-segment asset: the preview clip runs on to the next boundary, and the pool's guard loops it at the window
@@ -1321,9 +1321,9 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   // non-vacuously. The client's audio strip is not the clip's, so audio still passes.
   const bare = (u) => u.replace(/[?&]asset_end_time=[\d.]+/, '')
   const nc = run(
-    [master('/', slotUrl, 'p', bare(slotUrl)), playlist('/', 'p', 8), master('/work/x', heroUrl, 'h', bare(heroUrl)), playlist('/work/x', 'h', 40)],
-    [...gets('/', 'p', pv + 2), ...gets('/work/x', 'h', dv + 5)],
-    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, 2 * DETAIL_MAX_SECONDS)],
+    [master('/', slotUrl, 'p', bare(slotUrl)), playlist('/', 'p', 8), master('/featured-projects/x', heroUrl, 'h', bare(heroUrl)), playlist('/featured-projects/x', 'h', 40)],
+    [...gets('/', 'p', pv + 2), ...gets('/featured-projects/x', 'h', dv + 5)],
+    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/featured-projects/x', false, 2 * DETAIL_MAX_SECONDS)],
   )
   assert.deepEqual(nc.pass, { streamClip: false, segmentsPerRendition: false, loops: false, audio: true })
   for (const g of ['streamClip', 'segmentsPerRendition', 'loops']) assert.equal(nc.net.detail[g].vacuous, false)
@@ -1334,7 +1334,7 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   assert.equal(run([master('/about', heroUrl, 'h'), playlist('/about', 'h', dv)], gets('/about', 'h', dv), []).pass.streamClip, false)
   // the directory's gated players (bare masters) owe the preview window: one at the window passes all
   // four; NC: one clipped at the detail cap fails streamClip, fetches past the window and plays past it
-  const D = '/work/directory/'
+  const D = '/services/'
   const dirOk = run([master(D, muxStream('dir', PREVIEW_SECONDS), 'd'), playlist(D, 'd', pv)], gets(D, 'd', pv), [play('dir', D, false, PREVIEW_SECONDS)])
   assert.deepEqual(dirOk.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
   const dirCap = run([master(D, muxStream('dir', DETAIL_MAX_SECONDS), 'd'), playlist(D, 'd', dv)], gets(D, 'd', dv), [play('dir', D, false, DETAIL_MAX_SECONDS)])
@@ -1364,7 +1364,7 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   // end 8) that plays on to its clip's end fails; a 4 s-segment detail hero (clip end 16) passes when
   // it wraps at the cap and fails when it plays to its clip's end
   assert.equal(run([master('/', slotUrl, 'p'), playlist('/', 'p', 2, 4)], gets('/', 'p', 2), [play('slot', '/', true, 8)]).pass.loops, false)
-  const hero4 = (maxT) => run([master('/work/x', heroUrl, 'h'), playlist('/work/x', 'h', 4, 4)], gets('/work/x', 'h', 4), [play('hero', '/work/x', false, maxT)])
+  const hero4 = (maxT) => run([master('/featured-projects/x', heroUrl, 'h'), playlist('/featured-projects/x', 'h', 4, 4)], gets('/featured-projects/x', 'h', 4), [play('hero', '/featured-projects/x', false, maxT)])
   assert.equal(hero4(DETAIL_MAX_SECONDS + TICK_S).pass.loops, true)
   assert.equal(hero4(16).pass.loops, false)
   assert.equal(hero4(16).net.detail.loops.bad[0].why, 'played past its clip')
@@ -1382,9 +1382,9 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   // and never a segment: Mux serves one init to every clip, so a shared init alone is no conflict
   const sharedInit = (b) => ({ ...b, body: b.body.replace(chunk('h', 'init'), chunk('p', 'init')) })
   const clips = run(
-    [master('/', slotUrl, 'p'), playlist('/', 'p', pv), master('/work/x', heroUrl, 'h'), sharedInit(playlist('/work/x', 'h', dv))],
-    [...gets('/', 'p', pv), get('/work/x', 'p', 'init'), ...gets('/work/x', 'h', dv).slice(1)],
-    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/work/x', false, DETAIL_MAX_SECONDS)],
+    [master('/', slotUrl, 'p'), playlist('/', 'p', pv), master('/featured-projects/x', heroUrl, 'h'), sharedInit(playlist('/featured-projects/x', 'h', dv))],
+    [...gets('/', 'p', pv), get('/featured-projects/x', 'p', 'init'), ...gets('/featured-projects/x', 'h', dv).slice(1)],
+    [play('slot', '/', true, PREVIEW_SECONDS), play('hero', '/featured-projects/x', false, DETAIL_MAX_SECONDS)],
   )
   assert.equal(clips.net.detail.segmentsPerRendition.conflicts, 0)
   // ...and the first claim stands: both routes' fetches of the shared init credit the slot's playlist,

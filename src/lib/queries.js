@@ -13,9 +13,9 @@
  * media's own tags, deduplicated, in the serviceTag documents' Studio order
  * (sortOrder, name breaking ties). Spliced in as `"services": ${PROJECT_SERVICES}`
  * inside a `project` projection (`^.^` there is the project: the media filter
- * sits inside the serviceTag filter). The project's own `services` field is
- * not read, so it can be retired; a project whose media carry no tags gets an
- * empty array.
+ * sits inside the serviceTag filter). Projects have no `services` field of
+ * their own (it left the schema 11-26); a project whose media carry no tags
+ * gets an empty array.
  */
 const PROJECT_SERVICES = `*[_type == "serviceTag" && !(_id in path("drafts.**"))
       && _id in *[_type == "mediaAsset" && project._ref == ^.^._id && !(_id in path("drafts.**")) && hideFromSite != true].services[]._ref]
@@ -244,7 +244,7 @@ export const FEATURED_PROJECT_DETAIL_QUERY = `{
  * client name breaks ties until ranks are assigned). Each project carries its
  * editorial copy + its media, joined via the `mediaAsset.project` reference.
  * buildContentFlow() partitions the assets into the World's Tiles + sockets
- * at build time (see src/pages/work/index.astro).
+ * at build time (see src/pages/featured-projects/index.astro).
  */
 export const FEATURED_WORLDS_QUERY = `
   *[_type == "project" && isFeatured == true && !(_id in path("drafts.**"))]
@@ -295,7 +295,7 @@ export const SITE_COPY_QUERY = `
 `;
 
 /**
- * DIRECTORY_QUERY — everything the Project Directory (/work/directory) and the
+ * DIRECTORY_QUERY — everything the Project Directory (/services) and the
  * drawer's Client Roster read, in one fetch (src/lib/directoryData.js):
  *   tags    — the service tags, in Studio order (sortOrder);
  *   clients — every published client, `umbrellas` = the client slugs its

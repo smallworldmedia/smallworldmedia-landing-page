@@ -1,10 +1,10 @@
 # Codebase Map — Small World Media site
 
-*Last Updated: 2026-11-16*
+*Last Updated: 2026-11-27*
 
 The Small World Media (SWM) portfolio site at smallworld.media: a static Astro 5 build whose
 routes are each one large React island driving a route-scoped three.js canvas (home video globe,
-/work "Worlds", /process stage machine), with persistent site chrome surviving ClientRouter swaps.
+/featured-projects "Worlds", /process stage machine), with persistent site chrome surviving ClientRouter swaps.
 Content comes from Sanity (project b60h4u7o, dataset production) with video on Mux; a
 preview-first CLI (`npm run cms`) ingests media from Dropbox-synced `media/` manifests and audits
 the whole dataset read-only.

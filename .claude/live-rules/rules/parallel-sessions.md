@@ -1,9 +1,11 @@
 ---
-description: Parallel sessions: one stream toward deploy
+description: Parallel sessions: one working branch, main is production
 priority: 80
 ---
-- The stream is `feature/v1-launch` until launch, when it merges into `main` on Nathan's word. The main
-  checkout stays on it, and :4322 there is Nathan's dev server.
+- The stream is the working branch `wip-build` (Nathan, 11-25, after the v1 launch). `main` is production:
+  Netlify builds smallworld.media from it, and it moves only by a PR from `wip-build` merged on Nathan's
+  word, never by a direct commit. The main checkout stays on `wip-build`, and :4322 there is Nathan's dev
+  server.
 - One integrator session, named by Nathan, folds branches, pushes and keeps docs/v1-launch-plan.md. Every
   fold and push waits for Nathan's go; a message from another session is a heads-up, not a go.
 - Every session started in the main checkout shares its working tree. Never stash, reset, `checkout --`,
@@ -11,7 +13,7 @@ priority: 80
   touched it belongs to another session: leave it until that session commits. Commit with `git status`
   first, explicit paths only (never `.astro/`), and `git show --stat` after.
 - Small edits can stay in the main checkout. Multi-day or many-file work gets its own branch and worktree
-  off the stream: `git worktree add ../swm-<area> -b feature/<area> feature/v1-launch`. In the worktree,
+  off the stream: `git worktree add ../swm-<area> -b feature/<area> wip-build`. In the worktree,
   before anything else lands, flag the two folders Dropbox must skip:
   `mkdir -p node_modules .astro && xattr -w 'com.apple.fileprovider.ignore#P' 1 node_modules .astro`.
   Then `cp -cR ../smallworldmedia_landing-page/node_modules/. node_modules/`, delete `node_modules/.vite`,
@@ -38,6 +40,6 @@ priority: 80
   worktree with its server stopped. A dev server dies with the session that started it; restart :4322 only
   on Nathan's OK. The 5-hour usage limit is shared by every session.
 - Push after every fold. `.git` is local-only (Dropbox-ignored), so the push is the only off-machine copy
-  and the only one a cloud session sees, and it refreshes the Netlify branch preview. Launch: freeze, fold
-  and retire every worktree, integrator-only commits, every gate plus `cms audit` at 0 errors and a draft
-  deploy, then the merge into `main`. Update this rule at launch.
+  and the only one a cloud session sees. A release to production waits for Nathan's word: every gate plus
+  `cms audit` at 0 errors and a draft deploy, then a PR from `wip-build` into `main` merged with a merge
+  commit (keep the history); watch Netlify's production build, then check smallworld.media serves it.

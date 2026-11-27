@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-25*
+*Last Updated: 2026-11-26*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -57,6 +57,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   allowlist, hash `cee42ca9` (`39f91bc`), after intake stopped writing them (`7aa3600`) and eight
   clearing plans unset them on 723 pieces: a write or an unset of either is now a rejected field, and a
   deck page or carousel slide needs a `set`.
+  `project.services` left the schema and the project allowlist 11-26 (hash `5ae01cd2`, `fa374f8`)
+  after plan `df2af68c` cleared it on 18 projects: a project's tags are its media's (`queries.js`
+  `PROJECT_SERVICES`), so `services` is a mediaAsset field only and a project patch naming it is refused.
   Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1
@@ -126,25 +129,13 @@ Env (process env only, never `.env` loading): `SANITY_READ_TOKEN`, `SANITY_WRITE
 column after `displayGroup`; never uploads, never overwrites bindings). `scripts/prepare-compress.mjs` collects listed videos into `media/_TO_COMPRESS`.
 
 ## Sets migration (US-10)
-Done: every legacy group got its Set (11-16 → 11-25) and the legacy fields are gone, so a re-run
-finds nothing to place; the script is kept for its record.
-`node --env-file=.env.local scripts/cms-sets-migration.mjs --project-id ID --dataset NAME --out DIR` reads
-the dataset and writes `--changes` request files (`_cms-request_sets-migration-2026-11-<n>.json`), never
-Sanity: one Set per (project, legacy displayGroup) plus one album-art set per project with album art;
-members get only `set`; decks start with `allowAsHero` true, every other set false. Each file keeps a
-set's create with all its member patches, at most 100 operations, and is never overwritten (`wx`).
-What it cannot place (no project, no type, mixed types, a draft twin) is reported, never guessed. Each
-file then goes through plan, Nathan's yes to that plan id, apply and verify.
-
-Before a file's plan, `node --env-file=.env.local scripts/cms-sets-migration-oracle.mjs media/_sets-migration
---only N` (read-only) applies that file in memory over a live snapshot (published perspective, drafts
-dropped) and reports (1) a field-level diff of the set-aware projections (`MEDIA_FIELDS`,
-`FEATURED_WORLDS_QUERY`) for every piece and (2) each touched project's `FEATURED_PROJECT_DETAIL_QUERY` +
-`buildContentFlow` result (detail, work, globe). It reads `SANITY_READ_TOKEN` or `SANITY_WRITE_TOKEN` and
-throws without one; snapshots never include `secrets.*` or `mux.apiKey`.
+Done: every legacy group got its Set (11-16 → 11-25) and the legacy fields are gone. Its request writer
+(`scripts/cms-sets-migration.mjs`), pre-apply oracle and their test were retired 11-25 (Nathan); the
+request files it wrote stay in `media/_sets-migration/` (gitignored) as the record, and
+`scripts/lib/cms/sets.mjs` keeps the Set ids intake uses.
 
 ## Tests — `npm run test:cms`
-`scripts/test/cms/{runner,adapters,safety,delete,audit,sets,sets-migration,guard-scope}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
+`scripts/test/cms/{runner,adapters,safety,delete,audit,sets,guard-scope}.test.mjs` (fakes in `helpers.mjs`), `cms-frontend.test.mjs` (real GROQ via
 groq-js), `cms-generator.test.mjs`, `legacy-cms.test.mjs`, `cms-audit-gate.test.mjs` (the deploy gate: clean → 0, an error → 1 with the items capped, no token → 1, a provider URL never echoed). Covers parsing, zero-write previews,
 idempotent reruns, legacy-ID matching, tampered-plan rejection, Mux resume, replacement atomicity,
 lock refusal, schema-drift fail-closed, delete blockers/drift/resume/tamper, audit (clean-set negative control, every check seeded, secrets never reported, read-only CLI), the apply guard scope (exact collection-capture counts via `stats.collections`; drift in the next op's collection or during an upload still stops; drift elsewhere is reported by verify), and that retired scripts
@@ -153,5 +144,6 @@ stay guidance-only.
 ## Retired / gated scripts
 Hard-retired (guard only): `ingest.mjs`, `ingest-all.mjs`, `ingest-videos.mjs`,
 `backfill-project-refs.mjs`. Maintenance-gated (`--legacy-maintenance --acknowledge-legacy=…`):
-`seed`, `sync-hero-to-rank`, `patch-project-data`, `migrate-year-fields`, `upload-missing-videos`,
-`backfill-order-rank`, `phase2-setup`. Treat all as history; use `npm run cms`.
+`seed`, `sync-hero-to-rank`, `upload-missing-videos`, `backfill-order-rank`. Treat all as history; use
+`npm run cms`. Deleted 11-26 (git history keeps them): `patch-project-data`, `phase2-setup`,
+`migrate-year-fields`, one-offs that wrote Sanity directly (two of them set the retired `project.services`).

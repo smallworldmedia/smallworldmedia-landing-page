@@ -399,9 +399,43 @@ records (`docs/globe-worlds-plan.md`).
       schema drop `39f91bc`, hash `cee42ca9`; docs `4f5e398`) and the hosted Studio redeploy from
       `39f91bc` on Nathan's go ("Push 39f91bc and 4f5e398 and redploy studio"); the branch preview
       built `4f5e398` with the audit gate green.
-    - **Left before `main`:**
-      - Phone Checks 440 (SQ-142) and 450 (SQ-141) on his iPhone; SQ-153;
-      - the launch itself: freeze, retire worktrees, gates + `cms audit` 0, then `main` on his go.
+    - **LAUNCHED 2026-11-25** on Nathan's go ("phone checks 440 and 450 approved. fix 153. after that
+      proceed with all of item 3, i give you full approval"):
+      - Phone Checks 440 (SQ-142) and 450 (SQ-141) passed; SQ-153 folded (`6055111`: the scheme
+        probe's seat and shift gates settle the eye and read the seat after SQ-144's ride).
+      - Worktrees: the gate, A/B and fold-trial checkouts retired. Sidequest's executor checkouts stay
+        under its own sweep (every ticket done but SQ-114, whose attempt `affd5188` stays unfolded).
+      - Gates on `6055111`: units 1019/0 (1 skipped), `test:cms` 146, `tunables-keys --check` (512),
+        logo sizes (89, 0 problems), build, 18 sitemap routes 200, `cms audit` 0 errors / 27 warnings.
+        The all-schemes `scheme-probe` at 1440: 273 PASS, 21 FAIL, none a regression. Run on the 11-24
+        build (`0ed21f8`) they match: the eye over the links footer at the end of detail and directory
+        (it sits on the black panel above the logo row, clear of it), blue's hover on `.cta-primary`,
+        `.site-privacy`, `.fp-cta`. The phone-width checks (`rightEdge` at 390, `midChange` at 402)
+        predate the phones' no-eye (`9194099`), and `lids` and `persist` pass when run alone.
+      - Draft deploy `6b077f87…` checked (routes, `/process` and `/lab` 302, `/studio` 404,
+        immutable `/_astro`). PR #44 merged into `main` as `2fc9ab1`; Netlify's production build
+        (audit-gated) is ready, and smallworld.media serves v1 with Plausible on.
+      - Next: retire `project.services` (a hashed-schema edit, alone); the probe's stale phone-width
+        checks and the overlap and blue hover findings are Nathan's calls.
+      - After launch (11-25 night, Nathan: "Let's make a new working branch and keep main as the main"):
+        the working branch is `wip-build` (`292d11f`, main merged in, no file changes); `main` moves only
+        by PR. The live rule, the Sidequest board's integration branch and the map follow it. The
+        sets-migration scripts are retired ("Yes retire them"). `project.services` ("Yes retire
+        project.services if it's now unneeded"; 11-26: "A project service tags should be dynamically
+        hydrated by its media assets' service tags"): DONE 11-26. Plan `df2af68c` (18 projects, unset
+        only) applied and verified on his "apply df2af68c"; the schema drop landed alone (`fa374f8`, hash
+        `5ae01cd2`) and the hosted Studio redeployed. A project's tags are its media's
+        (`PROJECT_SERVICES`); Homegrwxn shows none until its media are tagged. He checks the probe
+        findings himself. 11-26: `wip-build` branch deploys on ("yes to add wip-build to netlify branch
+        deploys"); the three legacy CMS scripts deleted (`da23d88`, "retire all 3").
+      - 11-27 (Nathan: "Change the URL of the services page to be smallworld.media/services"): the
+        Project Directory moved from `/work/directory` to `/services` (`3259608`); `netlify.toml` 301s the
+        old path with its query. On `wip-build`; production waits for his word (a PR into `main`).
+        Then (Nathan: "And then change /work to /featured-projects"; scope "Move both"): Featured
+        Projects at `/featured-projects` and each project at `/featured-projects/<slug>`; `netlify.toml`
+        301s `/work` and `/work/*` to them (the homegrwxn, bellaire and directory rules sit above the
+        catch-all). Four Sanity descriptions still link `/work/<slug>`; they work through the 301, and a
+        CMS plan rewrites them only after production serves the new paths.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
@@ -441,8 +475,8 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
 
 **Status 11-25 (Nathan's answers of 11-24, item 13):** Lighthouse DONE (SQ-147, fixes folded);
 entry paths WAIVED; the media session's items below are DONE (the Kamino discs and the Tic Tac cover
-on 11-25) except `project.services` (right after launch). What's left is in item 13's "Left before
-`main`".
+on 11-25); `project.services` retired right after launch (11-26, `fa374f8`). **Launched 2026-11-25: `main` at `2fc9ab1`
+(PR #44), live on smallworld.media; the record is in item 13.**
 
 - Orbit/deck acceptance checklist (spec) passes.
 - `/work` live tier + Turn suspend verified on device.
@@ -516,6 +550,7 @@ on 11-25) except `project.services` (right after launch). What's left is in item
       work from Instagram, then it goes up under `client-mal-ne`. Malóne is not linked to One Of Us's
       ThereAfter pieces (Nathan, 11-13: "Malone does not go with thereafter").
   - Last, and on its own: retire `project.services`. It is a hashed-schema edit, so it lands alone.
+    DONE 11-26 (`df2af68c` applied, schema `fa374f8`, Studio redeployed).
 - `npm run cms audit` on b60h4u7o/production before every deploy: 0 errors, and every
   label-ratio finding either fixed or recorded in `media/_audit-accepted.json`, with
   no stale entries. This is the mislabel guard (`docs/cms-workflow.md` § Dataset

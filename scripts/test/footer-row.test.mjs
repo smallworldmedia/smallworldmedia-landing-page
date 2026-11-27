@@ -1,5 +1,5 @@
 // footer-row.test.mjs — the footer-row gate (scripts/lib/footerRowGate.mjs) on records in the shape
-// scripts/footer-probe.mjs measures (real numbers, /work/directory/?tag=all at a 900px-high viewport).
+// scripts/footer-probe.mjs measures (real numbers, /services/?tag=all at a 900px-high viewport).
 //   SQ-138: the row clear of the left stack passes; the pre-fix 900px record (the row's first link
 //           inside the ©line's run) fails by name.
 //   SQ-140: where the row wraps the ©line stacks under the lockup, bottom-aligned with the row's last

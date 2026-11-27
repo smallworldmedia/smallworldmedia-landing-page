@@ -4,7 +4,7 @@
  *
  * WebKit (every iPhone browser) carries a tap's user gesture through a timer for about 1 s.
  * A history entry added after that counts as "added without a user gesture", and Back skips
- * the page the tap was on. Nathan's iPhone ?histlog=1 walk (11-25): home's Enter pushed /work
+ * the page the tap was on. Nathan's iPhone ?histlog=1 walk (11-25): home's Enter pushed /featured-projects
  * 1160 ms + the fetch after the zoom_in tap with userActivation.isActive false, and Back
  * jumped past home. Headless WebKit does not apply the skip rule, so the probe gates on the
  * cause: scripts/history-probe.mjs (T* scenarios) instruments history.pushState in an init

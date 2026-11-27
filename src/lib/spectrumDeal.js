@@ -12,7 +12,7 @@
  * null, which the spectrum sheet reads as blue.
  *
  * The rows come from FEATURED_PROJECT_PATHS_QUERY through featuredRoutes: the query
- * `/work/[slug]` builds its pages (and its next-project chain) from, ordered
+ * `/featured-projects/[slug]` builds its pages (and its next-project chain) from, ordered
  * identically to FEATURED_WORLDS_QUERY (queries.js says so), and featuredRoutes is
  * the same client + collection filter and slug derivation /work's `worlds` map uses.
  * No second ordering is written here.

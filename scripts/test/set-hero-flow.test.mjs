@@ -74,7 +74,7 @@ test('a legacy deck hero (no Set document) still leads: its whole group in brand
   const flowOff = buildContentFlow(off, { surface: 'detail' })
   assert.equal('heroSet' in flowOff, false)
   assert.deepEqual(flowOff.brandDecks.map((d) => d.group), ['guide', 'other'])
-  // the lead is the detail page's: /work and the globe read no heroSet
+  // the lead is the detail page's: /featured-projects and the globe read no heroSet
   assert.equal('heroSet' in buildContentFlow(assets, { surface: 'work' }), false)
   assert.equal('heroSet' in buildContentFlow(assets), false)
 })

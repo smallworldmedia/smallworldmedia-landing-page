@@ -34,7 +34,7 @@ A curated collection elevated to a first-class showcase by a `project` document 
 - **Invariant:** every Featured Project collection must have a `project` doc carrying its blurb/editorial copy. Missing references require an explicit scoped proposal, not bulk reseeding.
 - **Hero:** the first asset in the collection's `orderRank` sequence. It need not be a reel; `isHero` is retired and is not a current schema field.
 - **Example collection:** `media/Heavy House Society/Branding 2026/`
-- **Frontend destination:** the Featured Projects experience + Single Project Page (`/work/[slug]`) — `FeaturedProjectDetail`, laid out by the Content Population Hierarchy (see below)
+- **Frontend destination:** the Featured Projects experience + Single Project Page (`/featured-projects/[slug]`) — `FeaturedProjectDetail`, laid out by the Content Population Hierarchy (see below)
 - _Avoid_: defining "featured" by the existence of an isHero sizzle reel (the legacy collection-first model, now superseded)
 
 ## Root Manifest
@@ -53,11 +53,11 @@ A classification on `mediaAsset` documents that controls frontend visibility. Th
 
 ## Hide from Site
 
-A checkbox on a `mediaAsset` (`hideFromSite`, off when missing). On, the whole site skips the piece: project pages, the `/work` heroes and pager, the Project Directory, and the home globe (auto-fill and `globeSettings.picks`). It stays published in Sanity and keeps its `orderRank` and set membership, so unticking it puts it back exactly where it was. Every `mediaAsset` selection in `src/lib/queries.js` carries `hideFromSite != true`; the next visible piece by `orderRank` becomes a hero. For work that is not announced yet. Unlike Content Role it hides the piece from every page, not one section.
+A checkbox on a `mediaAsset` (`hideFromSite`, off when missing). On, the whole site skips the piece: project pages, the `/featured-projects` heroes and pager, the Project Directory, and the home globe (auto-fill and `globeSettings.picks`). It stays published in Sanity and keeps its `orderRank` and set membership, so unticking it puts it back exactly where it was. Every `mediaAsset` selection in `src/lib/queries.js` carries `hideFromSite != true`; the next visible piece by `orderRank` becomes a hero. For work that is not announced yet. Unlike Content Role it hides the piece from every page, not one section.
 
 ## Hide from Project Directory
 
-A checkbox on a `mediaAsset` (`hideFromDirectory`, off when missing). On, the Project Directory skips the piece and nothing else does: its project page, the `/work` worlds and the home globe still show it, and its service tags still count for its project. For pieces that belong in a featured project but don't stand alone as a directory tile under a service tag, such as event photos (Munchietown's, the first use). Only `DIRECTORY_QUERY` in `src/lib/queries.js` carries `hideFromDirectory != true`. Unlike Content Role `supporting`, which also takes the piece off its project page and the globe.
+A checkbox on a `mediaAsset` (`hideFromDirectory`, off when missing). On, the Project Directory skips the piece and nothing else does: its project page, the `/featured-projects` worlds and the home globe still show it, and its service tags still count for its project. For pieces that belong in a featured project but don't stand alone as a directory tile under a service tag, such as event photos (Munchietown's, the first use). Only `DIRECTORY_QUERY` in `src/lib/queries.js` carries `hideFromDirectory != true`. Unlike Content Role `supporting`, which also takes the piece off its project page and the globe.
 
 ## Media Descriptors
 
@@ -145,12 +145,12 @@ Canonical names for UI components. All implementation work **must** use these te
 |---|---|---|
 | **FeaturedProjects** | Page orchestrator for the immersive Featured Projects experience: paginates vertically through featured projects, owns the shared WebGL canvas + pager, and receives the Envelopment hand-off from the home globe. *(Supersedes the legacy isHero-driven showcase.)* | `project` docs where `isFeatured == true`, ordered by `orderRank` |
 | **FeaturedProjectsPreview** | The instanced, full-bleed (100vw×100vh) component that renders one featured project's **World** — the **World Shell**, floating **Tiles** across 3 depth tiers, and the identity card with the `enter_world` CTA. One instance per featured project. | One `project` + its showcase media (joined via `mediaAsset.project`) |
-| **FeaturedProjectDetail** | Orchestrator for the `/work/[slug]` Single Project Page. Renders one Featured Project collection as an editorial page via the Content Population Hierarchy. | All `mediaAsset` docs sharing one `sourceFolder` + optional `project` doc |
+| **FeaturedProjectDetail** | Orchestrator for the `/featured-projects/[slug]` Single Project Page. Renders one Featured Project collection as an editorial page via the Content Population Hierarchy. | All `mediaAsset` docs sharing one `sourceFolder` + optional `project` doc |
 | **SiteNav** | Fixed top navigation bar — globe, info pill, sitemap links. | Static |
 | **ClientPanel** | Full-width blue info band below the nav: squeezed project title, client metadata chips (client_type, based_in), social links. | `client` document |
 | **MediaSlot** | Single media container on the project page. Variants: `full` (full-bleed 16:9) and `split` (half-width, paired in a row). Mux HLS for video, Sanity CDN for stills, lazy + load-gated. Also the Project Directory's tile, in directory mode: a poster until the shared player gate lets the video play, the 5 s preview clip, srcset, and a `contain` fit for banners and alpha logos. | Single `mediaAsset` document |
 | **ServiceTag** | Canonical display pill for a service tag — blue bg, black mono lowercase text. Display-only; the directory's filter control is **FilterTag**. | Single `serviceTag` reference |
-| **DirectoryPage** | Route island for `/work/directory`, the **Project Directory**: the DirectoryFilter over the DirectoryGrid, then the SiteFooter in reveal mode. The filter lives in the URL (`?tag=a,b&client=slug`, rewritten with `replaceState`), and the drawer's client names re-filter it in place through `swm:directory-client`. | `getDirectoryData()`: the service tags, every client and the directory tiles (`DIRECTORY_QUERY`, fetched once per build) |
+| **DirectoryPage** | Route island for `/services`, the **Project Directory**: the DirectoryFilter over the DirectoryGrid, then the SiteFooter in reveal mode. The filter lives in the URL (`?tag=a,b&client=slug`, rewritten with `replaceState`), and the drawer's client names re-filter it in place through `swm:directory-client`. | `getDirectoryData()`: the service tags, every client and the directory tiles (`DIRECTORY_QUERY`, fetched once per build) |
 | **DirectoryGrid** | The directory's media grid, built on the detail grid's tile units (`tileGrid.js`): `chunkFlushGrid` blocks that stack without seams and mount only near the viewport, with one shared player gate capping the videos that play at once. A featured project's tiles link to its page; the rest are media only. | The filtered directory tiles |
 | **DirectoryFilter** | The directory's sticky filter section under the nav, in the drawer's type, line height and scroll thumb. It has two folder tabs: **services** holds the FilterTags, and **clients** lists the live clients, one pick at a time. Services reads as in front: the clients tab's left edge meets its diagonal, and the active tab lies on top, its word underlined. Below the tabs is a bar: the live count in mono and "× clear all", then the active client's chip, `n active` while shut, and the toggle (`filters` / `close filters` and an arrow) in the sans link tier. It opens and shuts the same way at every width (SQ-21): it loads open, and shut, only the bar shows. A ticked tag's label fills, the highlight box behind its eye. Opening pushes the grid down; switching tabs never moves it. | `serviceTag` docs in `sortOrder`, the live clients, the tiles' tag and client presence |
 | **FilterTag** | One service-tag filter: the drawer's oversized name type, a CheckIndicator box before the label (an eye inside when on, empty when off), the name in Title Case as stored. Tags OR together, and none on shows everything. | Single `serviceTag` |
@@ -180,11 +180,11 @@ Canonical names for UI components. All implementation work **must** use these te
 
 - **Grid Socket** — a reserved rectangular region in the detail-page masonry grid that dense placement flows around, occupied by a component floating on a layer *above* the grid plane with bounded overlap of neighboring tiles and subtle scroll parallax (pseudo-3D). The detail-page counterpart of the World's composite-element socket. Occupants: AlbumArtViewer and BrandDeckViewer — both full-width bands on the shared footprint. Placement is Studio order (11-14, Nathan: "the order of the sets is based on the position of the first media asset in the studio ranking"): each set's band is seated at the rank of its first-ranked member, the cover wall included, and one member ranked higher pulls the whole set up to it. No tile ranked before a set sits below its band. Until 11-14 the band's type chose the slot (album band on top, deck band mid-grid, portrait sets at the foot).
 - **Pull-out** *(retired 2026-07-01 with the ring presentation)* — metadata now lives permanently in the AlbumArtViewer side column (ReleaseMeta) instead of behind a focus state.
-- **Breadcrumb** — the `featured_projects` chip on every detail page; returns to `/work` and restores the World the visitor entered from (index persisted per tab in `sessionStorage`, key `swm:worldIndex`).
+- **Breadcrumb** — the `featured_projects` chip on every detail page; returns to `/featured-projects` and restores the World the visitor entered from (index persisted per tab in `sessionStorage`, key `swm:worldIndex`).
 
 ### Process Page — concepts
 
-> Disambiguation: process-page terms never use bare **World** — that word is reserved for a featured project's `/work` scene (above). Here "world" appears only in copy, never as a concept name.
+> Disambiguation: process-page terms never use bare **World** — that word is reserved for a featured project's `/featured-projects` scene (above). Here "world" appears only in copy, never as a concept name.
 
 - **Fragment** — one of the 84 globe panels while it drifts unassembled in the Stage-1 belt: a gathered reference before it belongs to the world. Every Fragment carries its home `row`/`lonIndex` identity from birth. _Avoid_: shard, mote, particle.
 - **the Thread** — the drawn stroke that shoots from the Core's center-to-be and connects Fragments dot-to-dot (trim-path draw; screen-space SVG). _Avoid_: stroke, trace, connector, line.
@@ -195,7 +195,7 @@ Canonical names for UI components. All implementation work **must** use these te
 
 ### Project Directory — concepts
 
-- **Project Directory** — `/work/directory`: every published asset with an image or video, in one flush grid, filtered by service and by client. Reached from the nav's `project_directory` and the drawer's client names; `/work` still stops at its last World.
+- **Project Directory** — `/services`: every published asset with an image or video, in one flush grid, filtered by service and by client. Reached from the nav's `project_directory` and the drawer's client names; `/featured-projects` still stops at its last World.
 - **Directory tile** — one per asset, except grouped media: a deck, a carousel, a banner group or a sequence becomes one tile, keyed by its lane, client, project and `displayGroup` (one group slug can repeat across clients). A deck shows its lowest-`brandDeckOrder` page, a banner group or carousel its first member by `orderRank`, and a sequence cycles. Album covers are single square tiles. Alpha logos letterbox (`fit: contain`); every other face, banners included, covers its cell, and a `static_other` / `motion_other` asset takes the tile shape (portrait, square or landscape) that crops it least. Built by `buildDirectoryTiles.js`, whose lanes come from `assetLane`, so the directory and the detail pages agree.
 - **Directory order** — `project` by default: the featured projects first, in World order, then every other client by name. `?dirorder=mix` deals the clients round-robin. `shuffle` is a new seeded random order on every load: the Studio switch `siteSettings.directoryShuffle` makes it the default (from the next deploy), and `?dirorder=shuffle` tries it.
 - **Directory filter** — tags OR together, none on shows everything, and the client narrows on top. A bare URL opens the filter with `album-art` ticked; `clear all` writes `?tag=` (every work), which survives a reload. A tag the active client would empty dims; a tag with no tiles is hidden.
@@ -220,7 +220,7 @@ The system that turns a Featured Project directory's contents into a page layout
 
 ### Aspect Ratio Resolution Rules
 
-Every asset MUST carry enough metadata for the renderer to compute its aspect ratio. The resolution cascade (defined in `buildContentFlow.js → ratioOf()`, shared by detail pages, /work Worlds, and the directory grid) is:
+Every asset MUST carry enough metadata for the renderer to compute its aspect ratio. The resolution cascade (defined in `buildContentFlow.js → ratioOf()`, shared by detail pages, /featured-projects Worlds, and the directory grid) is:
 
 | Priority | Source | Example |
 |---|---|---|
@@ -250,31 +250,31 @@ Assets within a Featured Project are sub-grouped by their **set** (below); the s
 
 ### Group Type (which viewer a set opens, and where)
 
-A set's **group type** (its Type, `mediaSet.groupType`; Nathan 11-10, on each piece until 11-25) names what kind of set it is: `album-art`, `deck`, `banner`, `admat` or `carousel`, and since 11-11 `merch`, `visuals`, `live-footage`, `mockups` or `flyer-progression`. Each type opens its viewer or cycler only on the surfaces it lists. On every other surface its pieces don't show, not even as ordinary tiles, except visuals and live footage, whose pieces stay ordinary pieces there, and a flyer progression in the directory, where each flyer is a tile of its own (Nathan 11-16). The table lives in site code (`GROUP_SURFACES` in `buildContentFlow.js`), not in Studio. One rule is by media type instead of group type (Nathan 11-14): a **static logo**, a still typed `logo`, never shows on /work, alone or as a frame of a sequence (`isStaticLogo`); an animated logo is a video and stays, and a logo still labelled with a ratio type is not caught until it is retyped Logo in Studio. The table:
+A set's **group type** (its Type, `mediaSet.groupType`; Nathan 11-10, on each piece until 11-25) names what kind of set it is: `album-art`, `deck`, `banner`, `admat` or `carousel`, and since 11-11 `merch`, `visuals`, `live-footage`, `mockups` or `flyer-progression`. Each type opens its viewer or cycler only on the surfaces it lists. On every other surface its pieces don't show, not even as ordinary tiles, except visuals and live footage, whose pieces stay ordinary pieces there, and a flyer progression in the directory, where each flyer is a tile of its own (Nathan 11-16). The table lives in site code (`GROUP_SURFACES` in `buildContentFlow.js`), not in Studio. One rule is by media type instead of group type (Nathan 11-14): a **static logo**, a still typed `logo`, never shows on /featured-projects, alone or as a frame of a sequence (`isStaticLogo`); an animated logo is a video and stays, and a logo still labelled with a ratio type is not caught until it is retyped Logo in Studio. The table:
 
 | Type | Opens on |
 |---|---|
-| Album art | globe, /work, project page, directory (one tile per cover) |
-| Deck | /work, project page, directory |
+| Album art | globe, /featured-projects, project page, directory (one tile per cover) |
+| Deck | /featured-projects, project page, directory |
 | Banner | project page, directory |
 | Admat | globe, project page, directory |
-| Carousel | /work, project page, directory |
-| Merch | globe, /work, project page, directory (one cycling tile) |
-| Visuals | project page, directory (ordinary pieces on /work and the globe) |
-| Live footage | project page, directory (ordinary pieces on /work and the globe) |
+| Carousel | /featured-projects, project page, directory |
+| Merch | globe, /featured-projects, project page, directory (one cycling tile) |
+| Visuals | project page, directory (ordinary pieces on /featured-projects and the globe) |
+| Live footage | project page, directory (ordinary pieces on /featured-projects and the globe) |
 | Mockups | globe (one cycling panel), project page, directory (one cycling tile) |
-| Flyer progression | globe, /work (one cycler each), project page (ordinary pieces in the directory, one tile per flyer) |
+| Flyer progression | globe, /featured-projects (one cycler each), project page (ordinary pieces in the directory, one tile per flyer) |
 
 - Decks, banners and carousels stay off the globe on purpose: "they aren't visually that dynamic to populate the globe as standalone assets".
 - A piece with no set still resolves (`groupTypeOf`) from its mediaType: `album-art` is album art, `brand-deck` a deck and `carousel-slide` a carousel (the runner gives a new deck page or carousel slide a set, so in practice that is loose album art).
 - An **admat** set is a tour's or event's flyers, all 3x4 or all 4x5 (whichever the set uses). An animated flyer joins the set and its static twin stays out. On the project page the set is one wall 1.5 flyers tall (11-11), 4 columns on desktop, 2 on phone, every flyer shown whole, the animated ones playing (`DeckScroller` `play`, one player gate per wall). In the directory the set is one tile that cycles every flyer (up to 12) on the shared beat, and each animated flyer holds the tile while its preview plays through. On the globe the stills cycle as one panel, and each animated flyer keeps its own tile.
-- **Album art** on the project page and /work (11-11): 4 columns on desktop, 2 on a phone, the wall 50% taller than before. On /work (11-12) it reads 3 across on desktop, and its plate steps one grid cell toward the screen's centre from either seat, so the taller plate stays in frame (`?albumcols`, `?albumup`, `?albumdown`).
-- A **carousel** reads like it does on socials (11-11): one row, slide 1 → N left to right, drifting left and sped up by scrolling, about 3.5 slides across on desktop and 1.5 on a phone so the next one peeks (`?carouselvis`). On the project page it is a strip in a socket of its own; on /work its wall plate travels sideways.
+- **Album art** on the project page and /featured-projects (11-11): 4 columns on desktop, 2 on a phone, the wall 50% taller than before. On /featured-projects (11-12) it reads 3 across on desktop, and its plate steps one grid cell toward the screen's centre from either seat, so the taller plate stays in frame (`?albumcols`, `?albumup`, `?albumdown`).
+- A **carousel** reads like it does on socials (11-11): one row, slide 1 → N left to right, drifting left and sped up by scrolling, about 3.5 slides across on desktop and 1.5 on a phone so the next one peeks (`?carouselvis`). On the project page it is a strip in a socket of its own; on /featured-projects its wall plate travels sideways.
 - A **merch** set is a client's merch design stills. It cycles one by one in a single tile on every surface, like album art on the globe (a sequence, up to 12 frames). Order it like with like: short sleeves, then long sleeves and hoodies, then hats, each colourway's front before its back. A merch video keeps its own tile.
 - A **visuals** set groups a client's horizontal visual loops into one wall on the project page: 2 columns on desktop, one full-width column on a phone, the loops playing. The wall is as tall as the whole set, up to the deck wall's height (`?visualsrows`); a longer set drifts like a deck. In the directory it is one tile.
 - A **live footage** set is a show's clips and photos as one grid on the project page: vertical pieces 3 across on desktop and 2 on a phone, horizontal pieces 2 across on desktop and full width on a phone. Each orientation crops to one shape, the widest among its members ("shortest asset wins"). A lone horizontal piece fills the full width; a short row of verticals keeps their size, left-aligned. One or two hero clips stay out of the set as standalone pieces. In the directory it is one tile.
-- A **mockups** set is the work shown applied: products, packaging, screens and phones. A release's SoundCloud and Beatport mockups group together, and a client's Instagram phone mockups are exported from their deck one by one, with no header or footer text; a stage or booth pre-visualisation stays out. On the project page the set is one full-width horizontal strip travelling sideways like a carousel, every piece at its own aspect and never cropped: one shared row height, each piece as wide as that height times its ratio. The strip is one carousel slide tall (the set's least-crop ratio at `?carouselvis` slides across, 3.5 on desktop, 1.5 on a phone). On the globe and in the directory it is one tile that cycles through the set, an animated mockup showing as its poster still. It stays off /work.
-- A **flyer progression** is one event's flyers in announcement order: save the date, the lineup, tickets live, set times, sold out, with the afterparty flyers included. Where a stage has an animated version, the animated one joins (as with admats), and an artist variant follows its stage's main version. On the project page it is a carousel strip that plays its animated flyers; on the globe and /work it is a cycler, where an animated flyer shows as its poster still. In the directory (Nathan 11-16) each flyer is a tile of its own, an animated one playing.
+- A **mockups** set is the work shown applied: products, packaging, screens and phones. A release's SoundCloud and Beatport mockups group together, and a client's Instagram phone mockups are exported from their deck one by one, with no header or footer text; a stage or booth pre-visualisation stays out. On the project page the set is one full-width horizontal strip travelling sideways like a carousel, every piece at its own aspect and never cropped: one shared row height, each piece as wide as that height times its ratio. The strip is one carousel slide tall (the set's least-crop ratio at `?carouselvis` slides across, 3.5 on desktop, 1.5 on a phone). On the globe and in the directory it is one tile that cycles through the set, an animated mockup showing as its poster still. It stays off /featured-projects.
+- A **flyer progression** is one event's flyers in announcement order: save the date, the lineup, tickets live, set times, sold out, with the afterparty flyers included. Where a stage has an animated version, the animated one joins (as with admats), and an artist variant follows its stage's main version. On the project page it is a carousel strip that plays its animated flyers; on the globe and /featured-projects it is a cycler, where an animated flyer shows as its poster still. In the directory (Nathan 11-16) each flyer is a tile of its own, an animated one playing.
 
 ### Set (a document of its own)
 
@@ -282,16 +282,16 @@ A **set** (`mediaSet`, Nathan 11-16) is a Sanity document, like a client or a se
 
 - **One project, one key.** A set belongs to one project, and a key names one set in the whole dataset. A key two projects used to share becomes `<key>-<project slug>`. Each project has at most one album-art set, keyed `<project slug>-album-art`. Album art with no project has none.
 - **Order lives on the pieces.** A set has no rank. Its pieces keep their own `orderRank`, and the set sits where its lowest-ranked piece is. In Studio's Featured Project Assets the set is one row: dragging it moves every piece in one run. Its own page lists its media in order, and you reorder them there.
-- **A set as the hero.** The hero is still the project's first piece. If that piece's set has Can be the hero on and is a type the hero box can hold (album art, deck, admat, carousel, visuals, mockups, flyer progression, merch), the whole set leads the project page in its own viewer. Album art needs no toggle: a first-ranked cover always leads as the whole cover set (Nathan 11-24). Otherwise the piece leads alone. A set of one never leads, except a deck. This applies to the project page only: /work, the globe and the next-project band still show the first piece. The Studio list labels its top row Hero, Hero: whole set, or Hero (first piece) by the same rule (`src/lib/setHero.js`).
+- **A set as the hero.** The hero is still the project's first piece. If that piece's set has Can be the hero on and is a type the hero box can hold (album art, deck, admat, carousel, visuals, mockups, flyer progression, merch), the whole set leads the project page in its own viewer. Album art needs no toggle: a first-ranked cover always leads as the whole cover set (Nathan 11-24). Otherwise the piece leads alone. A set of one never leads, except a deck. This applies to the project page only: /featured-projects, the globe and the next-project band still show the first piece. The Studio list labels its top row Hero, Hero: whole set, or Hero (first piece) by the same rule (`src/lib/setHero.js`).
 - **The legacy fields are gone** (Nathan 11-24, done 11-25). A piece's group is its set alone: intake writes only `set`, the site reads only the set, and the pieces' own `displayGroup` / `groupType` were cleared and left the schema. A manifest row's `displayGroup` and `groupType` columns still name the set a new piece joins, or the one intake creates for it.
 
 ### Sequence (one tile, many stills)
 
-A **sequence** is one tile that cuts through a set of stills on one shared clock, on the detail grid, the /work World and the home globe (`src/lib/mediaSequence.js`, Nathan 10-31). Put every member in one set whose key ends in `-sequence` (e.g. `imperfect-records-logo-sequence`; a manifest's `displayGroup` column at intake); Studio order is frame order. The group takes one tile at its first member's place instead of one tile per variant. Stills only: a video member keeps its own tile, and a group of one stays a plain tile. Up to 12 frames.
+A **sequence** is one tile that cuts through a set of stills on one shared clock, on the detail grid, the /featured-projects World and the home globe (`src/lib/mediaSequence.js`, Nathan 10-31). Put every member in one set whose key ends in `-sequence` (e.g. `imperfect-records-logo-sequence`; a manifest's `displayGroup` column at intake); Studio order is frame order. The group takes one tile at its first member's place instead of one tile per variant. Stills only: a video member keeps its own tile, and a group of one stays a plain tile. Up to 12 frames.
 
 - **Rate:** one rate for every sequence on every route, `?seqms` (default 1000 ms). A hard cut, never a blend; reduced motion holds frame 0.
 - **Shape:** the tile takes the member label shape that crops the set least (labels win, as in `ratioOf`). An opaque frame fills the tile (cover); a frame with transparency shows whole on near-black (contain), so a logo never loses its edges.
-- **Album art on the home globe:** a project's still covers become one sequence panel automatically (no Studio edit), freeing the other panels. Animated covers keep their own tiles. The detail page and /work keep their album walls.
+- **Album art on the home globe:** a project's still covers become one sequence panel automatically (no Studio edit), freeing the other panels. Animated covers keep their own tiles. The detail page and /featured-projects keep their album walls.
 
 ### Album Art Dual-Feed Rule
 
@@ -313,7 +313,7 @@ Mirrors album art: any `brand-deck` asset feeds **two** contexts:
 
 ### Carousel Convention
 
-Social/editorial carousels (multi-slide posts) live in a subfolder, one image per slide. Each slide row uses `mediaType: carousel-slide`, `displayGroup` = the kebab-case slug of the carousel name (e.g. `womens-day-carousel`), and `orderRank` sequences the slides. A carousel (group type `carousel`) opens as a scrolling wall like a deck's pages, one wall per `displayGroup`, on /work and the project page, and as one tile in the directory (Nathan 11-10, "Wall like decks").
+Social/editorial carousels (multi-slide posts) live in a subfolder, one image per slide. Each slide row uses `mediaType: carousel-slide`, `displayGroup` = the kebab-case slug of the carousel name (e.g. `womens-day-carousel`), and `orderRank` sequences the slides. A carousel (group type `carousel`) opens as a scrolling wall like a deck's pages, one wall per `displayGroup`, on /featured-projects and the project page, and as one tile in the directory (Nathan 11-10, "Wall like decks").
 
 ### Brand Deck Convention
 
@@ -327,10 +327,10 @@ Brand and pitch decks must be exported as per-page JPEGs and placed in a subfold
 
 | Route | Page | Component |
 |---|---|---|
-| `/` | Landing page — home globe; scroll triggers **Envelopment** into `/work` | `LandingPage` |
-| `/work` | **Featured Projects** — immersive sphere experience (primary work destination) | `FeaturedProjects` |
-| `/work/directory` | Project Directory — every asset in one flush grid, filtered by service tag and by client (`?tag=a,b&client=slug`) | `DirectoryPage` |
-| `/work/[slug]` | Single Project Page (editorial layout) | `FeaturedProjectDetail` |
+| `/` | Landing page — home globe; scroll triggers **Envelopment** into `/featured-projects` | `LandingPage` |
+| `/featured-projects` | **Featured Projects** — immersive sphere experience (primary work destination) | `FeaturedProjects` |
+| `/services` | Project Directory — every asset in one flush grid, filtered by service tag and by client (`?tag=a,b&client=slug`) | `DirectoryPage` |
+| `/featured-projects/[slug]` | Single Project Page (editorial layout) | `FeaturedProjectDetail` |
 | `/process` | Process page — five-Stage globe narrative (v2; gated by the disabled-route pattern until launch) | `ProcessPage` |
 
-> The legacy `/work/featured` (isHero-driven showcase) is retired — superseded by the project-doc-first experience at `/work`.
+> The legacy `/work/featured` (isHero-driven showcase) is retired — superseded by the project-doc-first experience at `/work` (`/featured-projects` since 11-27).

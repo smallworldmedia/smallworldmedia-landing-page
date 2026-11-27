@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pager-probe — headless Playwright harness for the /work ?pager= arms.
+ * pager-probe — headless Playwright harness for the /featured-projects ?pager= arms.
  *
  * Usage:
  *   node pager-probe.mjs --variant=scale --root=.fp-scale [--vw=1440 --vh=900]
@@ -11,15 +11,15 @@
  *         by scripts/lib/chipWipeGate.mjs, SQ-142. WebKit has no CDP, so its touch is synthetic PointerEvents.
  *         [--stall=MS]: a main-thread busy-wait the instant data-exit lands, the phone's Turn-landing long task.)
  *        [--extra="&detent=56"] [--hold=260] [--detents=2] [--base=http://localhost:4321]
- *        [--path=/work] [--host=.fp]   (SQ-87: the route, and the element that wears
- *        .is-pager-engaged — .swm-corner for the pager mounted outside /work)
+ *        [--path=/featured-projects] [--host=.fp]   (SQ-87: the route, and the element that wears
+ *        .is-pager-engaged — .swm-corner for the pager mounted outside /featured-projects)
  *
  * Prints a JSON report to stdout (console errors, page errors, readouts per
  * step) and writes PNG screenshots to --out. Touch gestures go through CDP
  * Input.dispatchTouchEvent (Playwright's mouse never becomes a touch pointer).
  *
  * Headless doctrine, learned the hard way (09-01):
- *   - /work starves the main thread on the GPU path (~250ms timer lag, 150ms
+ *   - /featured-projects starves the main thread on the GPU path (~250ms timer lag, 150ms
  *     frames), so the engine's 200ms hold timer beats a 60ms tap and peeks
  *     never register. SwiftShader is therefore the DEFAULT (~30ms lag).
  *   - React-state-driven attributes (data-open/data-charged) land a render
@@ -75,8 +75,8 @@ const GPU = arg('gpu', 'swiftshader'); // swiftshader (default: ~30ms timer lag)
 const LEAVE_X = Math.round(VW * 0.75);
 const SETTLE = Number(arg('settle', 250)); // extra ms before every readout (headless render lag)
 // SQ-87: the route and the pager's host element are parameters — the pager also mounts
-// outside /work, in a .swm-corner wrapper (--path=/lab/x --host=.swm-corner).
-const PATH_ = String(arg('path', '/work'));
+// outside /featured-projects, in a .swm-corner wrapper (--path=/lab/x --host=.swm-corner).
+const PATH_ = String(arg('path', '/featured-projects'));
 const HOST = String(arg('host', '.fp'));
 // SQ-92: the corner widget gives every page a second .fp-scale root, so the default root is the pager INSIDE the host.
 const ROOT = arg('root', `${HOST} .fp-scale`);
@@ -132,7 +132,7 @@ const readout = (page) =>
     };
   }, [ROOT, HOST]);
 
-// SQ-80: the /work [PREVIOUS] / [NEXT] chips — the label (a neighbour's client
+// SQ-80: the /featured-projects [PREVIOUS] / [NEXT] chips — the label (a neighbour's client
 // name, or the words under ?ctanames=0), its box, the face it wears next to the
 // pager's own names, and the marquee's wrap step (the copy period vs the
 // track's -50% travel; both unscaled px — offsetLeft/offsetWidth ignore the

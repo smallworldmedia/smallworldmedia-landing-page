@@ -1,4 +1,4 @@
-import { defineType, defineField, defineArrayMember } from 'sanity'
+import { defineType, defineField } from 'sanity'
 import { DocumentsIcon } from '@sanity/icons'
 import { orderRankField, orderRankOrdering } from '@sanity/orderable-document-list'
 
@@ -53,17 +53,6 @@ export const project = defineType({
       description: 'When true, displays "current" instead of an end year.',
     }),
     defineField({
-      name: 'services',
-      title: 'Service Tags',
-      type: 'array',
-      of: [
-        defineArrayMember({
-          type: 'reference',
-          to: [{ type: 'serviceTag' }],
-        }),
-      ],
-    }),
-    defineField({
       name: 'isFeatured',
       type: 'boolean',
       initialValue: false,
@@ -75,7 +64,7 @@ export const project = defineType({
       title: 'Project Color',
       type: 'string',
       description:
-        'Optional accent color for this featured project (hex, e.g. #0000FF). Tints the /work card chip, service tags, enter_world CTA, left-pager active chip, this project\'s detail-page client band, and the page-enter fill. Leave blank for the default brand blue.',
+        'Optional accent color for this featured project (hex, e.g. #0000FF). Tints the /featured-projects card chip, service tags, enter_world CTA, left-pager active chip, this project\'s detail-page client band, and the page-enter fill. Leave blank for the default brand blue.',
     }),
     defineField({
       name: 'projectColorSecondary',
@@ -86,7 +75,7 @@ export const project = defineType({
     }),
 
     // Drag-orderable rank (managed by @sanity/orderable-document-list).
-    // Powers the Featured Projects experience order at /work AND the globe's
+    // Powers the Featured Projects experience order at /featured-projects AND the globe's
     // featured-project auto-fill ranking — set it by dragging in the Studio's
     // "Featured Projects (drag to order)" list.
     orderRankField({ type: 'project' }),

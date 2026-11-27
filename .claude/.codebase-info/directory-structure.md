@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-25*
+*Last Updated: 2026-11-27*
 
 ```
 .
@@ -10,7 +10,7 @@
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
-│   ├── pages/                # routes: index, process, privacy, terms, 404, work/{index,[slug],directory}, lab/{globe,loader}, specimen
+│   ├── pages/                # routes: index, process, privacy, terms, 404, services (the Project Directory), featured-projects/{index,[slug]}, lab/{globe,loader}, specimen
 │   ├── layouts/BaseLayout.astro   # head, fonts, the colour-scheme latch, ClientRouter, persistent SiteShell + SiteTagline + SiteScheme
 │   ├── layouts/homeWarm.js        # the way home: warm copy of / for the router (SQ-33, ?homewarm)
 │   ├── components/
@@ -24,11 +24,11 @@
 │   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
 │   │   │                     #   clip fetch-ahead (streamPrefetch)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
-│   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, video recipes (useHls, imageConfig)
+│   │   ├── work/             # /featured-projects orchestrator, WorldCard, CTA arrows, benches, video recipes (useHls, imageConfig)
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
 │   │   │   ├── world/        # three.js Worlds: useWorldScene, DRUM/ATLAS/FORME grids, bands, live video, worldRamp (spectrum's line ramp)
 │   │   │   ├── detail/       # detail page: content flow, tile units (tileGrid), flush grid, sockets, DeckScroller, viewers
-│   │   │   └── directory/    # /work/directory: DirectoryPage, grid, filter + FilterTag, serviceGroups, player gate, tiles, bench
+│   │   │   └── directory/    # /services: DirectoryPage, grid, filter + FilterTag, serviceGroups, player gate, tiles, bench
 │   │   ├── process/          # /process stage machine, scroll driver, copy, debug panel, lockup globe
 │   │   ├── specimen/, lab/   # dormant routes (redirected)
 │   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb), GlobeLoader (the globe loader)
@@ -56,8 +56,6 @@
 ├── scripts/
 │   ├── cms.mjs               # npm run cms — plan / apply / verify
 │   ├── audit-gate.mjs        # Netlify build gate: `cms audit` read-only, any error stops the deploy
-│   ├── cms-sets-migration.mjs   # US-10: writes the sets migration's --changes request files (read-only)
-│   ├── cms-sets-migration-oracle.mjs   # US-10: pre-apply oracle, one migration file over a live snapshot (read-only)
 │   ├── lib/cms/              # manifest, contract, runner, adapters, state, audit, sets (Set ids and keys)
 │   ├── lib/legacy-cms-guard.mjs
 │   ├── lib/unitGates.mjs, lib/netReport.mjs   # globe-probe's pure gate modules (media spans; the video diet)
@@ -65,7 +63,7 @@
 │   ├── lib/scheme-leak-probe.mjs   # SQ-113's scheme-flip memory probe (one arm per fresh browser; measurement only)
 │   ├── lib/plateauGate.mjs   # memory-probe's pure gates: a sampled count plateaus or climbs (SQ-129); the opening step stays under a cap (`stepGate`, SQ-133); the resting footprint plateaus over hold rounds (`roundGate`, SQ-136)
 │   ├── lib/navWipeGate.mjs, lib/legalScrollGate.mjs   # nav-wipe-probe's and legal-scroll-probe's pure gates
-│   ├── lib/restoreFlashGate.mjs   # history-probe's /work return gate: no first-World frame or media before the restored card (SQ-131)
+│   ├── lib/restoreFlashGate.mjs   # history-probe's /featured-projects return gate: no first-World frame or media before the restored card (SQ-131)
 │   ├── lib/pushTimingGate.mjs   # history-probe's T* gate: a click-started push lands within 1000 ms of its input, activation live (SQ-141)
 │   ├── lib/footerRowGate.mjs   # footer-probe's gate: the links row clears the ©line and lockup by 12 px, stays in the band, privacy last (SQ-138); the wrapped mode drops the ©line under the lockup (SQ-140)
 │   ├── lib/eyeRideGate.mjs, dirFilterResetGate.mjs, fontCoverageGate.mjs, imageSharpGate.mjs   # gates: the eye rides the footer panel in lockstep (scheme-probe `ride`, SQ-144), a same-path directory link resets in place (SQ-146), every printed character is in the subset fonts (SQ-148), images fetched at rendered width × DPR (SQ-150)
@@ -81,7 +79,7 @@
 │   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)
 │   ├── media-load-probe.mjs  # how long a media tile sits in view unpainted while a page scrolls (a measurement, not a gate)
 │   ├── memory-probe.mjs      # does any resource count climb per globe world or scheme flip (SQ-129, the iPhone tab-kill hunt); bisect arms (SQ-133), reclaim readings (SQ-134) and hold-and-cycle rounds with a globe-only arm (SQ-136)
-│   ├── footer-probe.mjs      # the links footer's row vs the left stack at 769-1440 px, scrolled to the end of /work/directory/?tag=all (SQ-138)
+│   ├── footer-probe.mjs      # the links footer's row vs the left stack at 769-1440 px, scrolled to the end of /services/?tag=all (SQ-138)
 │   ├── directory-filter-probe.mjs, image-sharp-probe.mjs   # the services/clients link resets the filter in place + white scroll thumbs (SQ-146); DOM images sharp at their rendered width × DPR on phone and desktop (SQ-150)
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated

@@ -1,4 +1,4 @@
-// SQ-131: the /work return-restore's first-frame gate (scripts/lib/restoreFlashGate.mjs).
+// SQ-131: the /featured-projects return-restore's first-frame gate (scripts/lib/restoreFlashGate.mjs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { astroProps, mediaTokens, restoreFlashVerdict } from '../lib/restoreFlashGate.mjs';

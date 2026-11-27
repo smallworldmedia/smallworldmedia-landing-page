@@ -93,9 +93,9 @@ export function parseNavWipeOut(search = '') {
 }
 export const NAV_WIPE_OUT_S = parseNavWipeOut(typeof window === 'undefined' ? '' : window.location.search);
 
-/** Routes whose island dispatches `swm:route-ready` itself (home, /work, the
- *  directory, a project page). Any other route is ready at `astro:page-load`. */
-export const routeSignalsReady = (pathname) => /^\/(work(\/[^/]+)?)?\/?$/.test(pathname);
+/** Routes whose island dispatches `swm:route-ready` itself (home, /featured-projects, the
+ *  directory at /services, a project page). Any other route is ready at `astro:page-load`. */
+export const routeSignalsReady = (pathname) => /^\/(featured-projects(\/[^/]+)?|services)?\/?$/.test(pathname);
 
 /** The island's first meaningful frame is up. Two animation frames after the
  *  call, so the frame the island just committed has been presented — and out

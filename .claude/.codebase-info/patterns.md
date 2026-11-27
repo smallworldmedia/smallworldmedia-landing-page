@@ -1,6 +1,6 @@
 # Patterns & Doctrine
 
-*Last Updated: 2026-11-25*
+*Last Updated: 2026-11-27*
 
 ## GSAP + ClientRouter
 - Plugins registered at module top (`useGSAP, ScrollTrigger, CustomEase, Flip, ScrambleTextPlugin`).
@@ -38,18 +38,18 @@
 ## The commit-curve idiom
 One linear master proxy (`raw.p` 0→1, `ease:'none'`), each channel remapped through its own clamped
 window (`seg()` + `powInOut()`). Used by `Hero.beginEnvelopment`, `work/world/enterTune.js` and the
-FP→detail passage, so home→/work and /work→detail share one vocabulary (`moveStart/moveEnd/pow`,
+FP→detail passage, so home→/featured-projects and /featured-projects→detail share one vocabulary (`moveStart/moveEnd/pow`,
 and since SQ-34 the lens channel too: `enterLens()` on `lensStart/lensEnd/pow`).
 Motion taste: no overshoot, steep launch carrying scroll momentum, smooth decel into rest.
 
 ## Gesture model
 The house accumulator quantizer (px threshold, `TOUCH_GAIN` touch gain (5 since 11-03), rubber band
-after `RELEASE_MS` (240) of stall, one commitment per gesture) appears in the Hero commit, the /work World Turn (`FeaturedProjects.jsx`), and
+after `RELEASE_MS` (240) of stall, one commitment per gesture) appears in the Hero commit, the /featured-projects World Turn (`FeaturedProjects.jsx`), and
 `process/useProcessScrollDriver.js`. Pager input is `work/pager/usePagerGesture.js`; skins render
 only, and only `requestGoTo` fires a Turn. Every landing commits unconditionally so stale deferrals
 are cancelled. A gesture's live feedback rides two lanes in `motion.js`: `DRAG_TRACK_S` while the
 finger moves, `RELEASE_GLIDE_S` on `RELEASE_EASE` for the spring home (the CTA fill and the 11-03
-lean, `swm:fp-drag`, share them). On `/work` a finger's let-go is its lift, so a held finger keeps its
+lean, `swm:fp-drag`, share them). On `/featured-projects` a finger's let-go is its lift, so a held finger keeps its
 fill; a wheel has no lift, so its let-go is the stall.
 
 `src/lib/rubberBand.js` (11-07, SQ-26) is the accumulator plus both lanes as ONE step:
@@ -79,7 +79,7 @@ CSS-keyframed ink pulse animates the ELEMENT'S OWN `color`, which is what keeps 
 An always-on CSS animation on persistent chrome must be gated, not merely off-screen: ship it
 `animation-play-state: paused` and join an existing release group rather than inventing a latch —
 the spectrum pulse joins the odometer's `html[data-footer-revealed] { animation-play-state: running }`
-rule, so a 5 Hz text repaint cannot run beside the `/work` WebGL world or while the footer panel is
+rule, so a 5 Hz text repaint cannot run beside the `/featured-projects` WebGL world or while the footer panel is
 parked. `prefers-reduced-motion` resolves to `animation: none` plus the flat resting ink.
 
 The GSAP house pulse (`housePulseLoop`) is phase-locked to the wall clock when it is built. A
@@ -87,7 +87,7 @@ The GSAP house pulse (`housePulseLoop`) is phase-locked to the wall clock when i
 endless pulse that only fades opacity can leave GSAP: `housePulseKeyframes(ease, from, to)` samples
 the house curve into web-animation keyframes and `housePulseStartMs(now, period, hit)` gives the
 next downbeat to start them on, so the beat stays on the metronome with nothing ticking on the main
-thread (SQ-124, 11-18: the /work pager's rest pulse, off by default since 11-20 behind `?scalepulse=1`, and the scheme eye; `joinHousePulse` is gone).
+thread (SQ-124, 11-18: the /featured-projects pager's rest pulse, off by default since 11-20 behind `?scalepulse=1`, and the scheme eye; `joinHousePulse` is gone).
 Skip targets that are not painted: Blink restyles an animated `display:none` element every frame. A pulse
 that must survive a recolour cannot tween a colour FROM the accent, because GSAP records the start
 once; the pager fades a white twin of its number on opacity instead (`.fp-scale__peak`).
@@ -190,12 +190,12 @@ and stamped, but no CSS reads it; a rule that ever does selects the five keys by
 
 How a scheme reaches a canvas: one `onScheme` subscription per scene. A settled event must recolour;
 a preview may write uniforms only (no texture or slot rebuild, the pager fires one per detent). Under
-black every fill and border is `#000000`; the one exception is /work's shell grid line (and glow), a
+black every fill and border is `#000000`; the one exception is /featured-projects's shell grid line (and glow), a
 neutral grey at `?schemegrid` (0.16, `#292929`, since 11-17). Under spectrum (wave 4, 11-15) both scenes draw ramp A over the
 flat colour through one shared uniform set, so a scheme change still writes uniforms only, and at mix
 0 a scene paints exactly what it painted before. The home globe's gaps, pole caps, corner fringe and
 surge continue the DOM ring's conic ramp about the ring's centre (`globe/panelMaterial.js`
-`uRampMix` / `uRampCenter`); every /work line (shell grid, FORME lattice, plate and wall borders, the
+`uRampMix` / `uRampCenter`); every /featured-projects line (shell grid, FORME lattice, plate and wall borders, the
 glow) takes the ramp left to right across the drawing buffer (`work/world/worldRamp.js`). The stops
 are `lib/spectrumRamp.js` (`SPECTRUM_RAMP_A` = `--swm-ramp-a`, kept gamma-encoded and decoded to
 linear after the blend, the way CSS blends). `window.__swmSchemeDebug` reports what each scene painted, and
@@ -207,7 +207,7 @@ it blocks WebGL for the origin ("Web page caused context loss and was blocked"),
 loaded later in that browser throws at renderer creation. `scheme-probe.mjs` saves the viewport
 instead, WARNs, keeps the page's gates and restarts its browser; any probe that takes full-page
 shots and then loads a canvas route has to do the same. The `hover` gate forces `:hover` through
-CDP, so a control whose hover is a JS mix of `--cta-bg` (home's `zoom_in`, /work's [PREVIOUS] /
+CDP, so a control whose hover is a JS mix of `--cta-bg` (home's `zoom_in`, /featured-projects's [PREVIOUS] /
 [NEXT]) reads as "no painted property changed" unless a scheme adds a CSS `:hover` rule for it, as
 black does; the lower-right privacy pill's hover (ink to white) paints nothing wherever the accent's
 ink on black is already white, which is every page under blue. The `contrast` gate walks a text
@@ -218,22 +218,22 @@ black and passed (fixed in `scheme.css`, pinned in `scheme-css.test.mjs` and `sc
 A box laid behind text any other way (a sibling element, a blend mode) is still invisible to it.
 Look at the contact sheet, not only the gate lines. The `shares` gate (spectrum) sums masked captures
 of the pages it is given, and a project's page carries only its own dealt colour, so it runs only
-with `--details=all` (every /work card's page; the default sample of cards 1 and 3 SKIPs it, with the
+with `--details=all` (every /featured-projects card's page; the default sample of cards 1 and 3 SKIPs it, with the
 reason). The masked page is read in 4000 px tiles, because one capture of a tall page is refused,
 and one INFO line per page prints that page's own shares, which is how a family's share is traced to
-its source. Canvases and media are masked black, so home and /work add nothing to it. On the first
+its source. Canvases and media are masked black, so home and /featured-projects add nothing to it. On the first
 skin (11-14) every family sat within the gate's 10 points of color-ref.png except yellow, which the
 keyword boxes on every project page push to more than twice its reference share: a look call for
 Nathan, not a defect the gate should hide. The keyless skin (wave 4, 11-15) has its own gates, which
 replace `carriers`, `deal` and `shares` in spectrum's defaults (those stay available by name).
 `uniform`: an element two pages of a kind share paints the same on both (keywords and social chips
 are matched by their own key). `density`: a page shows at least N of the palette's families (5 on
-home, /work, a project page and the directory, 3 on privacy and the 404; `--density` overrides the 5;
+home, /featured-projects, a project page and the directory, 3 on privacy and the 404; `--density` overrides the 5;
 both numbers are proposals). `outline`: the canvas ramp's centre sits on the DOM ring's, within 1.5
 CSS px.
 
 Accent: `lib/navAccent.js` is the one writer of `--project-color*` and the tint class. Home's globe
-world colour (`pop-tint`) reuses /work's path (`fp-tint`) rather than a second set of chrome rules.
+world colour (`pop-tint`) reuses /featured-projects's path (`fp-tint`) rather than a second set of chrome rules.
 A passage changes colour on the page background's clock, never on a timer of its own (SQ-64, 11-12).
 The nav's fade starts from the cover or lift tween's `onStart`, at that tween's duration, curve and
 phase, because a main-thread stall makes a separate timer start late. `scripts/color-sync-probe.mjs`
@@ -366,12 +366,12 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   fade: WebKit's page process stepped ~250 MiB at 402 x 874 @3 (SQ-133, 11-20). Registering each link with `@property`
   (`inherits: true`, `<number>` or `<length>`, no transition) makes it compute to ONE value at its own
   element; the look is the same and the step fell to +85..+103 MiB. The 17 links sit in
-  `site-scheme.css` beside the sequence's `--eye-ts/tg/tn/tf`; the /work engine's `--sel`, `--sdx` and
+  `site-scheme.css` beside the sequence's `--eye-ts/tg/tn/tf`; the /featured-projects engine's `--sel`, `--sdx` and
   `--fs` (`pager-scale.css`, locked) stay unregistered. Measure with `memory-probe.mjs --run=eye`
   (`stepGate`).
 - An element-local transition on a property that already follows the inherited 1.7 s
   `--project-color` fade CHASES it: the transition restarts every frame and lands about its own
-  duration late (the /work pager chip, 11-03). For the fade window, give the background no
+  duration late (the /featured-projects pager chip, 11-03). For the fade window, give the background no
   transition and swap the ink to the snapping `--nav-ink` (`.fp[data-turning]`, the nav pill's fix).
   When the background also mixes in a local input, register that input and transition IT instead:
   the [NEXT]/[PREVIOUS] chips' white charge is `@property --cta-charge` (FeaturedProjects `ctaColor`,
@@ -442,7 +442,7 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   (`timeupdate`, `wrapAt`) for a clip that ends later. The Project Directory's tiles take the 5 s preview
   clip, not the detail cap (MediaSlot `clip`), and `globe-probe --directory` gates it.
 - **`maxMaxBufferLength` is the cap, and a tile's face is its poster, never its player** (11-12,
-  measured on /work/andhera-records-andhera-branding). The clip bounds a stream's total, not its
+  measured on /featured-projects/andhera-records-andhera-branding). The clip bounds a stream's total, not its
   pace: with only the floor set, every detail slot entering the band fetched its whole 15 s clip at
   once (73 to 91 MB in one scroll), which starved the posters, the images and the hero, and a tile
   stayed empty until its stream reached `canplay` because the poster sat on a `<video>` held at
@@ -500,7 +500,7 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   UNIT between the two. Never `parseFloat` one; read its unit (`cssMs()`, `siteSchemeLogic.js`). SQ-107
   pass 11's `sequence` gate passed on dev and failed on `astro preview` (the grow started with the slide)
   until `planSequence` read the unit (`413b515`, 11-17).
-- Headless Chromium starves `/work`'s main thread: launch with `--use-angle=swiftshader
+- Headless Chromium starves `/featured-projects`'s main thread: launch with `--use-angle=swiftshader
   --enable-unsafe-swiftshader`, wait ~250 ms before reading state, treat `.fp.is-pager-engaged` as
   truth. Never click top-center to blur ([PREVIOUS] sits there). `scripts/pager-probe.mjs` embodies this;
   `scripts/globe-probe.mjs` shares its launch doctrine for the home globe.
@@ -516,7 +516,7 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
 - Pixel reads on the dev server: remove `astro-dev-toolbar` first. It sits bottom-centre over the
   page (globe-probe's `--paint` does this).
 - Timing a route arrival: polling from Node starves under SwiftShader (3 samples in 3.2 s missed
-  the /work arrival). Record in the page instead, with a MutationObserver + rAF logger on `window`,
+  the /featured-projects arrival). Record in the page instead, with a MutationObserver + rAF logger on `window`,
   which survives a ClientRouter soft nav (globe-probe's `--enter` does this).
 - Previews of the production build: serve them on an allowlisted port (localhost:4321, :4322, :3333
   or :4330). Sanity's image CDN 403s any other origin, so WebGL stills go black (`communication.md`).
@@ -563,7 +563,7 @@ pass their own switch, `KW_HIGHLIGHT_DETAIL` (on since the evening of 11-07), so
   and `scripts/lib/legalScrollGate.mjs` (/privacy and /terms scroll by touch, and which lock a failure hit)
   under `scripts/test/legal-scroll.test.mjs`, `scripts/lib/plateauGate.mjs` (memory-probe: a count
   plateaus or climbs, SQ-129; `stepGate`, the opening step's cap, SQ-133; `roundGate`, the resting footprint over hold rounds, SQ-136) under `scripts/test/plateau-gate.test.mjs`, `scripts/test/step-gate.test.mjs` and `scripts/test/round-gate.test.mjs`, `scripts/lib/restoreFlashGate.mjs`
-  (history-probe's /work return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, `scripts/lib/pushTimingGate.mjs` (history-probe's T*: a click-started push lands within 1000 ms of its input with an active user activation, SQ-141) under `scripts/test/push-timing.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138; the wrapped mode, SQ-140) under `scripts/test/footer-row.test.mjs`. The 11-24 wave added `eyeRideGate.mjs` (`eye-ride.test.mjs`), `dirFilterResetGate.mjs` (`dir-filter-reset.test.mjs`), `fontCoverageGate.mjs` (`font-coverage.test.mjs`) and `imageSharpGate.mjs` (`image-sharp.test.mjs`); SQ-142 added `chipWipeGate.mjs` (pager-probe `--scenario=chipwipe`, the chip's exit wipe sampled every frame, `--browser=webkit`, `--stall=MS` busy-waits as `data-exit` lands) under `chip-wipe.test.mjs`. Every gate
+  (history-probe's /featured-projects return: no first-World frame or media, SQ-131) under `scripts/test/restore-flash.test.mjs`, `scripts/lib/pushTimingGate.mjs` (history-probe's T*: a click-started push lands within 1000 ms of its input with an active user activation, SQ-141) under `scripts/test/push-timing.test.mjs`, and `scripts/lib/footerRowGate.mjs` (footer-probe: the links row clears the left stack, SQ-138; the wrapped mode, SQ-140) under `scripts/test/footer-row.test.mjs`. The 11-24 wave added `eyeRideGate.mjs` (`eye-ride.test.mjs`), `dirFilterResetGate.mjs` (`dir-filter-reset.test.mjs`), `fontCoverageGate.mjs` (`font-coverage.test.mjs`) and `imageSharpGate.mjs` (`image-sharp.test.mjs`); SQ-142 added `chipWipeGate.mjs` (pager-probe `--scenario=chipwipe`, the chip's exit wipe sampled every frame, `--browser=webkit`, `--stall=MS` busy-waits as `data-exit` lands) under `chip-wipe.test.mjs`. Every gate
   records `{ n, floor, vacuous, worst, bound }`, and a gate under its sample floor FAILS as vacuous —
   a units run that placed nothing proves nothing. A negative control is a run that must exit 2, then
   `node scripts/lib/unitGates.mjs --expect-fail=<gates> <report.json>` exits 0 only when each named

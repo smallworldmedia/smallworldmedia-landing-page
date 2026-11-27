@@ -101,7 +101,7 @@ test('grouping: a deck per client, a sequence of two, a lone sequence member pla
 
 test('links: only tiles of a project with a detail page get href + label', () => {
   const ts = tiles()
-  assert.equal(ts.find((t) => t._id === 'munchie-1').href, '/work/munchietown')
+  assert.equal(ts.find((t) => t._id === 'munchie-1').href, '/featured-projects/munchietown')
   assert.equal(ts.find((t) => t._id === 'coco-1').label, 'COCO Branding 2026')
   for (const id of ['bellaire-loose', 'bellaire-orphan', 'annabel-1']) {
     const t = ts.find((x) => x._id === id)
@@ -588,7 +588,7 @@ test('admat set - filters, tags, client coverage and the link read the set as th
   const [tile] = ts
   assert.equal(tile.client, 'jamback')
   assert.deepEqual(tile.services, ['promo', 'tour-art'], "the group's services, unioned")
-  assert.equal(tile.href, '/work/jamback')
+  assert.equal(tile.href, '/featured-projects/jamback')
   assert.equal(tile.label, 'Jamback')
   assert.ok(matchesFilter(tile, { tags: new Set(['tour-art']), coverage: null }), 'a tag on one flyer filters the set in')
   assert.ok(!matchesFilter(tile, { tags: new Set(['branding']), coverage: null }))
@@ -687,7 +687,7 @@ test('US-4 sets - visuals and live-footage are one tile per set, merch stills on
   assert.equal(byId['vis-solo'].frames, undefined)
   assert.equal(byId['lf-solo'].frames, undefined)
   // every tile still links to its project page
-  assert.ok(ts.every((t) => t.href === '/work/jamback'))
+  assert.ok(ts.every((t) => t.href === '/featured-projects/jamback'))
   // NC: two sets with the same displayGroup under different clients stay apart
   rank = 0
   const split = buildDirectoryTiles({
@@ -724,7 +724,7 @@ test('US-5 sets - a mockups set is one tile that flips through its members; a fl
   assert.equal(mk.imageUrl, 'https://cdn.example.invalid/1080x1350.jpg') // the first frame shows first
   assert.equal(solo._id, 'mk-solo')
   assert.equal(solo.frames, undefined, 'a set of one is a plain tile')
-  for (const t of ts) assert.equal(t.href, '/work/jamback')
+  for (const t of ts) assert.equal(t.href, '/featured-projects/jamback')
   // NC: a mockups set on another client stays its own tile
   rank = 0
   const split = buildDirectoryTiles({
@@ -758,7 +758,7 @@ test('thirds - a flagged showcase video is three tiles whose ranges touch and co
     assert.deepEqual(parts[1][k], parts[0][k], k)
     assert.deepEqual(parts[2][k], parts[0][k], k)
   }
-  assert.equal(parts[0].href, '/work/jamback')
+  assert.equal(parts[0].href, '/featured-projects/jamback')
   assert.deepEqual(parts[0].services, ['promo', 'motion'])
   assert.ok(ts.every((t) => !t.frames), 'none of them cycles')
   assert.equal(new Set(ids(ts)).size, ts.length, 'DirectoryGrid keys tiles by _id: every id is its own')

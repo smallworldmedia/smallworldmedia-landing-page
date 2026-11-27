@@ -322,7 +322,7 @@ test('SQ-107 pass 9 on phones the badge is lifted clear of the screen corner (?s
   assert.ok(/--badge-clear',\s*`\$\{p\.clear\}px`/.test(read('src/components/SiteScheme.jsx')), 'SiteScheme writes the dial as a custom property on .swm-corner');
 });
 
-test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger taper, with a mirrored arrow (?schemeshift)', () => {
+test('SQ-107 pass 10 the engaged eye steps left off the edge on /featured-projects\'s stagger taper, with a mirrored arrow (?schemeshift)', () => {
   const css = skinCss();
   const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   // The dial: one rest eye width by default, 0 = a straight column, ramped by the engage.
@@ -336,12 +336,12 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   assert.equal(q('schemeshift=-4').shift, 0);
   assert.equal(q('schemeshift=far').shift, null);
   assert.ok(/--eye-shift',\s*`\$\{p\.shift\}px`/.test(read('src/components/SiteScheme.jsx')), 'SiteScheme writes the dial as a custom property on .swm-corner');
-  // The taper is /work's own, never a copy: each circle moves left by --sw (pager-scale.css) x S, and the
-  // tokens behind --sw (reach 3, exponent 2) are the ones global.css gives /work.
+  // The taper is /featured-projects's own, never a copy: each circle moves left by --sw (pager-scale.css) x S, and the
+  // tokens behind --sw (reach 3, exponent 2) are the ones global.css gives /featured-projects.
   assert.ok(/translate: calc\(-1 \* var\(--eye-sx\) \* var\(--eye-s\)\) calc\(/.test(flat), 'each station steps left by the stagger taper times the shift');
   assert.ok(/--eye-sx: var\(--sw\);/.test(flat), 'the taper is the circle\'s own --sw the whole way through its slide: straight up and down (Nathan 11-17), never eased in from the centre eye\'s x');
   const pager = read('src/styles/pager-scale.css');
-  assert.ok(/--sw: pow\(clamp\(0, 1 - var\(--ndr\) \/ var\(--scale-slice-reach\), 1\), var\(--scale-slice-exp\)\);/.test(pager.replace(/\s+/g, ' ')), '--sw is /work\'s taper');
+  assert.ok(/--sw: pow\(clamp\(0, 1 - var\(--ndr\) \/ var\(--scale-slice-reach\), 1\), var\(--scale-slice-exp\)\);/.test(pager.replace(/\s+/g, ' ')), '--sw is /featured-projects\'s taper');
   const g = read('src/styles/global.css');
   assert.ok(/--scale-slice-reach: 3;/.test(g) && /--scale-slice-exp: 2;/.test(g), 'reach 3 and exponent 2: 1 at the lens, 0.444 one out, 0.111 two out');
   assert.ok(!/--scale-slice-(reach|exp)/.test(css), 'the skin defines no taper of its own');
@@ -354,13 +354,13 @@ test('SQ-107 pass 10 the engaged eye steps left off the edge on /work\'s stagger
   assert.ok(/\.fp-scale__window \{[^}]*left: calc\(\(var\(--eye-w\) - var\(--eye-wide\)\) \/ 2 - var\(--eye-shift\) - var\(--eye-bleed\)\);[^}]*width: calc\(var\(--eye-wide\) \+ var\(--eye-shift\) \+ 2 \* var\(--eye-bleed\)\);/.test(flat), 'the window is as wide as the shift, and bleeds a lifted padding each side for the circles\' badges (SQ-116)');
   assert.ok(/--eye-bleed: calc\(var\(--eye-engaged\) \* var\(--badge-pad\)\);/.test(flat), 'the bleed is the lifted padding');
   assert.ok(/\.fp-scale__stations \{ left: calc\(var\(--eye-shift\) \+ var\(--eye-bleed\)\); width: var\(--eye-wide\); \}/.test(flat), 'and the stations sit where they did');
-  // The arrow: /work's pointer, mirrored to point LEFT, on the lids' ink, never display:none.
+  // The arrow: /featured-projects's pointer, mirrored to point LEFT, on the lids' ink, never display:none.
   const ptr = flat.match(/\.fp-scale__pointer \{([^}]*)\}/)?.[1] ?? '';
-  assert.ok(/border-right: 0\.571rem solid var\(--color-white\)/.test(ptr) && /border-left: 0 solid transparent/.test(ptr), 'a triangle with its point on the left, /work\'s 0.571rem wide, in the lid ink');
+  assert.ok(/border-right: 0\.571rem solid var\(--color-white\)/.test(ptr) && /border-left: 0 solid transparent/.test(ptr), 'a triangle with its point on the left, /featured-projects\'s 0.571rem wide, in the lid ink');
   assert.ok(/transform: none/.test(ptr), 'no flipper-spring deflection: it stays on the lens line');
   assert.ok(!/\.fp-scale__pointer[^{]*\{[^}]*display: none/.test(flat) && !/\.fp-scale__pointer,/.test(flat), 'the arrow is not hidden any more');
   const work = pager.replace(/\s+/g, ' ');
-  assert.ok(/border-left: 0\.571rem solid currentColor;/.test(work) && /border-top: 0\.429rem solid transparent;/.test(work), '/work\'s own pointer is untouched');
+  assert.ok(/border-left: 0\.571rem solid currentColor;/.test(work) && /border-top: 0\.429rem solid transparent;/.test(work), '/featured-projects\'s own pointer is untouched');
 });
 
 test('SQ-107 pass 5 baked dials, Nathan\'s 18 / 4 / 1.5 / 0.8 / 0.5, the circles\' own 200 / 200 and pass 11\'s 160 / 160 / 70 are the CSS defaults', () => {
@@ -458,8 +458,8 @@ test('SQ-116 every station carries a badge of its own scheme, the lens badge\'s 
   const sw = read('src/components/schemeSwatches.jsx');
   assert.ok(/export function StationArt\(\{ scheme \}\)/.test(sw) && /<span className="scheme-badge" data-scheme=\{scheme\} aria-hidden="true" \/>/.test(sw) && /<SchemeSwatch scheme=\{scheme\} \/>/.test(sw), 'StationArt: the badge, then the circle');
   assert.ok(/const renderSwatch = \(item\) => <StationArt scheme=\{item\.scheme\} \/>;/.test(read('src/components/SiteScheme.jsx')), 'every station renders it');
-  // /work\'s pager is not touched: nothing here edits it
-  assert.ok(!/scheme-badge/.test(read('src/styles/pager-scale.css')), '/work\'s pager skin knows nothing of it');
+  // /featured-projects\'s pager is not touched: nothing here edits it
+  assert.ok(!/scheme-badge/.test(read('src/styles/pager-scale.css')), '/featured-projects\'s pager skin knows nothing of it');
 });
 
 test('11-17 the far ring\'s badge meets its inner neighbour\'s with no gap, and the ring circles slide straight up and down, cut by the central badge while they pass it', () => {
@@ -499,16 +499,16 @@ test('11-17 the far ring\'s badge meets its inner neighbour\'s with no gap, and 
   assert.ok(/clip-path: polygon\(-999px -999px, 999px -999px, 999px var\(--eye-cyt\), -999px var\(--eye-cyt\), -999px var\(--eye-cyb\), 999px var\(--eye-cyb\), 999px 999px, -999px 999px\);/.test(swatch), 'the circle is cut by the band, the badge\'s shape');
 });
 
-test('SQ-107 pass 5 one spacing dial at every width, GraticulePager takes cssPitch and /work keeps its pitch', () => {
+test('SQ-107 pass 5 one spacing dial at every width, GraticulePager takes cssPitch and /featured-projects keeps its pitch', () => {
   const pager = read('src/components/work/pager/GraticulePager.jsx');
   assert.ok(/cssPitch = false/.test(pager), 'an opt-in prop, off by default');
   assert.ok(/const mobileTier = \(\) => !cssPitch && inMobileTier\(\);/.test(pager), 'the <=768 tier reads as off under cssPitch, and only that');
-  assert.ok(/detentDial \?\? \(mobileTier\(\) \? SCALE_PITCH_MOBILE_PX : deskPitch\)/.test(pager) && /mobileTier\(\) \|\| detentDial !== null/.test(pager), 'the engine\'s detent and the inline --scale-pitch follow it (the expressions /work\'s tests pin are unchanged)');
+  assert.ok(/detentDial \?\? \(mobileTier\(\) \? SCALE_PITCH_MOBILE_PX : deskPitch\)/.test(pager) && /mobileTier\(\) \|\| detentDial !== null/.test(pager), 'the engine\'s detent and the inline --scale-pitch follow it (the expressions /featured-projects\'s tests pin are unchanged)');
   const comp = read('src/components/SiteScheme.jsx');
   assert.ok(/<GraticulePager[\s\S]*?cssPitch[\s\S]*?\/>/.test(comp), 'the corner widget opts in');
   assert.ok(/--scheme-gap/.test(comp) && /p\.gap/.test(comp), '?schemegap lands on the one gap token');
   const work = read('src/components/work/FeaturedProjects.jsx');
-  assert.ok(!/cssPitch/.test(work), '/work passes no such prop');
+  assert.ok(!/cssPitch/.test(work), '/featured-projects passes no such prop');
 });
 
 test('SQ-101 long press: no callout, selection, drag or image dialog on the widget or anything in it', () => {
@@ -639,7 +639,7 @@ test('SQ-107 pass 4 the jitter root cause, the circle is drawn at the large size
 
 test('SQ-107 pass 5 the left jolt root cause, the strip carries no compositing hint so the eye and its column share one raster path', () => {
   const pagerScale = read('src/styles/pager-scale.css');
-  assert.ok(/\.fp-scale__scale\s*\{[^}]*will-change:\s*transform/.test(pagerScale), '/work\'s pager still hints the strip, which is what put the column on its own compositor layer');
+  assert.ok(/\.fp-scale__scale\s*\{[^}]*will-change:\s*transform/.test(pagerScale), '/featured-projects\'s pager still hints the strip, which is what put the column on its own compositor layer');
   const skin = skinCss().match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__scale\s*\{([^}]*)\}/)?.[1] ?? '';
   assert.ok(/will-change:\s*auto/.test(skin), 'the widget turns the hint off: a layer is rastered about a pixel off the rest iris under it, the step at the hand-over');
   assert.ok(!/will-change:\s*transform/.test(skinCss()), 'and nothing else in the skin puts the iris or the column on a layer of its own');
@@ -780,7 +780,7 @@ test('the CSS runs the four groups on their own delays and hands the rest iris o
   assert.ok(/prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?transition:\s*z-index 0s;/.test(css), 'reduced motion is instant');
 });
 
-test('the arrow waits entirely beyond the right edge at opacity 1 and slides in on the slide, /work\'s own pointer untouched', () => {
+test('the arrow waits entirely beyond the right edge at opacity 1 and slides in on the slide, /featured-projects\'s own pointer untouched', () => {
   const css = skinCss();
   const flat = css.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
   const ptr = flat.match(/\.swm-corner \.fp-scale\.swm-corner__pager \.fp-scale__pointer \{([^}]*)\}/)?.[1] ?? '';
@@ -789,7 +789,7 @@ test('the arrow waits entirely beyond the right edge at opacity 1 and slides in 
   assert.ok(/opacity: 1;/.test(ptr) && /transition: none;/.test(ptr), 'opacity 1 and no opacity transition at rest');
   assert.ok(/\[data-open\] \.fp-scale__pointer \{ opacity: 1; transition: none;/.test(flat), 'engaged too: it slides, never fades');
   const pager = read('src/styles/pager-scale.css').replace(/\s+/g, ' ');
-  assert.ok(/opacity 0\.2s/.test(pager), '/work\'s pointer still fades');
+  assert.ok(/opacity 0\.2s/.test(pager), '/featured-projects\'s pointer still fades');
 });
 
 test('the retired stagger and single --eye-t are gone from every consumer', () => {

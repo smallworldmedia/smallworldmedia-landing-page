@@ -44,7 +44,7 @@ test('patch, then revision-guarded deletes, then the Mux asset; verify confirms 
   assert.ok(!h.db.has('mediaAsset-dupe') && !h.db.has('mux-dupe') && !h.assets.has('asset-mux-dupe'))
   assert.ok(h.db.has('mediaAsset-keep') && h.assets.has('asset-mux-keep'))
   assert.deepEqual(h.db.get('globeSettings').picks.map(r => r._ref), ['mediaAsset-keep', 'mediaAsset-keep'])
-  assert.ok(report.routes.includes('/') && report.routes.includes('/work/example-collection'))
+  assert.ok(report.routes.includes('/') && report.routes.includes('/featured-projects/example-collection'))
   const counts = { ...h.stats }
   assert.equal((await h.apply(p)).deleted, 2); assert.deepEqual([h.stats.commits, h.stats.muxDeletes], [counts.commits, counts.muxDeletes])
   h.assets.set('asset-mux-dupe', muxAsset('asset-mux-dupe'))

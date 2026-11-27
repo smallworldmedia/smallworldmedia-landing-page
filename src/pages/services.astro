@@ -1,16 +1,18 @@
 ---
 /**
- * /work/directory — the Project Directory (11-03): every asset on the site as
+ * /services — the Project Directory (11-03; at /work/directory until 11-27, Nathan:
+ * "Change the URL of the services page to be smallworld.media/services", and
+ * netlify.toml 301s the old path here, query kept): every asset on the site as
  * one flush grid under a sticky filter (DirectoryPage). Its props are
  * getDirectoryData(), the build's one directory fetch, which the drawer's
  * Client Roster reads too (BaseLayout), so the two can't disagree. A failed
  * read fails the build here.
  */
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import '../../styles/directory-grid.css';
-import '../../styles/directory.css';
-import { getDirectoryData } from '../../lib/directoryData.js';
-import DirectoryPage from '../../components/work/directory/DirectoryPage.jsx';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import '../styles/directory-grid.css';
+import '../styles/directory.css';
+import { getDirectoryData } from '../lib/directoryData.js';
+import DirectoryPage from '../components/work/directory/DirectoryPage.jsx';
 
 const { tags, clients, tiles, shuffle } = await getDirectoryData();
 ---

@@ -1,4 +1,4 @@
-// US-4 C: the /work wall plate's atlas layout per axis (src/components/work/world/fpDrumWall.js).
+// US-4 C: the /featured-projects wall plate's atlas layout per axis (src/components/work/world/fpDrumWall.js).
 // y = DeckScroller columns (decks, album art), x = a carousel's rows, travel on u.
 import test from 'node:test'
 import assert from 'node:assert/strict'

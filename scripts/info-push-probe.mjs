@@ -18,7 +18,7 @@
  *   zoom    open, tap zoom_in (desktop: Enter on it — its drawer covers the
  *           button): the drawer's close, the push reversing, and the first
  *           frame the zoom's chrome-out starts, per frame.
- *   route   /work: the drawer opens with no push var and nothing displaced.
+ *   route   /featured-projects: the drawer opens with no push var and nothing displaced.
  *   copy    the drawer's blurb text and its bold cut.
  *
  * Headless doctrine (pager-probe): swiftshader, a long first settle, and
@@ -240,7 +240,7 @@ if (want('zoom')) {
 }
 
 if (want('route')) {
-  await page.goto(`${BASE}/work`, { waitUntil: 'load' });
+  await page.goto(`${BASE}/featured-projects`, { waitUntil: 'load' });
   await page.waitForTimeout(5000);
   const before = await page.evaluate(() => ({
     footer: document.querySelector('.site-footer--links')?.getBoundingClientRect().top ?? null,
@@ -256,7 +256,7 @@ if (want('route')) {
     wrapperTop: document.querySelector('.info-wrapper')?.getBoundingClientRect().top,
     open: document.querySelector('.info-wrapper')?.dataset.open,
   }));
-  report.route = { path: '/work', before, after, nothingDisplaced: before.footer === after.footer && before.tagline === after.tagline && after.pushVar === '' };
+  report.route = { path: '/featured-projects', before, after, nothingDisplaced: before.footer === after.footer && before.tagline === after.tagline && after.pushVar === '' };
 }
 
 await browser.close();

@@ -244,7 +244,7 @@ export default function ProcessPage({ globeAssets, projectColors = [] }) {
             >
               {CTA.primary}
             </button>
-            <a className="process-cta__secondary" href="/work">
+            <a className="process-cta__secondary" href="/featured-projects">
               {CTA.secondary}
             </a>
           </div>

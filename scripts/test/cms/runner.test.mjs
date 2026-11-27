@@ -25,6 +25,10 @@ test('schema allowlist rejects retired fields, dotted patches, invalid values an
   for (const set of [{isHero:true},{sortOrder:1},{'releaseInfo.releaseTitle':'x'},{caption:'not a field'},{title:null},{mediaType:'motion_2x3'},{yearStart:2031},{services:[{_ref:'missing'}]}]) assert.throws(() => validatePatch('mediaAsset',set,[]))
   assert.throws(() => validatePatch('mediaAsset',{},['title']))
   assert.throws(() => validatePatch('project',{description:'x'},['description']))
+  // project.services left the schema 11-26 (a project's tags are its media's, queries.js PROJECT_SERVICES); media keep theirs.
+  const tags = [{ ...reference('serviceTag-branding'), _key: 'branding' }]
+  assert.throws(() => validatePatch('project',{services:tags},[])); assert.throws(() => validatePatch('project',{},['services']),/Rejected unset field services/)
+  assert.doesNotThrow(() => validatePatch('mediaAsset',{services:tags},[]))
   validatePatch('mediaAsset',{title:'New',releaseInfo:{releaseTitle:'Whole explicit object'}},[])
 })
 test('ranks append using Studio LexoRank, above a tie too; reject missing/invalid ranks', () => {

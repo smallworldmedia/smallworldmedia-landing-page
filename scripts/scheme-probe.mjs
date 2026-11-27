@@ -14,10 +14,10 @@
  *        [--capture=FILE] [--compare=FILE] [--shots=DIR] [--force-attr] [--ignore=CSS-SELECTOR]
  *        [--inject=CSS] [--query=schemelids=1]
  *   --scheme   project | black | blue | spectrum | all   (default project)
- *   --routes   default all, except process, which is named only (none = only the widget pass). detail = the first /work card's slug, plus card 3's (the cross-route check).
+ *   --routes   default all, except process, which is named only (none = only the widget pass). detail = the first /featured-projects card's slug, plus card 3's (the cross-route check).
  *   (the corner widget has one seat, flush: ?schemebadge is gone, SQ-107 pass 5.) The overlap gate loads
  *              each route and tests the badge TILE (the wrapper's ::before) against the page's boxes: the
- *              tile's bottom edge must not pass the links footer's top edge on /work/directory/ or
+ *              tile's bottom edge must not pass the links footer's top edge on /services/ or
  *              /process/. The blurb gate (widget pass, home) fails when the tile meets the footer blurb's
  *              text: run it with --width=1024,1280,1440,1920 for the desktop range.
  *   --base     default http://localhost:4330 (the worktree's build; a Sanity CORS origin), so the bare command is the
@@ -63,7 +63,7 @@
  *              (negative controls: noClip --inject='.swm-corner .fp-scale__window{height:40px !important}' must FAIL,
  *              rightEdge --inject='.swm-corner{right:6px !important}' must FAIL, jitter
  *              --inject='.swm-corner .fp-scale[data-open] .scheme-eye__iris{translate:1.6px 0}' must FAIL)
- *   --details  sample (default: cards 1 and 3) | all (every /work card's detail page). The uniform gate
+ *   --details  sample (default: cards 1 and 3) | all (every /featured-projects card's detail page). The uniform gate
  *              compares the detail pages it is given (two or more). The shares gate sums them: it SKIPs
  *              unless --details=all (two pages cannot show the proportions of the whole), and then prints
  *              one INFO line per page (that page's own shares) above the verdict.
@@ -120,14 +120,14 @@
  *            two or more of them have, media aside; an element only one page has is skipped and counted
  *            on an INFO line. A keyword word and a social button are matched by data-kw / data-platform and
  *            their count among the siblings sharing it, not by nth-of-type (their colour follows that
- *            attribute, and two projects' n-th sibling can be different things). /work itself is not compared: it opens on its first card and no URL picks another
+ *            attribute, and two projects' n-th sibling can be different things). /featured-projects itself is not compared: it opens on its first card and no URL picks another
  *            (the start card is read from sessionStorage, written by input), so only project pages are.
  *   density  per page, how many palette families are painted: the six swatches, white-ground and the
  *            ramp A gradient (>= 3 of its nine stops, read from src/lib/spectrumRamp.js, else
  *            --swm-ramp-a in src/styles/global.css). Needs 5 on home, work, detail and directory, 3 on
  *            privacy and 404 (PROPOSED). The families found print on every page, PASS or FAIL.
  *   outline  the ring and the canvas agree: globe().ramp.mix is 1 on home, worlds().ramp.mix is 1 on
- *            /work, and globe().ramp.center is within 1.5 px of the centre of .hero__globe-stroke
+ *            /featured-projects, and globe().ramp.center is within 1.5 px of the centre of .hero__globe-stroke
  *            (measured in the page). A hook with no `ramp` field SKIPs ("skipped (hook has no ramp)").
  *            Under any other scheme, when named, the mix must be 0.
  * The corner widget gates (SQ-107; every scheme, run per width on the home page, a fresh page each; the
@@ -140,13 +140,13 @@
  *               --badge-clear (?schemeclear, 64, Nathan 11-20) above the viewport's bottom, clear of the screen's corner.
  *               Negative control: --inject='.swm-corner{--badge-cy:var(--badge-cy-floor) !important}' (the phone
  *               rule removed) must FAIL at 390.
- *   seat        the badge's gap above the viewport's bottom edge is the same on every route (home, /work,
+ *   seat        the badge's gap above the viewport's bottom edge is the same on every route (home, /featured-projects,
  *               a detail page, the directory, /process, /privacy), at rest and at the footer's end state
  *               (scrolled to the end, a wheel on home to reveal it), at this width; on a phone every gap is
  *               also at least the clearance. Since SQ-144's ride (SQ-153) the gap is read from the viewport's bottom lifted
  *               with the links panel where the eye rides it (home, process: min(panel top + its resting lift, viewport
  *               bottom), gate.seatGap), after the eye has settled (the on-load footer slide done), so the footer's end equals the rest seat.
- *   rightEdge   the tile's right edge equals the viewport's within 0.5 px on home, /work and /privacy at
+ *   rightEdge   the tile's right edge equals the viewport's within 0.5 px on home, /featured-projects and /privacy at
  *               390, 1024, 1440 and 1920, at rest and engaged (once per scheme, whatever --width).
  *   noClip      frames of the entrance, the exit and a page through the stations (ArrowDown x2, ArrowUp x2):
  *               no visible circle (effective opacity above 0.03) straddles the edge of a box that clips it.
@@ -167,12 +167,12 @@
  *   eyeLines    no dark stroke on any shape in the widget's svgs (the black outline is gone).
  *   bounds      engaged, every visible circle lies inside the window's and the viewport's x range (the
  *               viewport's bottom edge is the one hard edge, so y is not held).
- *   shift       the engaged eye steps LEFT off the viewport's edge on /work's stagger taper (SQ-107 pass 10), at
+ *   shift       the engaged eye steps LEFT off the viewport's edge on /featured-projects's stagger taper (SQ-107 pass 10), at
  *               390 and 1440, motion on and reduced: with the pager held settled, each circle's centre is the
  *               rest eye's centre plus the lift's own anchor drift (the pager's translate) minus S x the taper
  *               (1 at the lens, 0.444 one station out, 0.111 two out; S = SHIFT_UNITS swatch units, 78 = Nathan's 54 px, the default, never
  *               read off the page), the badge's right edge is the viewport's and its left edge a padding left of the
- *               shifted eye, and /work's lens arrow, mirrored, is shown in the gap, pointing left, on the lens
+ *               shifted eye, and /featured-projects's lens arrow, mirrored, is shown in the gap, pointing left, on the lens
  *               line; at rest the arrow waits ENTIRELY beyond the viewport's right edge (pass 11) and the badge is the
  *               eye plus a padding each side. --shots=DIR
  *               saves shift-<scheme>-<width>-<motion|reduced>-{rest,engaged,mid,next}.png. The rest pose is read once
@@ -217,7 +217,7 @@
  *               10's lids) must FAIL. --shots=DIR saves lids-<scheme>-<width>[-k1]-{rest,engaged}.png at DPR 3.
  *   strays      the column scrubbed through eye-t 0.15 to 0.85 (only the widget painted): a capture with
  *               every station is pixel-identical to one with the stations beyond the shown rows hidden.
- *   persist     soft navigations (home to /work to a project and back; by the menu on a phone) with
+ *   persist     soft navigations (home to /featured-projects to a project and back; by the menu on a phone) with
  *               motion ON: the widget stays one node at opacity 1 and visible on every frame, AND its paint
  *               is never covered: a screenshot of the badge every frame must keep its iris (the route
  *               fill laid over it is a layer above, so no computed style shows it). On a phone the menu
@@ -264,7 +264,7 @@ const die = (msg) => {
 
 const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 // home: ?popseed pins the globe population's start world, whose projectColor tints the whole home page (random per visit).
-const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
+const ROUTE_PATHS = { home: '/?popseed=1', work: '/featured-projects/', directory: '/services/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
 // The engaged eye's step left, PINNED here in swatch units (never read off the page, so a CSS regression fails the
@@ -279,7 +279,7 @@ const DEFAULT_GATES = {
   spectrum: ['latch', 'contrast', 'hover', 'overlap', 'uniform', 'density', 'outline', 'gl', ...WIDGET_GATES], // carriers, deal and shares described the first skin's per-project deal: by name only
 };
 const EDGE_WIDTHS = [390, 1024, 1440, 1920]; // the rightEdge gate's widths
-const EDGE_ROUTES = [['home', '/?popseed=1'], ['work', '/work/'], ['privacy', '/privacy/']];
+const EDGE_ROUTES = [['home', '/?popseed=1'], ['work', '/featured-projects/'], ['privacy', '/privacy/']];
 const STRAY_T = [0.15, 0.3, 0.4, 0.5, 0.6, 0.7, 0.85]; // eye-t values the strays gate scrubs the column to (mid-scale)
 const CLIP_W = 240; // the widget's screenshot clip (strays gate and --shots), CSS px up from the bottom-right corner
 const CLIP_H = 560;
@@ -836,7 +836,7 @@ async function installRoutes(ctx) {
   });
 }
 
-/** The /work worlds in order, read from the SSR'd island props (Astro's tagged serialisation). */
+/** The /featured-projects worlds in order, read from the SSR'd island props (Astro's tagged serialisation). */
 async function fetchWorlds() {
   const revive = (v) => {
     if (!Array.isArray(v)) return v;
@@ -846,7 +846,7 @@ async function fetchWorlds() {
     return x;
   };
   try {
-    const html = await (await fetch(`${BASE}/work/`)).text();
+    const html = await (await fetch(`${BASE}/featured-projects/`)).text();
     for (const tag of html.matchAll(/<astro-island\b[^>]*>/g)) {
       const m = /\sprops="([^"]*)"/.exec(tag[0]);
       if (!m) continue;
@@ -857,7 +857,7 @@ async function fetchWorlds() {
       }
     }
   } catch (e) {
-    console.error(`scheme-probe: could not read the /work worlds (${e.message})`);
+    console.error(`scheme-probe: could not read the /featured-projects worlds (${e.message})`);
   }
   return [];
 }
@@ -1256,7 +1256,7 @@ async function measureEdge(ctx, scheme, urlPath, width) {
  * The shift run's page-side reader (SQ-107 pass 10): the widget's geometry as it is now, at rest or engaged
  * (the pager has data-open). The badge tile is the pager's ::before grown by its own scale about its
  * centre (as pageTile); the circles are each station's svg, with their distance from the lens; the arrow is
- * /work's pointer (its box is its borders'), its direction read off which border is drawn.
+ * /featured-projects's pointer (its box is its borders'), its direction read off which border is drawn.
  */
 function pageShift() {
   const corner = document.querySelector('.swm-corner');
@@ -1770,7 +1770,7 @@ async function measureClip(browser, scheme, width) {
 
 /**
  * Soft navigations with motion ON (a fade is a transition, and the probe's other contexts reduce
- * motion): home to /work to a project page and back, by the nav pill on desktop and by the menu on a
+ * motion): home to /featured-projects to a project page and back, by the nav pill on desktop and by the menu on a
  * phone. Every frame samples the widget: the identity mark stamped on the node before the first click,
  * its computed opacity and its visibility.
  */
@@ -1851,10 +1851,10 @@ async function measurePersist(browser, scheme, width) {
       await sleep(1200);
       await page.locator(`.mobile-menu a[href="${href}"]`).first().click({ timeout: 30000 });
     };
-    if (phone) await menuTo('/work');
-    else await page.locator('a[href="/work"]:visible').first().click({ timeout: 30000 });
-    await settle('to /work');
-    const href = await page.evaluate(() => [...document.querySelectorAll('a[href^="/work/"]')].map((a) => a.getAttribute('href')).find((h) => !h.includes('directory')));
+    if (phone) await menuTo('/featured-projects');
+    else await page.locator('a[href="/featured-projects"]:visible').first().click({ timeout: 30000 });
+    await settle('to /featured-projects');
+    const href = await page.evaluate(() => [...document.querySelectorAll('a[href^="/featured-projects/"]')].map((a) => a.getAttribute('href')).find((h) => !h.includes('directory')));
     if (href) {
       await page.evaluate((h) => document.querySelector(`a[href="${h}"]`).click(), href);
       await settle(`to ${href}`);
@@ -2139,7 +2139,7 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
     }
   }
   if (want.has('seat')) {
-    const paths = [['home', '/'], ['work', '/work/'], ['directory', '/work/directory/'], ['process', '/process/'], ['privacy', '/privacy/'], ...(seatExtra ?? [])];
+    const paths = [['home', '/'], ['work', '/featured-projects/'], ['directory', '/services/'], ['process', '/process/'], ['privacy', '/privacy/'], ...(seatExtra ?? [])];
     const gaps = [];
     for (const [label, urlPath] of paths) gaps.push(...(await measureSeat(ctx, scheme, urlPath, label)));
     for (const g of gaps.filter((x) => x.error)) emit('FAIL', scheme, route, width, 'seat', `${g.label}: ${g.error}`);
@@ -2322,7 +2322,7 @@ async function measureMenuWipe(name, width, { reduced = false } = {}) {
     await wipe(isUp, 'came up again');
     await go('change');
     await sleep(1200);
-    await page.locator('.mobile-menu a[href="/work"]').first().click({ timeout: 30000 });
+    await page.locator('.mobile-menu a[href="/featured-projects"]').first().click({ timeout: 30000 });
     await wipe(isDown, 'went down after the page change');
     await sleep(500);
     const ended = new URL(page.url()).pathname;
@@ -2729,9 +2729,9 @@ async function main() {
     else {
       const picks = DETAILS === 'all' ? worlds.map((_, i) => i) : [0, 2];
       for (const i of picks) {
-        if (worlds[i]) routeList.push({ key: i === 0 ? 'detail' : `detail#${i + 1}`, path: `/work/${worlds[i].slug}/`, slug: worlds[i].slug });
+        if (worlds[i]) routeList.push({ key: i === 0 ? 'detail' : `detail#${i + 1}`, path: `/featured-projects/${worlds[i].slug}/`, slug: worlds[i].slug });
       }
-      if (!worlds[0]) emit('SKIP', schemeArg, 'detail', '*', 'detail', 'skipped: no /work card slug could be read');
+      if (!worlds[0]) emit('SKIP', schemeArg, 'detail', '*', 'detail', 'skipped: no /featured-projects card slug could be read');
     }
   }
   const forced = FORCE ? ' (forced: the probe set html[data-scheme], not the site)' : '';
@@ -2854,7 +2854,7 @@ async function main() {
             console.log(`INFO  ${scheme.padEnd(8)} ${'detail*'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} ${res.skipped} elements on one page only (skipped), ${detailDumps.length} pages: ${detailDumps.map((d) => d.label).join(', ')}`);
             emitResult(scheme, 'detail*', width, 'uniform', res);
           }
-          if (ROUTES.includes('work')) console.log(`INFO  ${scheme.padEnd(8)} ${'work'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} /work is not compared: it opens on its first card and no URL picks another (the start card comes from sessionStorage), so project pages only`);
+          if (ROUTES.includes('work')) console.log(`INFO  ${scheme.padEnd(8)} ${'work'.padEnd(10)} ${String(width).padStart(4)}  ${'uniform'.padEnd(10)} /featured-projects is not compared: it opens on its first card and no URL picks another (the start card comes from sessionStorage), so project pages only`);
         }
         if (want.has('shares')) {
           if (!core.ok) emit('SKIP', scheme, '*', width, 'shares', `skipped: ${core.reason}`);
@@ -2879,9 +2879,9 @@ async function main() {
       if (want.has('clear') || want.has('bands') || want.has('seams') || want.has('layer')) await clearPass(browser, scheme, want);
       if (want.has('ride')) await ridePass(browser, scheme);
       if (want.has('deal')) {
-        if (!core.ok) emit('SKIP', scheme, '/work', '*', 'deal', `skipped: ${core.reason}`);
-        else if (!worlds.length) emit('SKIP', scheme, '/work', '*', 'deal', 'skipped: no /work worlds read');
-        else emitResult(scheme, '/work', '*', 'deal', gate.deal(worlds, core.mod.spectrumKeyAt));
+        if (!core.ok) emit('SKIP', scheme, '/featured-projects', '*', 'deal', `skipped: ${core.reason}`);
+        else if (!worlds.length) emit('SKIP', scheme, '/featured-projects', '*', 'deal', 'skipped: no /featured-projects worlds read');
+        else emitResult(scheme, '/featured-projects', '*', 'deal', gate.deal(worlds, core.mod.spectrumKeyAt));
       }
     }
   } finally {

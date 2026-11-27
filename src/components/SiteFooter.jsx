@@ -1144,12 +1144,12 @@ export default function SiteFooter({
               <span className="site-footer__glyph">↳</span>
               <span className="site-footer__label">start_project</span>
             </a>
-            <a href="/work" className="site-footer__link">
+            <a href="/featured-projects" className="site-footer__link">
               <span className="site-footer__glyph">⁕</span>
               <span className="site-footer__label">featured_projects</span>
             </a>
             {/* 11-20 (Nathan): the nav bar's services link, in the same order. */}
-            <a href="/work/directory" className="site-footer__link">
+            <a href="/services" className="site-footer__link">
               <HandIcon />
               <span className="site-footer__label">services</span>
             </a>

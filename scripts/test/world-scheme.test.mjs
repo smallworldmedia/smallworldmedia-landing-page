@@ -1,4 +1,4 @@
-// What the /work scene paints under each colour scheme (US-7, SQ-91): the pure parts.
+// What the /featured-projects scene paints under each colour scheme (US-7, SQ-91): the pure parts.
 // worldConfig.js is import-safe in node (it reads window only behind guards).
 import test from 'node:test'
 import assert from 'node:assert/strict'

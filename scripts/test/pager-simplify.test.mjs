@@ -1,4 +1,4 @@
-// SQ-75 (11-13): the /work pager simplified toward the mobile menu — file-level
+// SQ-75 (11-13): the /featured-projects pager simplified toward the mobile menu — file-level
 // assertions on the CSS / JS, the house style for skin work.
 //   node --test scripts/test/pager-simplify.test.mjs
 import test from 'node:test'
@@ -56,7 +56,7 @@ const decl = (rule, prop) => {
 const GLOBAL = read('src/styles/global.css')
 const FP = read('src/styles/featured-projects.css')
 // SQ-87: the pager's skin (every rule whose subject is a .fp-scale element) lives in its own sheet,
-// scoped :is(.fp, .swm-corner) — the /work stage or the corner wrapper — at the specificity of a bare .fp.
+// scoped :is(.fp, .swm-corner) — the /featured-projects stage or the corner wrapper — at the specificity of a bare .fp.
 const PS = read('src/styles/pager-scale.css')
 const SCOPE = ':is(.fp, .swm-corner)'
 const sc = (sel) => sel.replace(/(^|, )\.fp /g, `$1${SCOPE} `)
@@ -268,7 +268,7 @@ const CHIP_RULES = [
   '.fp .fp-scale__lens, .fp .fp-scale__den',
   '.fp .fp-scale__hint',
   '.fp .fp-scale__chip',
-  // 11-17: /work's pointer slide (the arrow's own rules, scoped off the corner's eye); raw rem like the triangle
+  // 11-17: /featured-projects's pointer slide (the arrow's own rules, scoped off the corner's eye); raw rem like the triangle
   ':is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager) .fp-scale__pointer',
   ':is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager)[data-open] .fp-scale__pointer',
 ]
@@ -346,7 +346,7 @@ test('desktop scale: the CHIP keeps its pre-r12c size — the root width, lens +
   assert.equal(decl(open, 'right'), 'calc(3rem - 7 * var(--pager-rem))')
 })
 
-test('11-17 /work\'s pointer slides in from the viewport\'s left edge instead of fading, on the eye\'s curve, and snaps under reduced motion', () => {
+test('11-17 /featured-projects\'s pointer slides in from the viewport\'s left edge instead of fading, on the eye\'s curve, and snaps under reduced motion', () => {
   // Nathan 11-17: "yes lets update the pager with the updated arrow choreography" (the scheme eye's SQ-107 pass 11)
   const W = ':is(.fp, .swm-corner) .fp-scale:not(.swm-corner__pager)'
   const rest = findPS(`${W} .fp-scale__pointer`)[0]
@@ -415,14 +415,14 @@ test('the skin moved: no pager-element rule is left in featured-projects.css, ev
       assert.ok(!/^\.fp[ [.]/.test(part), `${part} keeps a bare .fp ancestor`)
     }
   }
-  // state rules keyed off a host class carry the corner's twin (and keep /work's own)
+  // state rules keyed off a host class carry the corner's twin (and keep /featured-projects's own)
   const sels = moved.map((r) => r.selector).join('\n')
   assert.match(sels, /:is\(\.fp\[data-pager='scale'\], \.swm-corner\)\.is-pager-engaged \.fp-scale/)
   assert.match(sels, /:is\(\.fp, \.swm-corner\)\[data-turning\] \.fp-scale__den/)
-  // the sheet loads once, from the layout, right after global.css; /work still loads its own
+  // the sheet loads once, from the layout, right after global.css; /featured-projects still loads its own
   const layout = read('src/layouts/BaseLayout.astro')
   assert.match(layout, /import '\.\.\/styles\/global\.css';\n(?:\/\/.*\n)*import '\.\.\/styles\/pager-scale\.css';/)
-  assert.ok(!/pager-scale\.css/.test(read('src/pages/work/index.astro')), 'one import site')
+  assert.ok(!/pager-scale\.css/.test(read('src/pages/featured-projects/index.astro')), 'one import site')
 })
 
 test('GraticulePager is mountable anywhere: additive props whose defaults are the old URL-param reads and strings', () => {
@@ -430,7 +430,7 @@ test('GraticulePager is mountable anywhere: additive props whose defaults are th
   assert.match(PAGER, /const wrap = count > 1 && \(wrapProp \?\? PARAM\('wrap', 1\) > 0\)/)
   assert.match(PAGER, /const hintOn = hintOnProp \?\? PARAM\('selectlabel', 1\) > 0/)
   assert.match(PAGER, /const pauseOn = pauseOnProp \?\? PARAM\('pause', 1\) > 0/)
-  // the default strings are /work's own
+  // the default strings are /featured-projects's own
   assert.match(PAGER, /nav: 'Featured project pager'/)
   assert.match(PAGER, /hint: 'select_project'/)
   assert.match(PAGER, /station: \(i, n, name\) => `Go to \$\{name\} \(project \$\{i \+ 1\} of \$\{n\}\)`/)

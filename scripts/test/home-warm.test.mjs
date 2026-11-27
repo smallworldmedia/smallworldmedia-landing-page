@@ -9,7 +9,7 @@ import { installHomeWarm, TTL_MS } from '../../src/layouts/homeWarm.js'
 const ORIGIN = 'https://smallworld.media'
 const HOME_HTML = '<html><head><meta name="astro-view-transitions-enabled"></head><body>home</body></html>'
 
-function fakeWindow(path = '/work/') {
+function fakeWindow(path = '/featured-projects/') {
   const listeners = {}
   const calls = []
   const win = {
@@ -57,7 +57,7 @@ test('other destinations and a form post keep their network load', async () => {
   installHomeWarm(win)
   fire('astro:page-load')
   await new Promise((r) => setImmediate(r))
-  for (const e of [prepEvent(win, '/work/rossi/'), prepEvent(win, '/?popseed=1'), prepEvent(win, '/', { formData: {} })]) {
+  for (const e of [prepEvent(win, '/featured-projects/rossi/'), prepEvent(win, '/?popseed=1'), prepEvent(win, '/', { formData: {} })]) {
     fire('astro:before-preparation', e)
     await e.loader()
     assert.equal(e.html, 'net')

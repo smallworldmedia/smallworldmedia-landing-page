@@ -330,7 +330,7 @@ test('the footer band reserves ONE tagline row, not a lockup-over-pill column', 
   // copyright, so the band's min-height counts the taller of the lockup art
   // and the pill box once. The stacked calc added the lockup art + --space-2 on
   // top of the pill; a regression to it puts that dead height back in every
-  // links footer (detail, process, /work).
+  // links footer (detail, process, /featured-projects).
   assert.match(
     css,
     /--tagline-row-h:\s*max\(var\(--lockup-art-h\),\s*calc\(var\(--lh-link\) \+ 2 \* var\(--pill-pad-y\)\)\);/,
@@ -475,7 +475,7 @@ test('footerBrakeStep: plain travel below the tail, a brake inside it, any delta
   near(full / span, 1.0822, 1e-4) // about 8% more wheel for the whole reveal
   // A brake past 0.9 is held there, so the target still reaches 1.
   near(footerBrakeStep(rest, 10, rest, 5), 1)
-  // rest 0 is /work's footer: the same law over the whole travel.
+  // rest 0 is /featured-projects's footer: the same law over the whole travel.
   near(footerBrakeStep(0, 0.5, 0, b), 0.5)
   assert.ok(footerBrakeStep(0.9, 0.05, 0, b) < 0.95)
 })
@@ -586,7 +586,7 @@ test('SQ-115 Nathan’s bake 11-17: the finger’s gain, tension and follow, and
   assert.equal(plain.state.touchGain, 2)
   assert.equal(plain.state.touchBrake, 0.5)
   assert.equal(plain.state.touchLerp, 0.35)
-  // The house gain (?touchgain, /work and /process) is read by touchTune.js and never reaches this state.
+  // The house gain (?touchgain, /featured-projects and /process) is read by touchTune.js and never reaches this state.
   const house = await freshTune('?touchgain=7')
   assert.equal(house.state.touchGain, 2, 'a house ?touchgain must not move the home footer’s finger')
   // The gain is a plain number now: Hero reads no house constant.

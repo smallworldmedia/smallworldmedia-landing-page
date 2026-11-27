@@ -506,7 +506,7 @@ export default function NextProjectBand({ next }) {
     const opts = arrive ? null : gestureHistory();
     const go = () => {
       const o = arrive ? arrive() : opts;
-      if (o) navigate(`/work/${next.slug}`, o);
+      if (o) navigate(`/featured-projects/${next.slug}`, o);
     };
     if (PREFERS_REDUCED_MOTION) {
       go();
@@ -735,12 +735,12 @@ export default function NextProjectBand({ next }) {
     if (PREFERS_REDUCED_MOTION) return; // plain ClientRouter navigation
     e.preventDefault();
     if (departingRef.current) return;
-    commit(holdEntry(`/work/${next.slug}`));
+    commit(holdEntry(`/featured-projects/${next.slug}`));
   };
 
   return (
     <a
-      href={`/work/${next.slug}`}
+      href={`/featured-projects/${next.slug}`}
       className={`np-band${pinned ? ' is-pinned' : ''}`}
       ref={bandRef}
       // S2: the next project's accent palette drives the pinned title/rule and

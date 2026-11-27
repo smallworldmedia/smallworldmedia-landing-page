@@ -2,7 +2,8 @@
  * A featured project's service tags are the union of its media's tags
  * (queries.js PROJECT_SERVICES), run through the real queries over an
  * in-memory dataset: deduplicated, in the serviceTag documents' Studio order,
- * independent of the project's own (soon retired) `services` field.
+ * independent of any `services` list a project document still carries (the
+ * field left the schema 11-26; the fixtures keep stale lists as decoys).
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -70,7 +71,7 @@ test('one project\'s media never lend their tags to another', async () => {
   assert.deepEqual(slugs(rows.find((r) => r.slug === 'p-other').services), ['web-design'])
 })
 
-test('the detail page and the /work Worlds read the same tags', async () => {
+test('the detail page and the /featured-projects Worlds read the same tags', async () => {
   const detail = await query(FEATURED_PROJECT_DETAIL_QUERY, documents, { projectId: 'p-mixed' })
   const worlds = await query(FEATURED_WORLDS_QUERY, documents)
   const want = ['branding', 'album-art', 'logo-design']

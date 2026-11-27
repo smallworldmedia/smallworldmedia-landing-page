@@ -40,7 +40,7 @@ export const mediaAsset = defineType({
       type: 'boolean',
       initialValue: false,
       description:
-        "On: the Project Directory skips this piece; its project page, /work and the home globe still show it. Use it for pieces that belong in a featured project but don't stand alone under a service tag, such as event photos.",
+        "On: the Project Directory skips this piece; its project page, /featured-projects and the home globe still show it. Use it for pieces that belong in a featured project but don't stand alone under a service tag, such as event photos.",
     }),
 
     // ── MEDIA TYPE: Format + Layout Purpose (select first) ──

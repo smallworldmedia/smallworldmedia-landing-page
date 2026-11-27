@@ -7,7 +7,7 @@
  *   node scripts/legal-scroll-probe.mjs --base=http://127.0.0.1:4341 [--out=run.json]
  * One browser probe at a time on this machine (~/swm-probe-lock.sh).
  *
- * Each legal page runs on a cold load and on a soft nav (ClientRouter) from /work:
+ * Each legal page runs on a cold load and on a soft nav (ClientRouter) from /featured-projects:
  *   touch   Chromium, iPhone 17 Pro (isMobile, hasTouch), real compositor touch swipes through
  *           CDP Input.dispatchTouchEvent until the page reaches its bottom or stops moving
  *   webkit  WebKit, iPhone 17 Pro: the user-scroll locks the page states (scrollLocks: viewport
@@ -57,12 +57,12 @@ const snapshot = () => {
   };
 };
 
-// Land on `path` cold, or soft from /work through a ClientRouter link click.
+// Land on `path` cold, or soft from /featured-projects through a ClientRouter link click.
 async function land(page, path, soft) {
   if (!soft) {
     await page.goto(BASE + path, { waitUntil: 'load' });
   } else {
-    await page.goto(BASE + '/work', { waitUntil: 'load' });
+    await page.goto(BASE + '/featured-projects', { waitUntil: 'load' });
     await sleep(2500);
     await page.evaluate(() => { window.__sq109soft = 1; });
     await page.evaluate((p) => {
