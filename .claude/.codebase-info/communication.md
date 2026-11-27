@@ -1,6 +1,6 @@
 # Communication
 
-*Last Updated: 2026-11-25*
+*Last Updated: 2026-11-27*
 
 No runtime API of its own: the site is static and reads Sanity at build time. Runtime communication
 is between islands, via `window` CustomEvents and `<html>` attributes.
@@ -25,7 +25,7 @@ is between islands, via `window` CustomEvents and `<html>` attributes.
 | `swm:process-cta-hover` | `ProcessPage` (CTA hover/focus, rAF-deferred) | `useProcessScene` (the freed shard pulses) | `{on}` |
 | `swm:blurb-arm` (`ARM_EVENT`; on the `.project-blurb` ELEMENT, not `window`) | `lib/blurbHold.js` (a section seats; a section is on screen when the page rests or the hold attaches; every section on detach) | `BlurbCopy` in `work/detail/FeaturedProjectDetail.jsx` (mounts its keyword wipe) | — |
 | `swm:info-close` (`INFO_CLOSE_EVENT`, `lib/infoPush.js`) | `requestInfoClose(go)`: `Hero` (zoom_in with the drawer open) | `SiteShell` (closes the drawer; runs `go` when the close lands, drops it if the drawer reopens; sets `detail.deferred`, otherwise the caller runs `go` at once) | `{done, deferred}` |
-| `swm:directory-client` | `InfoPanel` (a live client name clicked on `/work/directory`, inside the click) | `work/directory/DirectoryPage.jsx` (sets or clears the client in place; no navigation) | `{slug}`, `null` clears |
+| `swm:directory-client` | `InfoPanel` (a live client name clicked on `/services`, inside the click) | `work/directory/DirectoryPage.jsx` (sets or clears the client in place; no navigation) | `{slug}`, `null` clears |
 | `swm:scheme` (`SCHEME_EVENT`, `lib/colorScheme.js`) | `setScheme(name, { preview })`, on every change of the applied scheme or of its preview-ness (US-7, 11-14). The one in-app caller is `SiteScheme.jsx` (a preview per detent while its pager is engaged, a commit on release, the committed scheme restored on a disengage that committed nothing) | `globe/useGlobeScene.js` and `work/world/useWorldScene.js` and `SiteScheme` (its active station only), all through `onScheme(fn)`; `useScheme()` has no in-app caller. The DOM never listens: its colour is CSS on `html[data-scheme]`. GL rule: a scene MUST recolour on a settled event (`preview` false); on a preview it MAY write uniforms only, never rebuild a texture or a slot | `{scheme, prev, preview}` |
 
 Rule: dispatches that cross into a persistent island are `requestAnimationFrame`-deferred so the
@@ -117,7 +117,7 @@ scenarios (Back, breadcrumb, cold load, Enter World; `c` Chromium, `w` WebKit) t
 
 ## The Project Directory's URL state
 
-`/work/directory?tag=a,b&client=slug` is the filter (11-03). `DirectoryPage` reads it once at mount
+`/services?tag=a,b&client=slug` is the filter (11-03). `DirectoryPage` reads it once at mount
 (unknown slugs dropped, tags the client would empty pruned, the URL rewritten when anything changed)
 and writes each change with `history.replaceState(history.state, '', url)`: a null state breaks
 ClientRouter's Back. The drawer's live names link to `?client=slug`. Off the directory ClientRouter
@@ -171,7 +171,7 @@ its PROMISE, so the whole build still makes one request. Every consumer keeps
 point of use rather than anywhere upstream. See `architecture.md` (Data Flow) for the fetch itself.
 
 The Client Roster (11-03) takes the same road: `BaseLayout.astro` awaits `getDirectoryData()`
-(`src/lib/directoryData.js`, memoized, so `/work/directory`'s own await shares the request), maps it
+(`src/lib/directoryData.js`, memoized, so `/services`'s own await shares the request), maps it
 through `toDrawerRoster` (`src/lib/clientCoverage.js`) and threads `roster` `SiteShell` → `InfoPanel`;
 the list is the same on every page. A failed read gives the drawer `[]` and a `[roster]` warning,
 where the directory page fails the build. `SiteShell` also hands `InfoPanel` an `onClose`, which a

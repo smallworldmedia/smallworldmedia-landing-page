@@ -1,12 +1,12 @@
 # Architecture
 
-*Last Updated: 2026-11-25*
+*Last Updated: 2026-11-27*
 
 ## Summary
 
 The site is a statically built Astro 5 app. Every public route is a `.astro` page that fetches its
 Sanity data at build time and mounts one large React island (`client:only="react"` on `/`, `/process`;
-`client:load` on `/work`, `/work/[slug]` and `/work/directory`). The home, /work and /process islands
+`client:load` on `/work`, `/work/[slug]` and `/services`). The home, /work and /process islands
 each own a route-scoped three.js canvas plus the route's wheel/touch model; Lenis smooth scroll is on
 only where the island does not own the wheel (detail pages, the Project Directory, /process).
 
@@ -35,7 +35,7 @@ Sanity (b60h4u7o/production) ──build-time GROQ──▶ .astro pages ──p
    │ npm run cms (plan/apply/verify)                   ├─ /          LandingPage → Hero → VideoGlobe → useGlobeScene
 media/**/_manifest.md + Mux uploads                    ├─ /work      FeaturedProjects → WorldScene → useWorldScene
                                                        ├─ /work/:slug FeaturedProjectDetail → flushGrid + DeckScroller
-                                                       ├─ /work/directory DirectoryPage → DirectoryFilter + DirectoryGrid (chunkFlushGrid, playerGate)
+                                                       ├─ /services DirectoryPage → DirectoryFilter + DirectoryGrid (chunkFlushGrid, playerGate)
                                                        └─ /process   ProcessPage → useProcessScene + scroll driver
 BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, ProjectOverlay) + SiteTagline + SiteScheme
               ◀──── swm:* window events + <html data-*> latches ────▶ route islands
@@ -48,7 +48,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 | Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; a PopulationDirector (built on `refine/globe-worlds`, folded 10-31; on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name strips placed camera-relative on each world change (`?popnames`, off by default since Nathan's 10-24 bake); the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way. Media spans (`?popunits`, on by default since Nathan's 10-23 bake, Q1, and `?popunits=0` is the globe without them; `docs/globe-worlds-plan.md` § Media spans) let one classed asset span 2×1, 1×2, 2×2 or (`?popshapes=wide`, the default since 10-24) 3×2 tiles as one picture: classed at build (`mediaClass.js`), planned by the director, and windowed per frame on the CPU (`unitSpan.js`, `PopulationDirector.place()`), with one stream and one chip per unit. The globe rests at `?herotilt` −10° (10-24; the north pole out of sight) and takes no drag on any screen (phones since 10-07, desktop since 10-27; /lab/globe keeps its drag), so the pose a world lands at is known and the fast handoff (`?pophandoff`, the default since Nathan's 10-28 call; `today` is the one before it) plans that world's board ahead; a world holds `?pophold` 7 s (± 40%, 10-28) |
 | /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
-| Project Directory | `src/components/work/directory/`, `src/styles/directory.css` + `directory-grid.css` | `/work/directory` (11-03): every asset in one flush grid built on the detail grid's units (`tileGrid.js`, `chunkFlushGrid`, MediaSlot's directory mode) under a sticky filter (service tags OR together, the drawer's client narrows on top, the state in the URL); one player gate caps the videos playing at once |
+| Project Directory | `src/components/work/directory/`, `src/styles/directory.css` + `directory-grid.css` | `/services` (11-03; at `/work/directory` until 11-27): every asset in one flush grid built on the detail grid's units (`tileGrid.js`, `chunkFlushGrid`, MediaSlot's directory mode) under a sticky filter (service tags OR together, the drawer's client narrows on top, the state in the URL); one player gate caps the videos playing at once |
 | /process | `src/components/process/` | Scroll narrative in seven stages (hero globe-O break → five Stages → CTA finale): a ScrollTrigger + quantizer driver over one scene that reuses the globe geometry/material, with project-colour chips in the scene |
 | Persistent chrome | `src/components/SiteShell.jsx`, `SiteNav.jsx`, `SiteFooter.jsx`, `SiteTagline.jsx`, `SiteScheme.jsx`, `RouteFill.jsx`, overlays | Nav, drawer, inquiry form (Netlify Forms), privacy, footer reveal, route-fill bridge, logo ticker, the colour-scheme corner pager |
 | Shared motion libs | `src/lib/` | `dragMomentum`, `overlayWipe`, `scramble`, `charCut`, `mediaSequence` (the one clock every sequence tile cuts on), `smoothScroll`, `settleResize` — single sources of truth |
@@ -99,7 +99,8 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 - `/lab/globe` and `/specimen` are built but redirected at Netlify and by `Astro.redirect` in
   frontmatter; their components are dormant, not deleted. `/work/directory` was too until 11-03: the
   old directory's components and `work.css` were deleted (`18fd851`), it was rebuilt on the detail
-  page's grid, and the route went back on (`251e7b3`); `docs/project-directory-plan.md`.
+  page's grid, and the route went back on (`251e7b3`); `docs/project-directory-plan.md`. On 11-27 it moved to
+  `/services` (`3259608`; `netlify.toml` 301s the old path, query kept).
 - Every knob is a URL `?param` first, baked only on Nathan's stated value (`docs/tunables-guide.md`,
   gated by `scripts/tunables-keys.mjs --check`).
 - Playwright is deliberately not a dependency; `scripts/pager-probe.mjs`, `scripts/process-probe.mjs`, `scripts/globe-probe.mjs`, `scripts/scheme-probe.mjs` and `scripts/globe-timing.mjs` resolve it from the npx cache (`PLAYWRIGHT_PATH` overrides).

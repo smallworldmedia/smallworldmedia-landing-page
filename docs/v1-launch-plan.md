@@ -426,7 +426,11 @@ records (`docs/globe-worlds-plan.md`).
         only) applied and verified on his "apply df2af68c"; the schema drop landed alone (`fa374f8`, hash
         `5ae01cd2`) and the hosted Studio redeployed. A project's tags are its media's
         (`PROJECT_SERVICES`); Homegrwxn shows none until its media are tagged. He checks the probe
-        findings himself.
+        findings himself. 11-26: `wip-build` branch deploys on ("yes to add wip-build to netlify branch
+        deploys"); the three legacy CMS scripts deleted (`da23d88`, "retire all 3").
+      - 11-27 (Nathan: "Change the URL of the services page to be smallworld.media/services"): the
+        Project Directory moved from `/work/directory` to `/services` (`3259608`); `netlify.toml` 301s the
+        old path with its query. On `wip-build`; production waits for his word (a PR into `main`).
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 

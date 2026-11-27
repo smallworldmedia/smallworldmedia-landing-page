@@ -1,6 +1,6 @@
 # Directory Structure
 
-*Last Updated: 2026-11-25*
+*Last Updated: 2026-11-27*
 
 ```
 .
@@ -10,7 +10,7 @@
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
-│   ├── pages/                # routes: index, process, privacy, terms, 404, work/{index,[slug],directory}, lab/{globe,loader}, specimen
+│   ├── pages/                # routes: index, process, privacy, terms, 404, services (the Project Directory), work/{index,[slug]}, lab/{globe,loader}, specimen
 │   ├── layouts/BaseLayout.astro   # head, fonts, the colour-scheme latch, ClientRouter, persistent SiteShell + SiteTagline + SiteScheme
 │   ├── layouts/homeWarm.js        # the way home: warm copy of / for the router (SQ-33, ?homewarm)
 │   ├── components/
@@ -28,7 +28,7 @@
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
 │   │   │   ├── world/        # three.js Worlds: useWorldScene, DRUM/ATLAS/FORME grids, bands, live video, worldRamp (spectrum's line ramp)
 │   │   │   ├── detail/       # detail page: content flow, tile units (tileGrid), flush grid, sockets, DeckScroller, viewers
-│   │   │   └── directory/    # /work/directory: DirectoryPage, grid, filter + FilterTag, serviceGroups, player gate, tiles, bench
+│   │   │   └── directory/    # /services: DirectoryPage, grid, filter + FilterTag, serviceGroups, player gate, tiles, bench
 │   │   ├── process/          # /process stage machine, scroll driver, copy, debug panel, lockup globe
 │   │   ├── specimen/, lab/   # dormant routes (redirected)
 │   │   └── ui/               # SocialButton, CheckIndicator (the house check marks), useScrollThumb (the drawer's thumb), GlobeLoader (the globe loader)
@@ -79,7 +79,7 @@
 │   ├── palette-measure.mjs   # colour-family shares of an image (OKLCH classifier; the scheme probe's shares gate imports it)
 │   ├── media-load-probe.mjs  # how long a media tile sits in view unpainted while a page scrolls (a measurement, not a gate)
 │   ├── memory-probe.mjs      # does any resource count climb per globe world or scheme flip (SQ-129, the iPhone tab-kill hunt); bisect arms (SQ-133), reclaim readings (SQ-134) and hold-and-cycle rounds with a globe-only arm (SQ-136)
-│   ├── footer-probe.mjs      # the links footer's row vs the left stack at 769-1440 px, scrolled to the end of /work/directory/?tag=all (SQ-138)
+│   ├── footer-probe.mjs      # the links footer's row vs the left stack at 769-1440 px, scrolled to the end of /services/?tag=all (SQ-138)
 │   ├── directory-filter-probe.mjs, image-sharp-probe.mjs   # the services/clients link resets the filter in place + white scroll thumbs (SQ-146); DOM images sharp at their rendered width × DPR on phone and desktop (SQ-150)
 │   ├── globe-timing.mjs, globe-timing-report.mjs   # the home globe's video timing: record a run, then read it
 │   ├── seed/backfill/migrate/patch/sync/upload-*.mjs, ingest*.mjs           # retired / gated
