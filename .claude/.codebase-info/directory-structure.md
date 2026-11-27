@@ -10,7 +10,7 @@
 ├── CONTEXT.md                # media-library domain glossary (read first for CMS work)
 ├── AGENTS.md / CLAUDE.md     # pointers to docs/agents/*
 ├── src/
-│   ├── pages/                # routes: index, process, privacy, terms, 404, services (the Project Directory), work/{index,[slug]}, lab/{globe,loader}, specimen
+│   ├── pages/                # routes: index, process, privacy, terms, 404, services (the Project Directory), featured-projects/{index,[slug]}, lab/{globe,loader}, specimen
 │   ├── layouts/BaseLayout.astro   # head, fonts, the colour-scheme latch, ClientRouter, persistent SiteShell + SiteTagline + SiteScheme
 │   ├── layouts/homeWarm.js        # the way home: warm copy of / for the router (SQ-33, ?homewarm)
 │   ├── components/
@@ -24,7 +24,7 @@
 │   │   │                     #   name strips, popConfig), media spans (unitSpan, mediaClass),
 │   │   │                     #   clip fetch-ahead (streamPrefetch)
 │   │   ├── hero/             # hero intro, labels, overlay projection, tune panels, heroConfig
-│   │   ├── work/             # /work orchestrator, WorldCard, CTA arrows, benches, video recipes (useHls, imageConfig)
+│   │   ├── work/             # /featured-projects orchestrator, WorldCard, CTA arrows, benches, video recipes (useHls, imageConfig)
 │   │   │   ├── pager/        # usePagerGesture engine + GraticulePager (scale skin)
 │   │   │   ├── world/        # three.js Worlds: useWorldScene, DRUM/ATLAS/FORME grids, bands, live video, worldRamp (spectrum's line ramp)
 │   │   │   ├── detail/       # detail page: content flow, tile units (tileGrid), flush grid, sockets, DeckScroller, viewers
@@ -63,7 +63,7 @@
 │   ├── lib/scheme-leak-probe.mjs   # SQ-113's scheme-flip memory probe (one arm per fresh browser; measurement only)
 │   ├── lib/plateauGate.mjs   # memory-probe's pure gates: a sampled count plateaus or climbs (SQ-129); the opening step stays under a cap (`stepGate`, SQ-133); the resting footprint plateaus over hold rounds (`roundGate`, SQ-136)
 │   ├── lib/navWipeGate.mjs, lib/legalScrollGate.mjs   # nav-wipe-probe's and legal-scroll-probe's pure gates
-│   ├── lib/restoreFlashGate.mjs   # history-probe's /work return gate: no first-World frame or media before the restored card (SQ-131)
+│   ├── lib/restoreFlashGate.mjs   # history-probe's /featured-projects return gate: no first-World frame or media before the restored card (SQ-131)
 │   ├── lib/pushTimingGate.mjs   # history-probe's T* gate: a click-started push lands within 1000 ms of its input, activation live (SQ-141)
 │   ├── lib/footerRowGate.mjs   # footer-probe's gate: the links row clears the ©line and lockup by 12 px, stays in the band, privacy last (SQ-138); the wrapped mode drops the ©line under the lockup (SQ-140)
 │   ├── lib/eyeRideGate.mjs, dirFilterResetGate.mjs, fontCoverageGate.mjs, imageSharpGate.mjs   # gates: the eye rides the footer panel in lockstep (scheme-probe `ride`, SQ-144), a same-path directory link resets in place (SQ-146), every printed character is in the subset fonts (SQ-148), images fetched at rendered width × DPR (SQ-150)

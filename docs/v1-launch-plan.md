@@ -431,6 +431,11 @@ records (`docs/globe-worlds-plan.md`).
       - 11-27 (Nathan: "Change the URL of the services page to be smallworld.media/services"): the
         Project Directory moved from `/work/directory` to `/services` (`3259608`); `netlify.toml` 301s the
         old path with its query. On `wip-build`; production waits for his word (a PR into `main`).
+        Then (Nathan: "And then change /work to /featured-projects"; scope "Move both"): Featured
+        Projects at `/featured-projects` and each project at `/featured-projects/<slug>`; `netlify.toml`
+        301s `/work` and `/work/*` to them (the homegrwxn, bellaire and directory rules sit above the
+        catch-all). Four Sanity descriptions still link `/work/<slug>`; they work through the 301, and a
+        CMS plan rewrites them only after production serves the new paths.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 

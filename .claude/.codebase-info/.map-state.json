@@ -3,7 +3,7 @@
   "tool": "codebase-mapper",
   "version": "2.15.10",
   "mappedAt": "2026-11-27",
-  "gitCommit": "32596087993b0bbecf6031a99624eb95a17dc5c1",
+  "gitCommit": "2c50a1c3f81c18cafd6c579b0832a4cebfaadc4f",
   "documents": [
     "architecture.md",
     "cms-pipeline.md",
@@ -18,17 +18,17 @@
     "tech-landscape.md"
   ],
   "hashes": {
-    "INDEX.md": "8a454e23077eb84c249bddffd8e68cdf6a36e46edb560f5ae13afdadfd324504",
-    "architecture.md": "2612539b1c74526681901314d5aad32e574ea4a92cdd8bc274f602b3f515eac4",
+    "INDEX.md": "6960238800ca1d0b6ed5afcd197523612dc14cfedca7679f4cc49e1e05841245",
+    "architecture.md": "de644f2040dcf1a916692c13b554c0ad853b3d2619171b0034da43e000cce870",
     "cms-pipeline.md": "99df18952a9e7f0dbf37bb34dd3e61900074aa7782c8d249672daed4d49b499a",
     "coding-style.md": "1bdd1857e16b6b3e3e47497d5db7f35a3ef3ce804584d90b8883924b710d14b9",
-    "communication.md": "7859452b174ca1f6b8f2094b6f277813e1e73781c3380d17c1dcf0efd6967c93",
-    "database.md": "6261647c9e54b9a1e4f954a69f21d3ad26510f705b2a63f31fef701915af61e7",
-    "directory-structure.md": "0ecb0ae113386fe89c9b6c7657114148e90d4bad83f4609f848f9ed08e220547",
-    "entry-points.md": "a416585eea8117c789fa4919db29b0bd203a89e05f54f7569a2a49f78e75ff3b",
-    "modules.md": "04d68b977e1f6b66b31c5df16bc135f7e19ca4b879aaece7159ae4b7cf08c608",
-    "onboarding.md": "349e9155a04553f988bb5ab1757637b54a9efccb7c9edb1c7d78f31fc01801fc",
-    "patterns.md": "5e4bb6a80bc04060cbbbcb34f608a9790c9b5ad632be73de96cad812400914d3",
+    "communication.md": "91c71e80d459db21d4b4dbee6cd3438dcdf7fef2199e8b1fe2e4ef0d7a2d3fc0",
+    "database.md": "f9c03be86daf236e08c727b8f7d5ccfe24997881bed9becc55c88c176e59224b",
+    "directory-structure.md": "1193325431b48f9d024fd5ef7cce99cde38a717e606924bc803ba6db6bcf21d5",
+    "entry-points.md": "9539f128e79fc8f84366dac418075f9e7616cac5fc9e98c15dfadb550144b711",
+    "modules.md": "ba4f12b10f5e3ec0e4002a526d0f3f83427bee3f9eb752e7f1e6afe112d7b2da",
+    "onboarding.md": "b92587c92bfcb99a22d1f2d31e8f496d6344bec742db90e7397fca620073e14c",
+    "patterns.md": "8ce0eafc61963a7c6de7d1c766951723c5db014c0a919d0af224e57f033d83e2",
     "tech-landscape.md": "822ed94dbb06c2c9f508052b54aa3731d22485bdad0a14ccc0cb9611b84b5c78"
   }
 }

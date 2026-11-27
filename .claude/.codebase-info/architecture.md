@@ -6,7 +6,7 @@
 
 The site is a statically built Astro 5 app. Every public route is a `.astro` page that fetches its
 Sanity data at build time and mounts one large React island (`client:only="react"` on `/`, `/process`;
-`client:load` on `/work`, `/work/[slug]` and `/services`). The home, /work and /process islands
+`client:load` on `/featured-projects`, `/featured-projects/[slug]` and `/services`). The home, /featured-projects and /process islands
 each own a route-scoped three.js canvas plus the route's wheel/touch model; Lenis smooth scroll is on
 only where the island does not own the wheel (detail pages, the Project Directory, /process).
 
@@ -18,7 +18,7 @@ state. See `communication.md`.
 
 The site wears one of three colour schemes (`project`, `black`, `blue`; US-7). A fourth, `spectrum`,
 is parked (11-15): no picker station, never stored, still a `?scheme=spectrum` preview. DOM colour
-is CSS keyed on `html[data-scheme]` (`styles/scheme.css`), the two live canvases (home globe, /work
+is CSS keyed on `html[data-scheme]` (`styles/scheme.css`), the two live canvases (home globe, /featured-projects
 Worlds) recolour on the `swm:scheme` event, and `lib/colorScheme.js` is the one authority. See
 `patterns.md` § Colour scheme.
 
@@ -33,8 +33,8 @@ bar in SQ-32, 11-08), not a shared canvas. The leaving island dispatches
 Sanity (b60h4u7o/production) ──build-time GROQ──▶ .astro pages ──props──▶ React islands
    ▲                                                   │
    │ npm run cms (plan/apply/verify)                   ├─ /          LandingPage → Hero → VideoGlobe → useGlobeScene
-media/**/_manifest.md + Mux uploads                    ├─ /work      FeaturedProjects → WorldScene → useWorldScene
-                                                       ├─ /work/:slug FeaturedProjectDetail → flushGrid + DeckScroller
+media/**/_manifest.md + Mux uploads                    ├─ /featured-projects      FeaturedProjects → WorldScene → useWorldScene
+                                                       ├─ /featured-projects/:slug FeaturedProjectDetail → flushGrid + DeckScroller
                                                        ├─ /services DirectoryPage → DirectoryFilter + DirectoryGrid (chunkFlushGrid, playerGate)
                                                        └─ /process   ProcessPage → useProcessScene + scroll driver
 BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, ProjectOverlay) + SiteTagline + SiteScheme
@@ -45,8 +45,8 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 
 | Component | Lives in | Responsibility |
 |---|---|---|
-| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /work; a PopulationDirector (built on `refine/globe-worlds`, folded 10-31; on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name strips placed camera-relative on each world change (`?popnames`, off by default since Nathan's 10-24 bake); the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /work (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way. Media spans (`?popunits`, on by default since Nathan's 10-23 bake, Q1, and `?popunits=0` is the globe without them; `docs/globe-worlds-plan.md` § Media spans) let one classed asset span 2×1, 1×2, 2×2 or (`?popshapes=wide`, the default since 10-24) 3×2 tiles as one picture: classed at build (`mediaClass.js`), planned by the director, and windowed per frame on the CPU (`unitSpan.js`, `PopulationDirector.place()`), with one stream and one chip per unit. The globe rests at `?herotilt` −10° (10-24; the north pole out of sight) and takes no drag on any screen (phones since 10-07, desktop since 10-27; /lab/globe keeps its drag), so the pose a world lands at is known and the fast handoff (`?pophandoff`, the default since Nathan's 10-28 call; `today` is the one before it) plans that world's board ahead; a world holds `?pophold` 7 s (± 40%, 10-28) |
-| /work Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
+| Home hero + video globe | `src/components/Hero.jsx`, `src/components/globe/`, `src/components/hero/` | Intro modes, panelized video sphere fed by Mux HLS, `enter_world` commit into /featured-projects; a PopulationDirector (built on `refine/globe-worlds`, folded 10-31; on by default since the 10-06 bake; `?popmode=off` restores the flat pool) lays featured-project worlds over the tiles, one world at a time on its own change clock, with client-name strips placed camera-relative on each world change (`?popnames`, off by default since Nathan's 10-24 bake); the world's `projectColor` tints the globe and the home chrome; `enter_world` then lands inside that world on /featured-projects (a snap, not a Turn from World 0), and the detail breadcrumb returns the same way. Media spans (`?popunits`, on by default since Nathan's 10-23 bake, Q1, and `?popunits=0` is the globe without them; `docs/globe-worlds-plan.md` § Media spans) let one classed asset span 2×1, 1×2, 2×2 or (`?popshapes=wide`, the default since 10-24) 3×2 tiles as one picture: classed at build (`mediaClass.js`), planned by the director, and windowed per frame on the CPU (`unitSpan.js`, `PopulationDirector.place()`), with one stream and one chip per unit. The globe rests at `?herotilt` −10° (10-24; the north pole out of sight) and takes no drag on any screen (phones since 10-07, desktop since 10-27; /lab/globe keeps its drag), so the pose a world lands at is known and the fast handoff (`?pophandoff`, the default since Nathan's 10-28 call; `today` is the one before it) plans that world's board ahead; a world holds `?pophold` 7 s (± 40%, 10-28) |
+| /featured-projects Worlds | `src/components/work/FeaturedProjects.jsx`, `src/components/work/world/` | One World per featured project; World Turn between them; DRUM media grid; pager (`scale` skin over `usePagerGesture`) |
 | Detail page | `src/components/work/detail/` | Content Population Hierarchy → flush grid with sockets, deck/album walls, next-project band |
 | Project Directory | `src/components/work/directory/`, `src/styles/directory.css` + `directory-grid.css` | `/services` (11-03; at `/work/directory` until 11-27): every asset in one flush grid built on the detail grid's units (`tileGrid.js`, `chunkFlushGrid`, MediaSlot's directory mode) under a sticky filter (service tags OR together, the drawer's client narrows on top, the state in the URL); one player gate caps the videos playing at once |
 | /process | `src/components/process/` | Scroll narrative in seven stages (hero globe-O break → five Stages → CTA finale): a ScrollTrigger + quantizer driver over one scene that reuses the globe geometry/material, with project-colour chips in the scene |
@@ -58,7 +58,7 @@ BaseLayout.astro: <ClientRouter/> + persistent SiteShell (RouteFill, InfoPanel, 
 ## Data Flow
 
 1. Build: each page runs `sanityFetch(QUERY)` (`src/lib/sanityClient.js`, CDN, drafts excluded), shapes
-   the result (`buildAssetPool` for globe routes, `buildContentFlow` for /work, `buildWorldPools` for
+   the result (`buildAssetPool` for globe routes, `buildContentFlow` for /featured-projects, `buildWorldPools` for
    the home globe's population modes, `colorPool` for the /process chips), and passes plain props into
    the island. No client-side Sanity calls.
    **Site-wide copy is a special case of the same rule** (10-08): the footer blurb and the tagline
