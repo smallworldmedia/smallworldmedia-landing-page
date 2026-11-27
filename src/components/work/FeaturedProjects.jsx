@@ -381,7 +381,7 @@ export default function FeaturedProjects({ worlds = [] }) {
   // Only an explicit return reopens the World you left: the detail
   // breadcrumb arms `swm:returnToWork` on click, and BaseLayout's
   // popstate tracker arms it for browser back/forward out of any /work/*
-  // page, the directory's included. Any other entry —
+  // page and out of the directory (/services). Any other entry —
   // the nav's featured_projects link, a direct load — starts at the first
   // World. Restore sets `active` (+ the snap below) only: the card-staging
   // effect boots the restored card (setting cards directly here raced that

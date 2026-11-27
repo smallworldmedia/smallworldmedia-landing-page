@@ -61,7 +61,7 @@
  * plays past its window), and skips the globe's sampling. --detail refuses
  * --rm, which would drop every vacuity floor to zero, and --footer and
  * --enter, which start on home.
- * --directory[=QUERY] loads /work/directory/?QUERY (the Project Directory;
+ * --directory[=QUERY] loads /services/?QUERY (the Project Directory;
  * --directory=client=dj-tennis, say). It holds two preview windows at the
  * top, takes 12 slow steps of most of a viewport (each held STEP_MS),
  * flings 20 steps FLING_MS apart, then holds two windows more; a step turns
@@ -307,11 +307,11 @@ if (DETAIL && (FOOTER || ENTER)) throw new Error('globe-probe: --detail probes /
 const HOLD = arg('hold', '');
 if (HOLD === true || process.argv.includes('--hold=') || (HOLD && !DETAIL)) throw new Error('globe-probe: --hold takes a Mux id prefix and goes with --detail (--detail=SLUG --hold=PREFIX)');
 const STEP_MS = 2000; // --detail, --directory: each scroll step's hold, so the slots it reveals start their streams
-// --directory[=QUERY]: /work/directory/?QUERY alone (bare: no query).
+// --directory[=QUERY]: /services/?QUERY alone (bare: no query).
 const DIRECTORY_ARG = arg('directory', false);
 const DIRECTORY = DIRECTORY_ARG !== false;
 const DIR_QUERY = typeof DIRECTORY_ARG === 'string' ? DIRECTORY_ARG.replace(/^\?/, '') : '';
-if (DIRECTORY && (DETAIL || HOLD || FOOTER || ENTER)) throw new Error('globe-probe: --directory probes /work/directory alone; run --detail, --hold, --footer and --enter without it');
+if (DIRECTORY && (DETAIL || HOLD || FOOTER || ENTER)) throw new Error('globe-probe: --directory probes /services alone; run --detail, --hold, --footer and --enter without it');
 // --keyctl=escape|ring: the keyboard gates' negative controls (directoryKeys).
 const KEYCTL = arg('keyctl', '');
 if (KEYCTL && (!['escape', 'ring'].includes(KEYCTL) || !DIRECTORY || MOBILE)) throw new Error('globe-probe: --keyctl takes escape or ring, with --directory and without --mobile');
@@ -395,7 +395,7 @@ const OUT = arg(
 // --footer needs no gain pin since 11-17: home's finger has its own baked gain (?footertouchgain, 2), which is
 // what footerScenario's finger distances and step counts were calibrated at; the house ?touchgain no longer reaches it.
 const URL_ = DIRECTORY
-  ? `${BASE}/work/directory/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
+  ? `${BASE}/services/${DIR_QUERY ? `?${DIR_QUERY}` : ''}`
   : DETAIL
     ? `${BASE}/work/${DETAIL}`
     : FOOTER

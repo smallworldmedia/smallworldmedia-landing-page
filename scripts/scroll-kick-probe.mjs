@@ -18,7 +18,7 @@
  *   e-wheel      at the top, 40 wheel notches of 100 px, 50 ms apart, then 2 s (user scroll:
  *                its summed excess is the coupling a build must keep)
  * Also counts the Project Directory's and /work's walls: any .deck-scroller__strip or element
- * whose transform moves while the page jumps (--path=/work/directory/ runs the same scenarios).
+ * whose transform moves while the page jumps (--path=/services/ runs the same scenarios).
  * One browser probe at a time on this machine (~/swm-probe-lock.sh).
  */
 import { writeFileSync } from 'node:fs';

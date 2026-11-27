@@ -290,16 +290,16 @@ const roster = await getDirectoryData()
       // detail page or the directory. `route` lags one navigation behind
       // (astro:page-load hasn't fired yet when popstate lands), so it
       // identifies the page being LEFT while location already points at
-      // the destination — the flag arms only for /work/* → /work
-      // traversals. The detail breadcrumb arms the same flag on click; the
-      // nav link never does.
+      // the destination — the flag arms only for /work/* → /work and
+      // /services → /work traversals (the directory left /work/ 11-27). The
+      // detail breadcrumb arms the same flag on click; the nav link never does.
       let route = window.location.pathname;
       document.addEventListener('astro:page-load', () => {
         route = window.location.pathname;
       });
       window.addEventListener('popstate', () => {
         if (
-          /^\/work\/.+/.test(route) &&
+          /^\/(work\/.+|services\/?$)/.test(route) &&
           window.location.pathname.replace(/\/+$/, '') === '/work'
         ) {
           try {

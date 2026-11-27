@@ -295,7 +295,7 @@ export const SITE_COPY_QUERY = `
 `;
 
 /**
- * DIRECTORY_QUERY — everything the Project Directory (/work/directory) and the
+ * DIRECTORY_QUERY — everything the Project Directory (/services) and the
  * drawer's Client Roster read, in one fetch (src/lib/directoryData.js):
  *   tags    — the service tags, in Studio order (sortOrder);
  *   clients — every published client, `umbrellas` = the client slugs its

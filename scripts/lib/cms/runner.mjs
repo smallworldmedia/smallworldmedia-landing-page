@@ -645,7 +645,7 @@ export async function applyPlan({ plan, confirm, checkout, store, sanity, mux, .
 }
 export async function verifyRun({ plan, journal, sanity, mux }) {
   validatePlan(plan); invariant(same(sanity.target, plan.target), 'Adapter target mismatch'); invariant(journal, 'No run journal; apply has not started'); journalCheck(plan, journal)
-  const report = { run: plan.id, target: plan.target, created: 0, updated: 0, unchanged: 0, deleted: 0, pending: 0, failed: 0, issues: [], unattached: [], routes: ['/work','/work/directory'], publication: PUBLICATION, resume: `node scripts/cms.mjs apply --plan <saved-plan-path> --confirm ${plan.id}` }
+  const report = { run: plan.id, target: plan.target, created: 0, updated: 0, unchanged: 0, deleted: 0, pending: 0, failed: 0, issues: [], unattached: [], routes: ['/work','/services'], publication: PUBLICATION, resume: `node scripts/cms.mjs apply --plan <saved-plan-path> --confirm ${plan.id}` }
   const docs = await fresh(sanity, plan.operations.filter(o => o.type !== 'mux.asset').map(o => o.id))
   for (const op of plan.operations) {
     const state = journal.operations[op.id], actual = docs.get(op.id)

@@ -5,7 +5,7 @@ import sitemap from '@astrojs/sitemap';
 
 // Built routes that shouldn't be indexed: v1-disabled redirect stubs + the
 // Sanity Studio. (/process un-gated 08-29, disabled again for v1 11-12;
-// /work/directory 11-03.)
+// the directory, live 11-03, at /services since 11-27.)
 const SITEMAP_EXCLUDE = ['/lab/globe', '/lab/loader', '/specimen', '/process'];
 
 // The embedded Studio is local-dev only: a production build emits no /studio, so

@@ -10,11 +10,11 @@
  * anything, and 4399 is on Sanity's CORS list.
  *
  * Phone viewport (390×844, touch, taps through Playwright's touchscreen). Scenarios:
- *   A  /work/directory → /work, by the nav menu
+ *   A  /services → /work, by the nav menu
  *   B  /work → a project, by its card (the CONTROL: no menu is open, so no hold may arm)
  *   C  / (home) → /work, by the nav menu
- *   D  a project → /work/directory, by the nav menu
- *   E  /work → /work/directory, by the nav menu
+ *   D  a project → /services, by the nav menu
+ *   E  /work → /services, by the nav menu
  *   (The menu’s other items navigate nowhere the hold governs: the lockup runs the black-cover passage
  *   home and closes at once, start_project and privacy open overlays, follow_us leaves the site.)
  * (The menu has no project entry, so /work → a project is the card passage Nathan calls perfect;
@@ -231,11 +231,11 @@ async function main() {
   const runPass = async (control) => {
     extra = [control ? 'navwipehold=0' : null, args.query || null].filter(Boolean).join('&');
     const records = [];
-    if (want('A')) records.push(await viaMenu('A directory>work', '/work/directory/', WITNESS.directory, ITEM('/work'), '/work', WITNESS.canvas));
+    if (want('A')) records.push(await viaMenu('A directory>work', '/services/', WITNESS.directory, ITEM('/work'), '/work', WITNESS.canvas));
     if (want('B')) records.push(await viaCard('B work>project (card)'));
     if (want('C')) records.push(await viaMenu('C home>work', '/', WITNESS.canvas, ITEM('/work'), '/work', WITNESS.canvas));
-    if (want('D')) records.push(await viaMenu('D project>directory', '/work/bedouin/', WITNESS.project, ITEM('/work/directory'), '/work/directory', WITNESS.directory));
-    if (want('E')) records.push(await viaMenu('E work>directory', '/work', WITNESS.canvas, ITEM('/work/directory'), '/work/directory', WITNESS.directory));
+    if (want('D')) records.push(await viaMenu('D project>directory', '/work/bedouin/', WITNESS.project, ITEM('/services'), '/services', WITNESS.directory));
+    if (want('E')) records.push(await viaMenu('E work>directory', '/work', WITNESS.canvas, ITEM('/services'), '/services', WITNESS.directory));
     const out = summary(records, EXPECT);
     console.log(control ? '── control: ?navwipehold=0, the hold off ──' : '── the hold, as shipped ──');
     out.results.forEach((r, i) => {

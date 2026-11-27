@@ -265,7 +265,7 @@ export default function SiteNav({
   // (the island never remounts). Href-keyed by construction: start_project
   // is an interception (never current) and follow_us is external (never
   // current) — only featured_projects (/work and its detail pages)
-  // and services (/work/directory) can
+  // and services (/services; /work/directory until 11-27) can
   // match. The attributes survive the route-swap hygiene
   // wipe (killTweensOf + clearProps strips inline STYLES only, never
   // attributes). UNCONDITIONAL: aria-current is a strict a11y win and
@@ -278,12 +278,11 @@ export default function SiteNav({
   useEffect(() => {
     const refreshCurrent = () => {
       const path = window.location.pathname.replace(/\/$/, '') || '/';
-      const inDirectory = path === '/work/directory';
       const isCurrent = (href) =>
-        (href === '/work' && (path === '/work' || (path.startsWith('/work/') && !inDirectory))) ||
-        (href === '/work/directory' && inDirectory);
+        (href === '/work' && (path === '/work' || path.startsWith('/work/'))) ||
+        (href === '/services' && path === '/services');
       [linksRef.current, menuRef.current].filter(Boolean).forEach((root) => {
-        root.querySelectorAll('a[href="/work"], a[href="/work/directory"]').forEach((el) => {
+        root.querySelectorAll('a[href="/work"], a[href="/services"]').forEach((el) => {
           if (isCurrent(el.getAttribute('href'))) {
             el.setAttribute('data-current', 'true');
             el.setAttribute('aria-current', 'page');
@@ -425,7 +424,7 @@ export default function SiteNav({
             <span className="site-nav__glyph">⁕</span>
             <span className="site-nav__label">featured_projects</span>
           </a>
-          <a href="/work/directory" className="site-nav__link site-nav__link--directory">
+          <a href="/services" className="site-nav__link site-nav__link--directory">
             <HandIcon />
             <span className="site-nav__label">services</span>
           </a>
@@ -507,7 +506,7 @@ export default function SiteNav({
                 <span className="site-nav__glyph">⁕</span>
                 <span className="site-nav__label">featured_projects</span>
               </a>
-              <a href="/work/directory" className="mobile-menu__item">
+              <a href="/services" className="mobile-menu__item">
                 <HandIcon />
                 <span className="site-nav__label">services</span>
               </a>

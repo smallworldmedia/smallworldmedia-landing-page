@@ -50,10 +50,10 @@ test('?navwipeout: the menu\'s wipe back down in ms (seconds out), WIPE_OUT_S by
 });
 
 test('routeSignalsReady: home, /work, the directory and a project signal themselves; the rest fall back', () => {
-  for (const p of ['/', '/work', '/work/', '/work/directory', '/work/directory/', '/work/bedouin', '/work/bedouin/']) {
+  for (const p of ['/', '/work', '/work/', '/services', '/services/', '/work/bedouin', '/work/bedouin/']) {
     assert.equal(routeSignalsReady(p), true, p);
   }
-  for (const p of ['/process', '/privacy', '/terms', '/specimen', '/lab/globe', '/work/a/b', '/nope']) {
+  for (const p of ['/process', '/privacy', '/terms', '/specimen', '/lab/globe', '/work/a/b', '/services/x', '/nope']) {
     assert.equal(routeSignalsReady(p), false, p);
   }
 });

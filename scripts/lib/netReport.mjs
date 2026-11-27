@@ -7,7 +7,7 @@
  * Every master owes the clip of the surface that asked for it (owedClip):
  *  - pinned, i.e. the ASKED URL carries max_resolution: VideoSlotPool (the
  *    home globe, /lab, /work's World Near tier) clips at the preview window;
- *  - bare, on the Project Directory (/work/directory): its gated players
+ *  - bare, on the Project Directory (/services): its gated players
  *    (MediaSlot's GatedVideo) clip at the preview window too;
  *  - bare, on a detail page (/work/<slug>): MediaSlot and NextProjectBand
  *    clip at the detail cap;
@@ -86,7 +86,7 @@ export const pinnedMaster = (asked) => new URL(asked).searchParams.has('max_reso
  *  the detail cap for a bare stream on a detail page, else null (no rule:
  *  judged bad). */
 export function owedClip(route, pooled, { preview, detail }) {
-  if (pooled || /^\/work\/directory\/?$/.test(route)) return preview;
+  if (pooled || /^\/services\/?$/.test(route)) return preview;
   return /^\/work\/[^/]+\/?$/.test(route) ? detail : null;
 }
 

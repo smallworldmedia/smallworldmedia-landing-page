@@ -39,6 +39,21 @@
   status = 302
   force = true
 
+# 11-27 (Nathan: "Change the URL of the services page to be smallworld.media/services"):
+# the Project Directory moved from /work/directory to /services — permanent move. Netlify
+# passes the query through, so a filtered link (?tag=…&client=…) keeps its filter.
+[[redirects]]
+  from = "/work/directory"
+  to = "/services"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/work/directory/"
+  to = "/services"
+  status = 301
+  force = true
+
 # FP-4b (2026-07-16): homegrwxn merged INTO rossi — permanent move; bellaire
 # unfeatured for now — soft redirect until it returns.
 [[redirects]]

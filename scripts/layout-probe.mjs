@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node scripts/layout-probe.mjs --base=http://localhost:4330 --out=want.json
- *        [--paths=/work/cheetah-print/,/work/directory/] [--widths=1440,1024,390] [--query=tileshape=1.25]
+ *        [--paths=/work/cheetah-print/,/services/] [--widths=1440,1024,390] [--query=tileshape=1.25]
  *   node scripts/layout-probe.mjs --compare want.json got.json
  *
  * Record: loads each page at each width, under reduced motion and with every Mux stream aborted,

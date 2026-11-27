@@ -34,7 +34,7 @@
  *   drag, because a wheel fights the phone's touch mechanics. On a detail page add
  *   --query=blurbhold=0, or the blurb hold stops the run early. Walls scroll sideways and are
  *   never driven, so most wall pages stay unseen.
- * - The Project Directory opens on a filter; --path=/work/directory/ --query=tag= is every work.
+ * - The Project Directory opens on a filter; --path=/services/ --query=tag= is every work.
  * - The HTTP cache stays on (no page.route), as a viewer's is. --base falls back to
  *   GLOBE_PROBE_BASE and has no default. One browser probe at a time on this machine.
  */

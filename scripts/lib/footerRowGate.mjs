@@ -4,7 +4,7 @@
  * Above 768px the row (`.site-footer__nav`: its links) is right-aligned and full width, while
  * the lockup and the ©line on the left belong to another island (SiteTagline, fixed). At 900px
  * the row's first links printed straight over "All rights reserved". scripts/footer-probe.mjs
- * scrolls /work/directory/?tag=all to the footer's end at each width and records the boxes;
+ * scrolls /services/?tag=all to the footer's end at each width and records the boxes;
  * this gate judges them, pure, so scripts/test runs it offline.
  *
  * SQ-140: where the row wraps (769–~1000px) the left stack must be two lines too — the ©line under

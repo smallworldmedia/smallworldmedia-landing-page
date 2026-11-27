@@ -1,5 +1,5 @@
 /**
- * DirectoryTunePanel — the ?dirtune=1 bench on /work/directory (11-03).
+ * DirectoryTunePanel — the ?dirtune=1 bench on /services (11-03).
  * CommitTunePanel's typed model: number fields commit on Enter or blur
  * (garbage restores the live value), the two choices are selects, and a
  * label turns blue while its value is off the default. The values live in

@@ -1253,9 +1253,9 @@ test('video diet: one preview window, one detail cap, the clip last and once (P0
   assert.equal(owedClip('/lab/globe', true, W), PREVIEW_SECONDS)
   assert.equal(owedClip('/work/some-project', false, W), DETAIL_MAX_SECONDS)
   assert.equal(owedClip('/work/some-project/', false, W), DETAIL_MAX_SECONDS)
-  assert.equal(owedClip('/work/directory', false, W), PREVIEW_SECONDS)
-  assert.equal(owedClip('/work/directory/', false, W), PREVIEW_SECONDS)
-  assert.equal(owedClip('/work/directory/x', false, W), null) // no deeper route has a rule
+  assert.equal(owedClip('/services', false, W), PREVIEW_SECONDS)
+  assert.equal(owedClip('/services/', false, W), PREVIEW_SECONDS)
+  assert.equal(owedClip('/services/x', false, W), null) // no deeper route has a rule
   assert.equal(owedClip('/', false, W), null)
   // Mux keeps every segment that starts before the clip
   assert.deepEqual(cover([5, 5, 5, 5, 5, 5], 15), { needed: 3, end: 15 })
@@ -1334,7 +1334,7 @@ test('video diet: every master owes its surface a clip, no muted surface fetches
   assert.equal(run([master('/about', heroUrl, 'h'), playlist('/about', 'h', dv)], gets('/about', 'h', dv), []).pass.streamClip, false)
   // the directory's gated players (bare masters) owe the preview window: one at the window passes all
   // four; NC: one clipped at the detail cap fails streamClip, fetches past the window and plays past it
-  const D = '/work/directory/'
+  const D = '/services/'
   const dirOk = run([master(D, muxStream('dir', PREVIEW_SECONDS), 'd'), playlist(D, 'd', pv)], gets(D, 'd', pv), [play('dir', D, false, PREVIEW_SECONDS)])
   assert.deepEqual(dirOk.pass, { streamClip: true, segmentsPerRendition: true, loops: true, audio: true })
   const dirCap = run([master(D, muxStream('dir', DETAIL_MAX_SECONDS), 'd'), playlist(D, 'd', dv)], gets(D, 'd', dv), [play('dir', D, false, DETAIL_MAX_SECONDS)])

@@ -1,5 +1,5 @@
 /**
- * DirectoryPage — /work/directory, the Project Directory (11-03): every asset
+ * DirectoryPage — /services, the Project Directory (11-03): every asset
  * on the site as one flush grid (DirectoryGrid) under a sticky filter
  * (DirectoryFilter), then the footer in reveal mode. The route's one
  * client:load island; its props are getDirectoryData(), the build's one fetch.

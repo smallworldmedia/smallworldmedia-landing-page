@@ -17,7 +17,7 @@
  *   --routes   default all, except process, which is named only (none = only the widget pass). detail = the first /work card's slug, plus card 3's (the cross-route check).
  *   (the corner widget has one seat, flush: ?schemebadge is gone, SQ-107 pass 5.) The overlap gate loads
  *              each route and tests the badge TILE (the wrapper's ::before) against the page's boxes: the
- *              tile's bottom edge must not pass the links footer's top edge on /work/directory/ or
+ *              tile's bottom edge must not pass the links footer's top edge on /services/ or
  *              /process/. The blurb gate (widget pass, home) fails when the tile meets the footer blurb's
  *              text: run it with --width=1024,1280,1440,1920 for the desktop range.
  *   --base     default http://localhost:4330 (the worktree's build; a Sanity CORS origin), so the bare command is the
@@ -264,7 +264,7 @@ const die = (msg) => {
 
 const SCHEMES = ['project', 'black', 'blue', 'spectrum'];
 // home: ?popseed pins the globe population's start world, whose projectColor tints the whole home page (random per visit).
-const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/work/directory/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
+const ROUTE_PATHS = { home: '/?popseed=1', work: '/work/', directory: '/services/?dirorder=project', process: '/process/', privacy: '/privacy/', 404: '/404/' };
 const ROUTE_NAMES = ['home', 'work', 'detail', 'directory', 'process', 'privacy', '404'];
 const OPT_IN_ROUTES = ['process']; // named routes only: `--routes=all` leaves them out (the colour gates were never run on /process)
 // The engaged eye's step left, PINNED here in swatch units (never read off the page, so a CSS regression fails the
@@ -2139,7 +2139,7 @@ async function widgetPass(ctx, browser, scheme, width, want, seatExtra = []) {
     }
   }
   if (want.has('seat')) {
-    const paths = [['home', '/'], ['work', '/work/'], ['directory', '/work/directory/'], ['process', '/process/'], ['privacy', '/privacy/'], ...(seatExtra ?? [])];
+    const paths = [['home', '/'], ['work', '/work/'], ['directory', '/services/'], ['process', '/process/'], ['privacy', '/privacy/'], ...(seatExtra ?? [])];
     const gaps = [];
     for (const [label, urlPath] of paths) gaps.push(...(await measureSeat(ctx, scheme, urlPath, label)));
     for (const g of gaps.filter((x) => x.error)) emit('FAIL', scheme, route, width, 'seat', `${g.label}: ${g.error}`);

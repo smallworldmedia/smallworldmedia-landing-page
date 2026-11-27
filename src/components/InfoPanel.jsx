@@ -10,7 +10,7 @@ import { SITE_COPY_FALLBACK } from '../lib/siteCopy.js';
 /* The Project Directory, and the event its page re-filters on
    (DirectoryPage): a literal there too, since importing the page would
    pull its modules onto every route. */
-const DIRECTORY_PATH = '/work/directory';
+const DIRECTORY_PATH = '/services';
 const CLIENT_EVENT = 'swm:directory-client';
 
 const onDirectory = () => window.location.pathname.replace(/\/$/, '') === DIRECTORY_PATH;

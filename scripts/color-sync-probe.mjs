@@ -304,7 +304,7 @@ async function runCase(page, c) {
   }
   if (c === 'rest') {
     const rows = [];
-    for (const p of ['/', '/work/', '/work/directory/']) {
+    for (const p of ['/', '/work/', '/services/']) {
       await page.goto(`${BASE}${p}`, { waitUntil: 'load' });
       await sleep(5000);
       rows.push(await page.evaluate(() => ({
@@ -371,7 +371,7 @@ async function runCase(page, c) {
     let path;
     if (where === 'detail') path = `/work/${await firstSlug(page)}/`;
     else if (where === 'work') path = '/work/';
-    else path = '/work/directory/';
+    else path = '/services/';
     await page.goto(`${BASE}${path}`, { waitUntil: 'load' });
     await sleep(5000);
     await arm(page);
