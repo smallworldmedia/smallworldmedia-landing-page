@@ -1,4 +1,4 @@
-import { defineType, defineField, defineArrayMember } from 'sanity'
+import { defineType, defineField } from 'sanity'
 import { DocumentsIcon } from '@sanity/icons'
 import { orderRankField, orderRankOrdering } from '@sanity/orderable-document-list'
 
@@ -51,17 +51,6 @@ export const project = defineType({
       type: 'boolean',
       initialValue: false,
       description: 'When true, displays "current" instead of an end year.',
-    }),
-    defineField({
-      name: 'services',
-      title: 'Service Tags',
-      type: 'array',
-      of: [
-        defineArrayMember({
-          type: 'reference',
-          to: [{ type: 'serviceTag' }],
-        }),
-      ],
     }),
     defineField({
       name: 'isFeatured',
