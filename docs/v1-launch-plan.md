@@ -421,9 +421,12 @@ records (`docs/globe-worlds-plan.md`).
         the working branch is `wip-build` (`292d11f`, main merged in, no file changes); `main` moves only
         by PR. The live rule, the Sidequest board's integration branch and the map follow it. The
         sets-migration scripts are retired ("Yes retire them"). `project.services` ("Yes retire
-        project.services if it's now unneeded"): no query reads it; clearing plan `df2af68c` (18 projects,
-        unset only) waits for his yes, then the schema commit lands alone and the Studio redeploys. He
-        checks the probe findings himself.
+        project.services if it's now unneeded"; 11-26: "A project service tags should be dynamically
+        hydrated by its media assets' service tags"): DONE 11-26. Plan `df2af68c` (18 projects, unset
+        only) applied and verified on his "apply df2af68c"; the schema drop landed alone (`fa374f8`, hash
+        `5ae01cd2`) and the hosted Studio redeployed. A project's tags are its media's
+        (`PROJECT_SERVICES`); Homegrwxn shows none until its media are tagged. He checks the probe
+        findings himself.
 
 ## Finalization checklist (added 2026-07-03 — Nathan's tweaks + gap audit)
 
@@ -463,7 +466,7 @@ Descoped from Nathan's original list: **cookie pop-up** (no cookies set — sess
 
 **Status 11-25 (Nathan's answers of 11-24, item 13):** Lighthouse DONE (SQ-147, fixes folded);
 entry paths WAIVED; the media session's items below are DONE (the Kamino discs and the Tic Tac cover
-on 11-25) except `project.services` (right after launch). **Launched 2026-11-25: `main` at `2fc9ab1`
+on 11-25); `project.services` retired right after launch (11-26, `fa374f8`). **Launched 2026-11-25: `main` at `2fc9ab1`
 (PR #44), live on smallworld.media; the record is in item 13.**
 
 - Orbit/deck acceptance checklist (spec) passes.
@@ -538,6 +541,7 @@ on 11-25) except `project.services` (right after launch). **Launched 2026-11-25:
       work from Instagram, then it goes up under `client-mal-ne`. Malóne is not linked to One Of Us's
       ThereAfter pieces (Nathan, 11-13: "Malone does not go with thereafter").
   - Last, and on its own: retire `project.services`. It is a hashed-schema edit, so it lands alone.
+    DONE 11-26 (`df2af68c` applied, schema `fa374f8`, Studio redeployed).
 - `npm run cms audit` on b60h4u7o/production before every deploy: 0 errors, and every
   label-ratio finding either fixed or recorded in `media/_audit-accepted.json`, with
   no stale entries. This is the mislabel guard (`docs/cms-workflow.md` § Dataset

@@ -13,9 +13,9 @@
  * media's own tags, deduplicated, in the serviceTag documents' Studio order
  * (sortOrder, name breaking ties). Spliced in as `"services": ${PROJECT_SERVICES}`
  * inside a `project` projection (`^.^` there is the project: the media filter
- * sits inside the serviceTag filter). The project's own `services` field is
- * not read, so it can be retired; a project whose media carry no tags gets an
- * empty array.
+ * sits inside the serviceTag filter). Projects have no `services` field of
+ * their own (it left the schema 11-26); a project whose media carry no tags
+ * gets an empty array.
  */
 const PROJECT_SERVICES = `*[_type == "serviceTag" && !(_id in path("drafts.**"))
       && _id in *[_type == "mediaAsset" && project._ref == ^.^._id && !(_id in path("drafts.**")) && hideFromSite != true].services[]._ref]

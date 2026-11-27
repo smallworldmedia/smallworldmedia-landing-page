@@ -1,6 +1,6 @@
 # CMS Pipeline
 
-*Last Updated: 2026-11-25*
+*Last Updated: 2026-11-26*
 
 Preview-first, scoped, no implicit production target. Full procedure: `docs/cms-workflow.md`;
 manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-backend-roadmap.md`.
@@ -57,6 +57,9 @@ manifest contract: `docs/_manifest-template.md`; direction/history: `docs/cms-ba
   allowlist, hash `cee42ca9` (`39f91bc`), after intake stopped writing them (`7aa3600`) and eight
   clearing plans unset them on 723 pieces: a write or an unset of either is now a rejected field, and a
   deck page or carousel slide needs a `set`.
+  `project.services` left the schema and the project allowlist 11-26 (hash `5ae01cd2`, `fa374f8`)
+  after plan `df2af68c` cleared it on 18 projects: a project's tags are its media's (`queries.js`
+  `PROJECT_SERVICES`), so `services` is a mediaAsset field only and a project patch naming it is refused.
   Deletes: `DELETE_TYPES` (mediaAsset, client since 11-13 (`2c73a76`), mux.videoAsset, sanity.imageAsset, mux.asset), `IRREVERSIBLE`
   preview text, `validMuxId`, `refersTo()`.
 - `runner.mjs` — `planChanges()`, `applyPlan()`, `writeBindings()`. A new row under a Mode 1

@@ -2,7 +2,8 @@
  * A featured project's service tags are the union of its media's tags
  * (queries.js PROJECT_SERVICES), run through the real queries over an
  * in-memory dataset: deduplicated, in the serviceTag documents' Studio order,
- * independent of the project's own (soon retired) `services` field.
+ * independent of any `services` list a project document still carries (the
+ * field left the schema 11-26; the fixtures keep stale lists as decoys).
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
